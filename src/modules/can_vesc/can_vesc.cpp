@@ -271,6 +271,7 @@ int can_vesc_main(int argc, char *argv[])
 /*
  * Interrupt handlers
  */
+/*
 extern "C"
 {
 
@@ -294,3 +295,4 @@ static int can1_irq(const int irq, void* context, void* arg)
     return 0;
 }
 } // extern "C"
+*/

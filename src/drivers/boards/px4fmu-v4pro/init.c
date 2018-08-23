@@ -581,5 +581,7 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 
 #endif
 
+	can_devinit();
+
 	return OK;
 }
