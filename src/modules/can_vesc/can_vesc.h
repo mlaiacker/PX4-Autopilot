@@ -35,14 +35,21 @@
 
 #include <px4_module.h>
 #include <px4_module_params.h>
+#include <uORB/topics/actuator_armed.h>
+#include <uORB/topics/esc_status.h>
+#include <uORB/topics/actuator_outputs.h>
+
 
 extern "C" __EXPORT int can_vesc_main(int argc, char *argv[]);
+
+#define VESC_CAN_ID_START	1
+#define VESC_CAN_NUM		4
 
 
 class CanVESC : public ModuleBase<CanVESC>, public ModuleParams
 {
 public:
-	CanVESC(int example_param, bool example_flag);
+	CanVESC(bool debug_flag);
 
 	virtual ~CanVESC() = default;
 
@@ -63,10 +70,60 @@ public:
 
 	/** @see ModuleBase::print_status() */
 	int print_status() override;
-
-	void handleCanRXIRQ(int fifoIndex);
 private:
+	int 		_can_fd; //
+	bool 		_is_armed = false;
+	int			_armed_sub = -1;
+	int			_actuator_outputs_sub=-1;	///< actuator outputs topic
+	int			_esc_update_count = 0;
+	int			_esc_update_freq = 0;
+	actuator_armed_s	_armed = {};
+	orb_advert_t      _esc_feedback_pub = nullptr;
+	esc_status_s      _esc_feedback = {};
+	bool _debug_flag = false;
+/*
+	typedef struct {
+		uint64_t timestamp; // required for logger
+		uint16_t counter;
+		int32_t rpm;
+		float current_A;
+		float duty_percent;
+		float voltage_V;
+		float temperature_degC;
+	} vescStatusT;
+	vescStatusT _status[VESC_CAN_NUM];
+*/
 
+	bool init();
+	//! Byte swap unsigned short
+	static uint16_t swap_uint16(uint16_t val)
+	{
+		return (val << 8) | (val >> 8);
+	}
+
+	//! Byte swap short
+	static int16_t swap_int16(int16_t val)
+	{
+		return (val << 8) | ((val >> 8) & 0xFF);
+	}
+
+	//! Byte swap unsigned int
+	static uint32_t swap_uint32(uint32_t val)
+	{
+		val = ((val << 8) & 0xFF00FF00) | ((val >> 8) & 0xFF00FF);
+		return (val << 16) | (val >> 16);
+	}
+
+	//! Byte swap int
+	static int32_t swap_int32(int32_t val)
+	{
+		val = ((val << 8) & 0xFF00FF00) | ((val >> 8) & 0xFF00FF);
+		return (val << 16) | ((val >> 16) & 0xFFFF);
+	}
+
+
+	void readStatus();
+	void writeDuty(uint8_t vescAddr, float duty);
 	/**
 	 * Check for parameter changes and update them if needed.
 	 * @param parameter_update_sub uorb subscription to parameter_update
@@ -74,11 +131,6 @@ private:
 	 */
 	void parameters_update(int parameter_update_sub, bool force = false);
 
-
-	DEFINE_PARAMETERS(
-		(ParamInt<px4::params::SYS_AUTOSTART>) _sys_autostart,   /**< example parameter */
-		(ParamInt<px4::params::SYS_AUTOCONFIG>) _sys_autoconfig  /**< another parameter */
-	)
 
 };
 
