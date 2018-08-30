@@ -34,7 +34,7 @@
 px4_add_module(
 	MODULE modules__can_vesc
 	MAIN can_vesc
-	STACK_MAIN 1024
+	STACK_MAIN 2048
 	SRCS
 		can_vesc.cpp
 	DEPENDS
