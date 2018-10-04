@@ -76,23 +76,21 @@ private:
 	int			_armed_sub = -1;
 	int			_actuator_outputs_sub=-1;	///< actuator outputs topic
 	int			_esc_update_count = 0;
+	int			_can_write_error = 0;
 	int			_esc_update_freq = 0;
 	actuator_armed_s	_armed = {};
 	orb_advert_t      _esc_feedback_pub = nullptr;
 	esc_status_s      _esc_feedback = {};
 	bool _debug_flag = false;
-/*
-	typedef struct {
-		uint64_t timestamp; // required for logger
-		uint16_t counter;
-		int32_t rpm;
-		float current_A;
-		float duty_percent;
-		float voltage_V;
-		float temperature_degC;
-	} vescStatusT;
-	vescStatusT _status[VESC_CAN_NUM];
-*/
+
+	static const uint8_t 	_device_mux_map[TAP_ESC_MAX_MOTOR_NUM];
+	static const uint8_t 	_device_dir_map[TAP_ESC_MAX_MOTOR_NUM];
+	int			_control_subs[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS];
+	actuator_controls_s 	_controls[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS];
+	orb_id_t		_control_topics[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS];
+	px4_pollfd_struct_t	_poll_fds[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS];
+	unsigned		_poll_fds_num = 0;
+	MixerGroup	*_mixers = nullptr;
 
 	bool init();
 	//! Byte swap unsigned short

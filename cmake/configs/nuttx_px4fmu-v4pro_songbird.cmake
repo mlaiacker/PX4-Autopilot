@@ -123,7 +123,7 @@ set(config_module_list
 	# GD apps
 	#
 	modules/can_vesc
-
+	modules/uart_unisens
 
 	#
 	# Demo apps

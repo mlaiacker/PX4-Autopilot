@@ -110,8 +110,6 @@ $ can_vesc start -d
 	PRINT_MODULE_USAGE_NAME("can_vesc", "modules");
 	PRINT_MODULE_USAGE_COMMAND("start");
 	PRINT_MODULE_USAGE_PARAM_FLAG('d', "debug flag", true);
-	PRINT_MODULE_USAGE_PARAM_INT('1', 6, 1, 20, "can ts1", true);
-	PRINT_MODULE_USAGE_PARAM_INT('2', 6, 1, 20, "can ts2", true);
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
 	return 0;
@@ -130,7 +128,7 @@ int CanVESC::print_status()
 				(double)_esc_feedback.esc[i].esc_temperature
 				);
 	}
-	PX4_INFO("freq:%i", _esc_update_freq);
+	PX4_INFO("freq:%i write errors %i", _esc_update_freq, _can_write_error);
 	return 0;
 }
 
@@ -277,6 +275,22 @@ bool CanVESC::init()
 	orb_set_interval(_actuator_outputs_sub, 1);
 	_esc_feedback_pub = orb_advertise(ORB_ID(esc_status), &_esc_feedback);
 
+	_control_topics[0] = ORB_ID(actuator_controls_0);
+	_control_topics[1] = ORB_ID(actuator_controls_1);
+	_control_topics[2] = ORB_ID(actuator_controls_2);
+	_control_topics[3] = ORB_ID(actuator_controls_3);
+	memset(_controls, 0, sizeof(_controls));
+
+	for (int i = 0; i < actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS; ++i) {
+		_control_subs[i] = -1;
+	}
+
+	for (size_t i = 0; i < sizeof(_outputs.output) / sizeof(_outputs.output[0]); i++) {
+		_outputs.output[i] = NAN;
+	}
+
+	_outputs.noutputs = 0;
+
 	return result;
 }
 
@@ -310,12 +324,6 @@ void CanVESC::readStatus()
 				{
 					vescCanStatusT* canData = (vescCanStatusT*)rxmsg.cm_data;
 					int index = vesc_id-VESC_CAN_ID_START;
-/*					_status[index].timestamp = hrt_absolute_time();
-					_status[index].counter++;
-					_status[index].rpm =
-					_status[index].current_A = ((float)swap_int16(canData->current))*0.1f;
-					_status[index].duty_percent = ((float)swap_int16(canData->duty))*0.1f;
-					*/
 					_esc_feedback.esc[index].timestamp = hrt_absolute_time();
 					_esc_feedback.esc[index].esc_address = vesc_id;
 					_esc_feedback.esc[index].esc_vendor = esc_status_s::ESC_VENDOR_GENERIC;
@@ -377,6 +385,7 @@ void CanVESC::writeDuty(uint8_t vescAddr, float duty)
     nbytes = write(_can_fd, &txmsg, msgsize);
     if (nbytes != (ssize_t)msgsize)
     {
+    	_can_write_error++;
 /*        PX4_ERR("write(%ld) returned %ld",
                (long)msgsize, (long)nbytes);*/
     }
@@ -406,20 +415,38 @@ void CanVESC::run()
 		/* this would be bad... */
 		if (ret < 0) {
 			warnx("poll error %d", errno);
-			continue;
-		}
-		/* if we have new control data from the ORB, handle it */
-		if (fds[0].revents & POLLIN) {
-			/* we're not nice to the lower-priority control groups and only check them
-			   when the primary group updated (which is now). */
-			actuator_outputs_s	actuators;	///< actuator outputs
-			orb_copy(ORB_ID(actuator_outputs), _actuator_outputs_sub, &actuators);
-			if(_is_armed)
-			{
-				_esc_update_count++;
-				for(int i=0; i<VESC_CAN_NUM;i++)
+		} else
+		{
+			/* if we have new control data from the ORB, handle it */
+			if (fds[0].revents & POLLIN) {
+				/* we're not nice to the lower-priority control groups and only check them
+				   when the primary group updated (which is now). */
+				actuator_outputs_s	actuators;	///< actuator outputs
+				orb_copy(ORB_ID(actuator_outputs), _actuator_outputs_sub, &actuators);
+				if(_is_armed)
 				{
-					writeDuty(i+VESC_CAN_ID_START,(actuators.output[i]-1000.0f)/1000.0f);
+					_esc_update_count++;
+					for(int i=0; i<VESC_CAN_NUM;i++)
+					{
+						writeDuty(i+VESC_CAN_ID_START,(actuators.output[i]-1000.0f)/1000.0f);
+					}
+				}
+			}
+			if (_is_armed && _mixers != nullptr) {
+
+				/* do mixing */
+				num_outputs = _mixers->mix(&_outputs.output[0], num_outputs);
+				_outputs.noutputs = num_outputs;
+
+				/* publish mixer status */
+				multirotor_motor_limits_s multirotor_motor_limits = {};
+				multirotor_motor_limits.saturation_status = _mixers->get_saturation_status();
+
+				orb_publish(ORB_ID(multirotor_motor_limits), _to_mixer_status, &multirotor_motor_limits);
+
+				/* disable unused ports by setting their output to NaN */
+				for (size_t i = num_outputs; i < sizeof(_outputs.output) / sizeof(_outputs.output[0]); i++) {
+					_outputs.output[i] = NAN;
 				}
 			}
 		}
@@ -463,6 +490,13 @@ void CanVESC::run()
 	}
 	orb_unsubscribe(_armed_sub);
 	orb_unsubscribe(_actuator_outputs_sub);
+
+	for (unsigned i = 0; i < actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS; i++) {
+		if (_control_subs[i] >= 0) {
+			orb_unsubscribe(_control_subs[i]);
+			_control_subs[i] = -1;
+		}
+	}
 
 	orb_unadvertise(_esc_feedback_pub);
 	close(_can_fd);
