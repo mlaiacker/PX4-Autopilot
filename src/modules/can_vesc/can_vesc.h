@@ -35,9 +35,14 @@
 
 #include <px4_module.h>
 #include <px4_module_params.h>
+#include <px4_posix.h>
+
 #include <uORB/topics/actuator_armed.h>
 #include <uORB/topics/esc_status.h>
 #include <uORB/topics/actuator_outputs.h>
+#include <uORB/topics/actuator_controls.h>
+
+#include <mixer/mixer.h>
 
 
 extern "C" __EXPORT int can_vesc_main(int argc, char *argv[]);
@@ -83,14 +88,16 @@ private:
 	esc_status_s      _esc_feedback = {};
 	bool _debug_flag = false;
 
-	static const uint8_t 	_device_mux_map[TAP_ESC_MAX_MOTOR_NUM];
-	static const uint8_t 	_device_dir_map[TAP_ESC_MAX_MOTOR_NUM];
+	static const uint8_t 	_device_mux_map[4];
+	static const uint8_t 	_device_dir_map[4];
 	int			_control_subs[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS];
 	actuator_controls_s 	_controls[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS];
 	orb_id_t		_control_topics[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS];
 	px4_pollfd_struct_t	_poll_fds[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS];
 	unsigned		_poll_fds_num = 0;
 	MixerGroup	*_mixers = nullptr;
+	actuator_outputs_s      _outputs = {};
+	orb_advert_t      _to_mixer_status = nullptr; 	///< mixer status flags
 
 	bool init();
 	//! Byte swap unsigned short

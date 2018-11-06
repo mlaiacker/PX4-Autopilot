@@ -50,6 +50,7 @@
 
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/actuator_controls.h>
+#include <uORB/topics/multirotor_motor_limits.h>
 
 #include <drivers/drv_hrt.h>
 
@@ -432,6 +433,7 @@ void CanVESC::run()
 					}
 				}
 			}
+			uint8_t num_outputs = 4;
 			if (_is_armed && _mixers != nullptr) {
 
 				/* do mixing */
