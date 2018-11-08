@@ -426,7 +426,7 @@ then
 		then
 			gps start -d /dev/ttyS2
 		else
-			gps start
+			gps start -d /dev/ttyS6
 		fi
 		sh /etc/init.d/rc.sensors
 		commander start
@@ -455,8 +455,10 @@ then
 		if param compare TRIG_PINS 56
 		then
 			# clear pins 5 and 6
-			set FMU_MODE pwm4
-			set AUX_MODE pwm4
+			# set FMU_MODE pwm4
+			# set AUX_MODE pwm4
+			set MIXER_AUX SBV3 
+			set MIXER SBV3
 		else
 			set FMU_MODE none
 			set AUX_MODE none
