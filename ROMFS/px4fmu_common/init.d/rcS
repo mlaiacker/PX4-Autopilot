@@ -457,8 +457,6 @@ then
 			# clear pins 5 and 6
 			# set FMU_MODE pwm4
 			# set AUX_MODE pwm4
-			set MIXER_AUX SBV3 
-			set MIXER SBV3
 		else
 			set FMU_MODE none
 			set AUX_MODE none
