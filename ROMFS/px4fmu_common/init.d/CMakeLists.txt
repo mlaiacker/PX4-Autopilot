@@ -93,6 +93,7 @@ px4_add_romfs_files(
 	13010_claire
 	13012_convergence
 	13013_deltaquad
+	13015_Songbird_V3
 	14001_tri_y_yaw+
 	14002_tri_y_yaw-
 	15001_coax_heli

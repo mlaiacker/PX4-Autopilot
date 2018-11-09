@@ -462,8 +462,8 @@ then
 		if param compare TRIG_PINS 56
 		then
 			# clear pins 5 and 6
-			set FMU_MODE pwm4
-			set AUX_MODE pwm4
+			# set FMU_MODE pwm4
+			# set AUX_MODE pwm4
 		else
 			set FMU_MODE none
 			set AUX_MODE none
