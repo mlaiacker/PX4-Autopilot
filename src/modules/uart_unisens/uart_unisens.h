@@ -75,7 +75,7 @@ private:
 	orb_advert_t		_pub_battery;
 	battery_status_s	_battery_status;
 	Battery				_battery;			/**< Helper lib to publish battery_status topic. */
-	float _voltage_v, _current_a, _used_mAh;
+	float _voltage_v, _current_a, _used_mAh, _temp_c,_baro_hPa, _voltage_rc_v;
 	int		_actuator_ctrl_0_sub{-1};		/**< attitude controls sub */
 	int		_vcontrol_mode_sub{-1};		/**< vehicle control mode subscription */
 	bool		_armed{false};

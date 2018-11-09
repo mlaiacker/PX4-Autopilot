@@ -426,9 +426,14 @@ then
 		then
 			gps start -d /dev/ttyS2
 		else
-			# /dev/ttyS3 is GPS1
-			# /dev/ttyS6 is GPS2
-			gps start -d /dev/ttyS6
+		 	if ver hwcmp PX4FMU_V2
+			then
+				gps start -d /dev/ttyS3
+			else
+				# /dev/ttyS3 is GPS1
+				# /dev/ttyS6 is GPS2
+				gps start -d /dev/ttyS6
+			fi
 		fi
 		sh /etc/init.d/rc.sensors
 		commander start

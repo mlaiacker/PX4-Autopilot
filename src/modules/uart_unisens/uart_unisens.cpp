@@ -81,8 +81,14 @@ $ uart_unisens start -d <uart device> -v
 
 int UartUnisens::print_status()
 {
-	// TODO: print additional runtime information about the state of the module
-	PX4_INFO("unisens rate %i", _rate);
+	// print additional runtime information about the state of the module
+	PX4_INFO("rate: %i", _rate);
+	PX4_INFO("voltage: %.2fV", (double)_voltage_v);
+	PX4_INFO("current: %.3fA", (double)_current_a);
+	PX4_INFO("bat used: %.1fmAh", (double)_used_mAh);
+	PX4_INFO("temp: %.1fdegC", (double)_temp_c);
+	PX4_INFO("baro: %.1fhPa", (double)_baro_hPa);
+	PX4_INFO("volt RC: %.1fV", (double)_voltage_rc_v);
 	return 0;
 }
 
@@ -265,7 +271,7 @@ bool UartUnisens::readPoll(uint32_t tout)
 int UartUnisens::readStatusInit()
 {
     // read version with poll
-	if(!readPoll(1000)) return 0;
+	if(!readPoll(100)) return 0;
 	uint8_t rxmsg[1];
 	size_t msgsize;
 	ssize_t nbytes=0;
@@ -333,23 +339,33 @@ int UartUnisens::readStatusData()
 			token = strtok_r((char*)rxmsg,",*",&tok_ptr);
 			while(token != NULL){
 				token_index++;
-				if(_debug_flag)
+/*				if(_debug_flag)
 				{
 					PX4_INFO("%i : %s",token_index, token);
-				}
-				if(token_index==4)
+					usleep(100000);
+				}*/
+				if(token_index==5)
 				{
 					_voltage_v = atof(token);
 
-				} else if(token_index==5)
+				} else if(token_index==6)
 				{
 					_current_a = atof(token);
 				}else if(token_index==11)
 				{
-					_battery_status.discharged_mah = atof(token);
-				} else if(token_index==21)
+					_voltage_rc_v = atof(token);
+				}else if(token_index==12)
 				{
-					uint8_t check = calcCheckSum(&rxmsg[1], (tok_ptr - (char*)rxmsg));
+					_battery_status.discharged_mah = _used_mAh= atof(token);
+				} else if(token_index==14)
+				{
+					_baro_hPa = atof(token);
+				} else  if(token_index==15)
+				{
+					_battery_status.temperature = _temp_c = atof(token);
+				} else  if(token_index==21)
+				{
+					uint8_t check = calcCheckSum(&rxmsg[1], (tok_ptr - (char*)rxmsg)-1);
 					char * pEnd;
 					uint8_t check_rx = strtol(token, &pEnd, 16);
 					if(check==check_rx)
@@ -388,21 +404,21 @@ void UartUnisens::writeInit()
 	char cmd[] = "g\r\n";
 	tcflush(_uart_fd, TCIFLUSH);
 	::write(_uart_fd, cmd, 3);
-	if(_debug_flag)
+/*	if(_debug_flag)
 	{
 		PX4_INFO("init com");
-	}
+	}*/
 }
 
 void UartUnisens::writeRequest()
 {
 	char cmd[] = "v\r\n";
 	::write(_uart_fd, cmd,3);
-
+/*
 	if(_debug_flag)
 	{
 		PX4_INFO("req");
-	}
+	}*/
 }
 
 void UartUnisens::run()
@@ -433,6 +449,7 @@ void UartUnisens::run()
 								ctrl.control[actuator_controls_s::INDEX_THROTTLE],
 								_armed, &_battery_status);
 				int instance;
+				_battery_status.temperature = _temp_c;
 				orb_publish_auto(ORB_ID(battery_status), &_pub_battery, &_battery_status, &instance, ORB_PRIO_DEFAULT);
 			}
 		}
@@ -447,7 +464,7 @@ void UartUnisens::run()
 				print_status();
 			}
 		}
-		//usleep(500000);
+		usleep(100000);
 	}
 	orb_unadvertise(_pub_battery);
 	orb_unsubscribe(_actuator_ctrl_0_sub);
