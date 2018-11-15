@@ -178,7 +178,7 @@ bool UartUnisens::init()
 {
 	bool result = true;
 	// open uart
-	_uart_fd = open(_device, O_RDWR | O_NOCTTY | O_SYNC);
+	_uart_fd = open(_device, O_RDWR | O_NOCTTY | O_NONBLOCK);
 	int termios_state = -1;
 
 	if (_uart_fd < 0) {
@@ -271,45 +271,52 @@ bool UartUnisens::readPoll(uint32_t tout)
 int UartUnisens::readStatusInit()
 {
     // read version with poll
-	if(!readPoll(100)) return 0;
-	uint8_t rxmsg[1];
-	size_t msgsize;
-	ssize_t nbytes=0;
-	msgsize = sizeof(rxmsg);
-    nbytes = ::read(_uart_fd, rxmsg, msgsize);
-	if(nbytes > (ssize_t)msgsize)
+	if(readPoll(300))
 	{
-		PX4_ERR("read(%i) returned %i",
-			   (int)msgsize, (int)nbytes);
-	}
-	if(nbytes>0)
-	{
-		if(rxmsg[0]=='2')
+		uint8_t rxmsg[1];
+		size_t msgsize;
+		ssize_t nbytes=0;
+		msgsize = sizeof(rxmsg);
+		nbytes = ::read(_uart_fd, rxmsg, msgsize);
+		if(nbytes > (ssize_t)msgsize)
 		{
-			if(_debug_flag)
+			PX4_ERR("read(%i) returned %i",
+				   (int)msgsize, (int)nbytes);
+		}
+		if(nbytes>0)
+		{
+			if(rxmsg[0]=='2')
 			{
-				PX4_INFO("init ack");
-			}
-			return 1;
-		} else {
-			if(_debug_flag)
-			{
-				PX4_INFO("init nack 0x%x", rxmsg[0]);
+				if(_debug_flag)
+				{
+					PX4_INFO("init ack");
+				}
+				return 1;
+			} else {
+				if(_debug_flag)
+				{
+					PX4_INFO("wrong init");
+				}
 			}
 		}
 	}
-    return 0;
+	if(_debug_flag)
+	{
+		PX4_INFO("init nack");
+	}
+	return 0;
 }
 
 int UartUnisens::readStatusData()
 {
-	if(!readPoll()) return 0;
+	if(!readPoll(1000)) return 0;
 	uint8_t rxmsg[257];
 	ssize_t unisens_length=0;
 	ssize_t nbytes=0;
 	size_t msgsize;
     // read version with poll
     do{
+		if(should_exit()) return 0;
     	nbytes=0;
     	msgsize = sizeof(rxmsg)-unisens_length-1;
         nbytes = ::read(_uart_fd, &rxmsg[unisens_length], msgsize);
@@ -321,29 +328,24 @@ int UartUnisens::readStatusData()
 		}
 		if(nbytes>0){
 			unisens_length+=nbytes;
-//	    	usleep(1000);
-			nbytes = readPoll(100);
+			nbytes = readPoll(20);
 		}
     } while(nbytes>0 && msgsize>0);
-	if(unisens_length>0)
+	if(unisens_length>5)
 	{
 		rxmsg[unisens_length]=0;
+		if(_debug_flag)
+		{
+			PX4_INFO("data %i", unisens_length);
+		}
 		if(rxmsg[0]=='$'){
-			if(_debug_flag)
-			{
-				PX4_INFO("data %i", unisens_length);
-			}
+			int8_t check2 = calcCheckSum(&rxmsg[1], unisens_length-6);
 			char *tok_ptr;
 			char *token;
 			int token_index=0;
-			token = strtok_r((char*)rxmsg,",*",&tok_ptr);
+			token = strtok_r((char*)rxmsg,",*\r\n",&tok_ptr);
 			while(token != NULL){
 				token_index++;
-/*				if(_debug_flag)
-				{
-					PX4_INFO("%i : %s",token_index, token);
-					usleep(100000);
-				}*/
 				if(token_index==5)
 				{
 					_voltage_v = atof(token);
@@ -365,23 +367,27 @@ int UartUnisens::readStatusData()
 					_battery_status.temperature = _temp_c = atof(token);
 				} else  if(token_index==21)
 				{
-					uint8_t check = calcCheckSum(&rxmsg[1], (tok_ptr - (char*)rxmsg)-1);
 					char * pEnd;
-					uint8_t check_rx = strtol(token, &pEnd, 16);
-					if(check==check_rx)
+					int8_t check_rx = strtol(token, &pEnd, 16);
+					if(check2==check_rx)
 					{
 						return 1;
 					} else
 					{
 						if(_debug_flag)
 						{
-							PX4_INFO("checksum : 0x%x != 0x%x",check, check_rx);
+							PX4_INFO("0x%x!=0x%x",check2, check_rx);
 						}
 					}
 				}
-				token = strtok_r(NULL,",*",&tok_ptr);
+				token = strtok_r(NULL,",*\r\n",&tok_ptr);
 			}
-			return 1;
+			return 0;
+		} else {
+			if(_debug_flag)
+			{
+				PX4_INFO("wrong data");
+			}
 		}
 	}
     return 0;
@@ -402,37 +408,38 @@ int8_t UartUnisens::calcCheckSum(uint8_t *data, ssize_t length)
 void UartUnisens::writeInit()
 {
 	char cmd[] = "g\r\n";
-	tcflush(_uart_fd, TCIFLUSH);
 	::write(_uart_fd, cmd, 3);
-/*	if(_debug_flag)
-	{
-		PX4_INFO("init com");
-	}*/
 }
 
 void UartUnisens::writeRequest()
 {
 	char cmd[] = "v\r\n";
-	::write(_uart_fd, cmd,3);
-/*
-	if(_debug_flag)
-	{
-		PX4_INFO("req");
-	}*/
+	::write(_uart_fd, cmd, 3);
+}
+
+void UartUnisens::updateBatteryDisconnect()
+{
+	_battery.reset(&_battery_status);
+	_battery_status.warning = battery_status_s::BATTERY_WARNING_FAILED;
+	int instance;
+	_battery_status.temperature = -1;// _temp_c;
+	_battery_status.timestamp = hrt_absolute_time();
+	orb_publish_auto(ORB_ID(battery_status), &_pub_battery, &_battery_status, &instance, ORB_PRIO_DEFAULT);
 }
 
 void UartUnisens::run()
 {
 	if(!init())
 		return;
-
-	hrt_abstime now = hrt_absolute_time();
-	hrt_abstime second_timer = now + 1e6;
-	//hrt_abstime timer_request = now + 1e6/50; // 50hz
+	hrt_abstime second_timer = hrt_absolute_time();
 	int n = 0;
-	//readStatusInit();
+	if(_debug_flag)
+	{
+		PX4_INFO("Start");
+	}
 	while (!should_exit()) {
 		writeInit();
+		if(should_exit()) break;
 		if(readStatusInit()>0)
 		{
 			writeRequest();
@@ -450,26 +457,35 @@ void UartUnisens::run()
 								_armed, &_battery_status);
 				int instance;
 				_battery_status.temperature = _temp_c;
+				_battery_status.voltage_filtered_v = _voltage_v;
+				_battery_status.current_filtered_a = _current_a;
+				_battery_status.discharged_mah = _used_mAh;
 				orb_publish_auto(ORB_ID(battery_status), &_pub_battery, &_battery_status, &instance, ORB_PRIO_DEFAULT);
+				_timeout = 0;
+				usleep(100000);
 			}
 		}
-		now = hrt_absolute_time();
-		if(second_timer <= now)
+		if(hrt_elapsed_time(&second_timer)>=10e6)
 		{
 			_rate = n;
+			second_timer += 10e6;
+			if(n==0 && _timeout==0)
+			{
+				updateBatteryDisconnect();
+				_timeout = 1;
+			}
 			n=0;
-			second_timer += 1e6;
-			if(_debug_flag)
+/*			if(_debug_flag && _rate >0)
 			{
 				print_status();
-			}
+			}*/
 		}
-		usleep(100000);
 	}
+	updateBatteryDisconnect();
 	orb_unadvertise(_pub_battery);
 	orb_unsubscribe(_actuator_ctrl_0_sub);
+	orb_unsubscribe(_vcontrol_mode_sub);
 	close(_uart_fd);
-	PX4_INFO("Exit");
 }
 
 int uart_unisens_main(int argc, char *argv[])

@@ -41,7 +41,7 @@
 
 extern "C" __EXPORT int uart_unisens_main(int argc, char *argv[]);
 
-#define UART_UNISENS_UART "/dev/ttyS0"
+#define UART_UNISENS_UART "/dev/ttyS6"
 
 class UartUnisens : public ModuleBase<UartUnisens>, public ModuleParams
 {
@@ -70,12 +70,13 @@ public:
 private:
 	char 	_device[32];
 	int 	_uart_fd = -1;
-	int 	_rate = 10;
+	int 	_rate = 0;
+	int		_timeout = 0;
 	bool	_debug_flag = false;
 	orb_advert_t		_pub_battery;
 	battery_status_s	_battery_status;
 	Battery				_battery;			/**< Helper lib to publish battery_status topic. */
-	float _voltage_v, _current_a, _used_mAh, _temp_c,_baro_hPa, _voltage_rc_v;
+	float _voltage_v, _current_a, _used_mAh, _temp_c,_baro_hPa, _voltage_rc_v ;
 	int		_actuator_ctrl_0_sub{-1};		/**< attitude controls sub */
 	int		_vcontrol_mode_sub{-1};		/**< vehicle control mode subscription */
 	bool		_armed{false};
@@ -89,6 +90,7 @@ private:
 	void writeInit();
 	void vehicle_control_mode_poll();
 	int8_t calcCheckSum(uint8_t *data, ssize_t length);
+	void updateBatteryDisconnect();
 	/**
 	 * Check for parameter changes and update them if needed.
 	 * @param parameter_update_sub uorb subscription to parameter_update
