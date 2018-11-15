@@ -31,6 +31,14 @@
  *
  ****************************************************************************/
 
+/**
+ * @file uart_unisens.cpp
+ *
+ * Read data from SM-Modellbau Unisens over uart and publish battery_status in uOrb
+ *
+ * @author Maximilian Laiacker <post@mlaiacker.de>
+ */
+
 #include <px4_getopt.h>
 #include <px4_log.h>
 #include <px4_posix.h>
@@ -50,11 +58,6 @@
 #include <drivers/drv_hrt.h>
 #include "uart_unisens.h"
 
-#define UNISENS_MAX_MESSAGE_LEN 140
-#define UNISENS_CHECKSUM_LEN 2
-#define AP_BATTMONITOR_SERIAL_UNILOG_TIMEOUT_MICROS 4000000    // sensor becomes unhealthy if no successful readings for 2 seconds
-
-
 int UartUnisens::print_usage(const char *reason)
 {
 	if (reason) {
@@ -73,7 +76,7 @@ $ uart_unisens start -d <uart device> -v
 	PRINT_MODULE_USAGE_NAME("uart_unisens", "modules");
 	PRINT_MODULE_USAGE_COMMAND("start");
 	PRINT_MODULE_USAGE_PARAM_FLAG('v', "debug flag", true);
-	PRINT_MODULE_USAGE_PARAM_STRING('d',"/dev/ttyS0", "", "debug flag", true);
+	PRINT_MODULE_USAGE_PARAM_STRING('d',"/dev/ttyS6", "", "debug flag", true);
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
 	return 0;
@@ -102,7 +105,7 @@ int UartUnisens::task_spawn(int argc, char *argv[])
 {
 	_task_id = px4_task_spawn_cmd("uart_unisens",
 				      SCHED_DEFAULT,
-				      SCHED_PRIORITY_DEFAULT,
+				      SCHED_PRIORITY_DEFAULT-10, /* reduced pritority */
 				      1024,
 				      (px4_main_t)&run_trampoline,
 				      (char *const *)argv);
@@ -223,9 +226,6 @@ bool UartUnisens::init()
 	/* no parity, one stop bit, disable flow control */
 	uart_config.c_cflag &= ~(CSTOPB | PARENB | CRTSCTS);
 
-//	uart_config.c_cc[VMIN] = 0;
-//	uart_config.c_cc[VTIME] = 10;
-
 	// set baud rate
 	if (cfsetispeed(&uart_config, speed) < 0 || cfsetospeed(&uart_config, speed) < 0) {
 		PX4_ERR("failed to set baudrate for %s: %d\n", _device, termios_state);
@@ -238,60 +238,61 @@ bool UartUnisens::init()
 		close(_uart_fd);
 		return false;
 	}
-	//_pub_battery = orb_advertise(ORB_ID(battery_status), &_battery_status);
+	/* needed for the Battery class */
 	_actuator_ctrl_0_sub = orb_subscribe(ORB_ID(actuator_controls_0));
+	/* needed to read arming status */
 	_vcontrol_mode_sub = orb_subscribe(ORB_ID(vehicle_control_mode));
 	return result;
 }
 
+/* read arming state */
 void UartUnisens::vehicle_control_mode_poll()
 {
 	struct vehicle_control_mode_s vcontrol_mode;
 	bool vcontrol_mode_updated;
-
 	orb_check(_vcontrol_mode_sub, &vcontrol_mode_updated);
-
 	if (vcontrol_mode_updated) {
-
 		orb_copy(ORB_ID(vehicle_control_mode), _vcontrol_mode_sub, &vcontrol_mode);
 		_armed = vcontrol_mode.flag_armed;
 	}
 }
 
+/* wait tout ms for data available on the serial interface to read */
 bool UartUnisens::readPoll(uint32_t tout)
 {
     struct pollfd uartPoll;
     uartPoll.fd = _uart_fd;
     uartPoll.events = POLLIN;
     int pollrc = poll(&uartPoll, 1, tout);
-    if (pollrc < 1) return false;
-    return true;
+    if (pollrc < 1) return false; /* no data to read */
+    return true; /* data available */
 }
 
-int UartUnisens::readStatusInit()
+bool UartUnisens::readStatusInit()
 {
     // read version with poll
 	if(readPoll(300))
 	{
+		/* expected message is "2" */
 		uint8_t rxmsg[1];
 		size_t msgsize;
 		ssize_t nbytes=0;
 		msgsize = sizeof(rxmsg);
 		nbytes = ::read(_uart_fd, rxmsg, msgsize);
-		if(nbytes > (ssize_t)msgsize)
+		if(nbytes > (ssize_t)msgsize) /* more read then asked for, should not happen */
 		{
 			PX4_ERR("read(%i) returned %i",
 				   (int)msgsize, (int)nbytes);
 		}
-		if(nbytes>0)
+		if(nbytes>0) /* we got an answer */
 		{
-			if(rxmsg[0]=='2')
+			if(rxmsg[0]=='2') /* correct answer */
 			{
 				if(_debug_flag)
 				{
 					PX4_INFO("init ack");
 				}
-				return 1;
+				return true; /* proceed */
 			} else {
 				if(_debug_flag)
 				{
@@ -304,22 +305,27 @@ int UartUnisens::readStatusInit()
 	{
 		PX4_INFO("init nack");
 	}
-	return 0;
+	return false; /* failed to read answer */
 }
-
-int UartUnisens::readStatusData()
+/*
+ * after sending a "v\r\n" unisens should answer with something like this:
+ * $UL2,2012-01-01,0:00:00.0,0.66,0.000,0.000,0.07,0.01,0.00,0.0,5.132,0.0,0.0,,,,,,,,,,1027.37,29.9,0.0,0.0,0,0,0*05
+ * after that you have to wait 1 second and then start again by sending "g\r\n"
+ *  */
+bool UartUnisens::readStatusData()
 {
-	if(!readPoll(1000)) return 0;
-	uint8_t rxmsg[257];
+	/* wait a max of 1s for an answer from unisens */
+	if(!readPoll(1000)) return false;
+	uint8_t rxmsg[257]; /* normal answer is around 120 bytes */
 	ssize_t unisens_length=0;
 	ssize_t nbytes=0;
 	size_t msgsize;
     // read version with poll
     do{
-		if(should_exit()) return 0;
+		if(should_exit()) return false;
     	nbytes=0;
-    	msgsize = sizeof(rxmsg)-unisens_length-1;
-        nbytes = ::read(_uart_fd, &rxmsg[unisens_length], msgsize);
+    	msgsize = sizeof(rxmsg)-unisens_length-1; /* space left in rx buffer, with extra space for the null termination */
+        nbytes = ::read(_uart_fd, &rxmsg[unisens_length], msgsize); /* read data into buffer*/
 		if(nbytes > (ssize_t)msgsize)
 		{
 			PX4_ERR("read(%i) returned %i",
@@ -327,29 +333,32 @@ int UartUnisens::readStatusData()
 			break;
 		}
 		if(nbytes>0){
-			unisens_length+=nbytes;
-			nbytes = readPoll(20);
+			unisens_length+=nbytes; /* number of bytes in buffer */
+			nbytes = readPoll(20); /* more data available? */
 		}
-    } while(nbytes>0 && msgsize>0);
-	if(unisens_length>5)
+    } while(nbytes>0 && msgsize>0); /* until no more data available or buffer is full*/
+	if(unisens_length>5) /* at least 6 bytes so that  calCheckSum gets >=0 length */
 	{
-		rxmsg[unisens_length]=0;
+		rxmsg[unisens_length]=0; /* 0 termination for str token */
 		if(_debug_flag)
 		{
 			PX4_INFO("data %i", unisens_length);
 		}
-		if(rxmsg[0]=='$'){
+		if(rxmsg[0]=='$'){ /* first byte in answer should be "$" */
+			/* xor bytes and store for later use */
 			int8_t check2 = calcCheckSum(&rxmsg[1], unisens_length-6);
 			char *tok_ptr;
 			char *token;
 			int token_index=0;
+			/* initalize token function
+			 * message format is:
+			 * $<values>,<values>,...*<checksum>\r\n */
 			token = strtok_r((char*)rxmsg,",*\r\n",&tok_ptr);
 			while(token != NULL){
 				token_index++;
 				if(token_index==5)
 				{
 					_voltage_v = atof(token);
-
 				} else if(token_index==6)
 				{
 					_current_a = atof(token);
@@ -358,20 +367,20 @@ int UartUnisens::readStatusData()
 					_voltage_rc_v = atof(token);
 				}else if(token_index==12)
 				{
-					_battery_status.discharged_mah = _used_mAh= atof(token);
+					_used_mAh= atof(token); /*  */
 				} else if(token_index==14)
 				{
-					_baro_hPa = atof(token);
+					_baro_hPa = atof(token); /* air pressure */
 				} else  if(token_index==15)
 				{
-					_battery_status.temperature = _temp_c = atof(token);
+					_temp_c = atof(token); /* temperature of baro sensor? */
 				} else  if(token_index==21)
 				{
 					char * pEnd;
 					int8_t check_rx = strtol(token, &pEnd, 16);
-					if(check2==check_rx)
+					if(check2==check_rx) /* checksum correct*/
 					{
-						return 1;
+						return true;
 					} else
 					{
 						if(_debug_flag)
@@ -380,6 +389,7 @@ int UartUnisens::readStatusData()
 						}
 					}
 				}
+				/* currently I don't have information about the other fields but they should contain vario and rpm information */
 				token = strtok_r(NULL,",*\r\n",&tok_ptr);
 			}
 			return 0;
@@ -390,7 +400,7 @@ int UartUnisens::readStatusData()
 			}
 		}
 	}
-    return 0;
+    return false;
 }
 // uart_unisens start -v -d /dev/ttyS2
 
@@ -405,24 +415,29 @@ int8_t UartUnisens::calcCheckSum(uint8_t *data, ssize_t length)
 	return iXor;
 }
 
+/* unisens should answer with "2" */
 void UartUnisens::writeInit()
 {
 	char cmd[] = "g\r\n";
 	::write(_uart_fd, cmd, 3);
 }
-
+/*
+ * Unisnes should answer with data
+ */
 void UartUnisens::writeRequest()
 {
 	char cmd[] = "v\r\n";
 	::write(_uart_fd, cmd, 3);
 }
-
+/*
+ * after timeout or when exit the module signal that we lost connection to the battery sensor
+ */
 void UartUnisens::updateBatteryDisconnect()
 {
 	_battery.reset(&_battery_status);
 	_battery_status.warning = battery_status_s::BATTERY_WARNING_FAILED;
 	int instance;
-	_battery_status.temperature = -1;// _temp_c;
+	_battery_status.temperature = -1;
 	_battery_status.timestamp = hrt_absolute_time();
 	orb_publish_auto(ORB_ID(battery_status), &_pub_battery, &_battery_status, &instance, ORB_PRIO_DEFAULT);
 }
@@ -451,34 +466,33 @@ void UartUnisens::run()
 				orb_copy(ORB_ID(actuator_controls_0), _actuator_ctrl_0_sub, &ctrl);
 
 				bool connected = _voltage_v > 5.0f;
+				/* updateBatteryStatus assumes it is called at 100Hz
+				 * but here only 1Hz so filter for current and voltage will not work well
+				 * */
 				_battery.updateBatteryStatus(hrt_absolute_time(), _voltage_v, _current_a,
 								connected, true, 0,
 								ctrl.control[actuator_controls_s::INDEX_THROTTLE],
 								_armed, &_battery_status);
 				int instance;
 				_battery_status.temperature = _temp_c;
-				_battery_status.voltage_filtered_v = _voltage_v;
+				_battery_status.voltage_filtered_v = _voltage_v; /* override filtered value */
 				_battery_status.current_filtered_a = _current_a;
-				_battery_status.discharged_mah = _used_mAh;
+				_battery_status.discharged_mah = _used_mAh; /* use value from unisens */
 				orb_publish_auto(ORB_ID(battery_status), &_pub_battery, &_battery_status, &instance, ORB_PRIO_DEFAULT);
 				_timeout = 0;
 				usleep(100000);
 			}
 		}
-		if(hrt_elapsed_time(&second_timer)>=10e6)
+		if(hrt_elapsed_time(&second_timer)>=10e6) /* every 10 seconds*/
 		{
-			_rate = n;
+			_rate = n; /* update rate is only once per second */
 			second_timer += 10e6;
 			if(n==0 && _timeout==0)
 			{
-				updateBatteryDisconnect();
+				updateBatteryDisconnect(); /* lost connection to unisens */
 				_timeout = 1;
 			}
 			n=0;
-/*			if(_debug_flag && _rate >0)
-			{
-				print_status();
-			}*/
 		}
 	}
 	updateBatteryDisconnect();

@@ -84,8 +84,8 @@ private:
 	bool init();
 
 	bool readPoll(uint32_t tout=5000);
-	int  readStatusInit();
-	int  readStatusData();
+	bool  readStatusInit();
+	bool  readStatusData();
 	void writeRequest();
 	void writeInit();
 	void vehicle_control_mode_poll();
