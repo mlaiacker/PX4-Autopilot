@@ -105,8 +105,8 @@ int UartUnisens::task_spawn(int argc, char *argv[])
 {
 	_task_id = px4_task_spawn_cmd("uart_unisens",
 				      SCHED_DEFAULT,
-				      SCHED_PRIORITY_DEFAULT-10, /* reduced pritority */
-				      1024,
+				      SCHED_PRIORITY_DEFAULT+10, /* reduced pritority */
+				      1512,
 				      (px4_main_t)&run_trampoline,
 				      (char *const *)argv);
 
@@ -164,6 +164,7 @@ UartUnisens *UartUnisens::instantiate(int argc, char *argv[])
 
 UartUnisens::UartUnisens(char const *const device, bool debug_flag):
 ModuleParams(nullptr),
+_pub_battery(nullptr),
 _battery()
 {
 	if(device)
@@ -175,6 +176,7 @@ _battery()
 
 	_debug_flag = debug_flag;
 	memset(&_battery_status,0,sizeof(_battery_status));
+	_used_mAh = 0;
 }
 
 bool UartUnisens::init()
@@ -300,10 +302,6 @@ bool UartUnisens::readStatusInit()
 				}
 			}
 		}
-	}
-	if(_debug_flag)
-	{
-		PX4_INFO("init nack");
 	}
 	return false; /* failed to read answer */
 }
@@ -440,6 +438,11 @@ void UartUnisens::updateBatteryDisconnect()
 	_battery_status.temperature = -1;
 	_battery_status.timestamp = hrt_absolute_time();
 	orb_publish_auto(ORB_ID(battery_status), &_pub_battery, &_battery_status, &instance, ORB_PRIO_DEFAULT);
+	if(_debug_flag)
+	{
+		PX4_INFO("disconnect");
+	}
+
 }
 
 void UartUnisens::run()
@@ -478,7 +481,13 @@ void UartUnisens::run()
 				_battery_status.voltage_filtered_v = _voltage_v; /* override filtered value */
 				_battery_status.current_filtered_a = _current_a;
 				_battery_status.discharged_mah = _used_mAh; /* use value from unisens */
-				orb_publish_auto(ORB_ID(battery_status), &_pub_battery, &_battery_status, &instance, ORB_PRIO_DEFAULT);
+				if(orb_publish_auto(ORB_ID(battery_status), &_pub_battery, &_battery_status, &instance, ORB_PRIO_DEFAULT))
+				{
+					if(_debug_flag)
+					{
+						PX4_INFO("pup failed");
+					}
+				}
 				_timeout = 0;
 				usleep(100000);
 			}
@@ -496,9 +505,9 @@ void UartUnisens::run()
 		}
 	}
 	updateBatteryDisconnect();
-	orb_unadvertise(_pub_battery);
 	orb_unsubscribe(_actuator_ctrl_0_sub);
 	orb_unsubscribe(_vcontrol_mode_sub);
+	orb_unadvertise(_pub_battery);
 	close(_uart_fd);
 }
 

@@ -34,7 +34,7 @@
 px4_add_module(
 	MODULE modules__uart_unisens
 	MAIN uart_unisens
-	STACK_MAIN 1024
+	STACK_MAIN 1512
 	SRCS
 		uart_unisens.cpp
 	DEPENDS
