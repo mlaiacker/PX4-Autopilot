@@ -74,3 +74,6 @@ set PWM_ACHDIS 5
 set PWM_AUX_DISARMED 950
 
 set MAV_TYPE 22
+
+# unisens on TEL2
+uart_unisens start -d /dev/ttyS2

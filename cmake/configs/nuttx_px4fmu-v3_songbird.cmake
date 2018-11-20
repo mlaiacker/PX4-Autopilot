@@ -1,84 +1,73 @@
+
+# FMUv3 is FMUv2 with access to the full 2MB flash
+set(BOARD px4fmu-v2 CACHE string "" FORCE)
+set(FW_NAME nuttx_px4fmu-v3_songbird.elf CACHE string "" FORCE)
+set(FW_PROTOTYPE px4fmu-v3 CACHE string "" FORCE)
+set(LD_SCRIPT ld_full.script CACHE string "" FORCE)
+
 px4_nuttx_configure(HWCLASS m4 CONFIG nsh ROMFS y ROMFSROOT px4fmu_common IO px4io-v2)
 
-#set(config_uavcan_num_ifaces 2)
+set(config_uavcan_num_ifaces 2)
 
 set(config_module_list
 	#
 	# Board support modules
 	#
-	#drivers/barometer
+	drivers/barometer
 	drivers/differential_pressure
-	#drivers/distance_sensor
-	#drivers/magnetometer
-	#drivers/telemetry
+	drivers/distance_sensor
+	drivers/magnetometer
+	drivers/telemetry
 
-	#drivers/imu/adis16448
-	drivers/barometer/ms5611
-	#drivers/blinkm
-	#drivers/imu/bmi160
-	#drivers/barometer/bmp280
-	#drivers/bst
+	drivers/batt_smbus
+	drivers/blinkm
 	drivers/camera_trigger
-	#drivers/frsky_telemetry
 	drivers/gps
-	#drivers/hott
-	#drivers/iridiumsbd
-	#drivers/irlock
+	drivers/imu/adis16448
+	drivers/imu/bmi160
 	drivers/imu/l3gd20
 	drivers/imu/lsm303d
-	drivers/magnetometer/hmc5883
-	drivers/magnetometer/lis3mdl
-	#drivers/mb12xx
-	#drivers/mkblctrl
 	drivers/imu/mpu6000
 	drivers/imu/mpu9250
-	#drivers/oreoled
-	#drivers/protocol_splitter
-	#drivers/pwm_input
-	#drivers/pwm_out_sim
-	#drivers/px4flow
+	drivers/irlock
+	drivers/mkblctrl
+	drivers/oreoled
+	drivers/protocol_splitter
+	drivers/pwm_input
+	drivers/pwm_out_sim
+	drivers/px4flow
 	drivers/px4fmu
 	drivers/px4io
 	drivers/rgbled
 	drivers/stm32
 	drivers/stm32/adc
 	drivers/stm32/tone_alarm
-	#drivers/tap_esc
-	#drivers/vmount
-
-	# distance sensors
-	#drivers/distance_sensor/ll40ls
-	#drivers/distance_sensor/mb12xx
-	#drivers/distance_sensor/sf0x
-	#drivers/distance_sensor/sf1xx
-	#drivers/distance_sensor/srf02
-	#drivers/distance_sensor/teraranger
-	#drivers/distance_sensor/tfmini
-	#drivers/distance_sensor/ulanding
+	drivers/tap_esc
+	drivers/vmount
 	modules/sensors
 
 	#
 	# System commands
 	#
-	#systemcmds/bl_update
-	#systemcmds/config
-	#systemcmds/dumpfile
-	#systemcmds/esc_calib
+	systemcmds/bl_update
+	systemcmds/config
+	systemcmds/dumpfile
+	systemcmds/esc_calib
 	systemcmds/hardfault_log
-	#systemcmds/led_control
+	systemcmds/led_control
 	systemcmds/mixer
-	#systemcmds/motor_ramp
-	#systemcmds/motor_test
+	systemcmds/motor_ramp
+	systemcmds/motor_test
 	systemcmds/mtd
-	#systemcmds/nshterm
+	systemcmds/nshterm
 	systemcmds/param
 	systemcmds/perf
 	systemcmds/pwm
 	systemcmds/reboot
-	#systemcmds/sd_bench
+	systemcmds/sd_bench
 	systemcmds/top
-	#systemcmds/topic_listener
-	#systemcmds/tune_control
+	systemcmds/topic_listener
+	systemcmds/tune_control
 	systemcmds/ver
 
 	#
@@ -100,21 +89,21 @@ set(config_module_list
 	modules/camera_feedback
 	modules/commander
 	modules/events
-	#modules/gpio_led
+	modules/gpio_led
 	modules/land_detector
 	modules/load_mon
 	modules/mavlink
 	modules/navigator
-	#modules/uavcan
+	modules/uavcan
 
 	#
 	# Estimation modules
 	#
-	#modules/attitude_estimator_q
+	modules/attitude_estimator_q
 	modules/ekf2
-	#modules/local_position_estimator
-	#modules/position_estimator_inav
-	#modules/landing_target_estimator
+	modules/landing_target_estimator
+	modules/local_position_estimator
+	modules/position_estimator_inav
 	modules/wind_estimator
 
 	#
@@ -132,15 +121,17 @@ set(config_module_list
 	# Logging
 	#
 	modules/logger
-	#modules/sdlog2
+	modules/sdlog2
 
 	#
 	# Library modules
 	#
 	modules/dataman
 
+
 	#
 	# GD apps
 	#
 	modules/uart_unisens
+	
 )

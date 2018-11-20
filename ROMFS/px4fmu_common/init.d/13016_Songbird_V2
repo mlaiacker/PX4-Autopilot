@@ -1,21 +1,24 @@
 #!nsh
 #
-# @name Fun Cub Quad VTOL
+# @name Germandrones Songbird V3
 #
 # @type Standard VTOL
 # @class VTOL
 #
-# @maintainer Simon Wilks <simon@uaventure.com>
+# @maintainer Germandrones
 #
 # @output MAIN1 motor 1
 # @output MAIN2 motor 2
 # @output MAIN3 motor 3
 # @output MAIN4 motor 4
-# @output AUX1 Aileron 1
-# @output AUX2 Aileron 2
-# @output AUX3 Elevator
-# @output AUX4 Rudder
-# @output AUX5 Throttle
+# @output MAIN5 Tiltservo Left
+# @output MAIN6 Tiltsrevo Right
+# @output AUX1 Aileron Left
+# @output AUX2 Aileron Right
+# @output AUX3 VTail Left
+# @output AUX4 VTail Right
+# @output AUX5 Camera Trigger
+# @output AUX6 Camera Trigger
 #
 
 sh /etc/init.d/rc.vtol_defaults
@@ -72,5 +75,5 @@ set PWM_AUX_DISARMED 950
 
 set MAV_TYPE 22
 
-# unisens on TEL2
-uart_unisens start -d /dev/ttyS2
+# unisens
+uart_unisens start -d /dev/ttyS6
