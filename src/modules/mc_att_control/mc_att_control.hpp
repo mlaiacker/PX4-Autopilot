@@ -248,5 +248,8 @@ private:
 	matrix::Vector3f _auto_rate_max;	/**< attitude rate limits in auto modes */
 	matrix::Vector3f _acro_rate_max;	/**< max attitude rates in acro mode */
 
+	static constexpr const float _tilt_lp_freq = 0.5f;
+	math::LowPassFilter2p	_tilt_lp_pitch; /* in vtol mode use tilt for low frequency pitch control (rad)*/
+	float _tilt_cmd; /* the servo command offset to the tilt servo 0..1, output on actuator[4] */
 };
 
