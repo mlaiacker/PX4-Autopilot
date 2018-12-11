@@ -43,6 +43,7 @@
 #include "vtol_type.h"
 #include <parameters/param.h>
 #include <drivers/drv_hrt.h>
+#include <mathlib/math/filter/LowPassFilter2p.hpp>
 
 class Tiltrotor : public VtolType
 {
@@ -100,6 +101,8 @@ private:
 	} _vtol_schedule;
 
 	float _tilt_control;		/**< actuator value for the tilt servo */
+	static constexpr const float _tilt_yaw_lp_freq = 1.0f;
+	math::LowPassFilter2p	_tilt_yaw_lp_pitch; /* low pass filtered yaw control output to use for differential tilting (actuator control 0.6) (rad)*/
 
 	/**
 	 * Update parameters.

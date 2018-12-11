@@ -46,7 +46,8 @@
 
 Tiltrotor::Tiltrotor(VtolAttitudeControl *attc) :
 	VtolType(attc),
-	_tilt_control(0.0f)
+	_tilt_control(0.0f),
+	_tilt_yaw_lp_pitch(250,_tilt_yaw_lp_freq)
 {
 	_vtol_schedule.flight_mode = MC_MODE;
 	_vtol_schedule.transition_start = 0;
@@ -333,6 +334,7 @@ void Tiltrotor::waiting_on_tecs()
 */
 void Tiltrotor::fill_actuator_outputs()
 {
+	float tilt_pitch = 0;
 	_actuators_out_0->timestamp = hrt_absolute_time();
 	_actuators_out_0->timestamp_sample = _actuators_mc_in->timestamp_sample;
 
@@ -342,6 +344,8 @@ void Tiltrotor::fill_actuator_outputs()
 		_actuators_mc_in->control[actuator_controls_s::INDEX_PITCH] * _mc_pitch_weight;
 	_actuators_out_0->control[actuator_controls_s::INDEX_YAW] = _actuators_mc_in->control[actuator_controls_s::INDEX_YAW] *
 			_mc_yaw_weight;
+	/* filter yaw control to use for differential tilt */
+	_actuators_out_0->control[actuator_controls_s::INDEX_AIRBRAKES] = _tilt_yaw_lp_pitch.apply(_actuators_out_0->control[actuator_controls_s::INDEX_YAW]);
 
 	if (_vtol_schedule.flight_mode == FW_MODE) {
 		_actuators_out_0->control[actuator_controls_s::INDEX_THROTTLE] =
@@ -356,6 +360,7 @@ void Tiltrotor::fill_actuator_outputs()
 	} else {
 		_actuators_out_0->control[actuator_controls_s::INDEX_THROTTLE] =
 			_actuators_mc_in->control[actuator_controls_s::INDEX_THROTTLE];
+		tilt_pitch = (PX4_ISFINITE(_actuators_mc_in->control[4])) ? _actuators_mc_in->control[4] : 0.0f; /* use output of  mc_att control for _tilt based on pitch cmd*/
 	}
 
 	_actuators_out_1->timestamp = hrt_absolute_time();
@@ -367,5 +372,5 @@ void Tiltrotor::fill_actuator_outputs()
 		(_actuators_fw_in->control[actuator_controls_s::INDEX_PITCH]);
 	_actuators_out_1->control[actuator_controls_s::INDEX_YAW] =
 		_actuators_fw_in->control[actuator_controls_s::INDEX_YAW];	// yaw
-	_actuators_out_1->control[4] = _tilt_control;
+	_actuators_out_1->control[4] = _tilt_control + tilt_pitch;
 }
