@@ -60,20 +60,46 @@
 #define BATT_PAC17_ADDR_MIN             0x00	///< lowest possible address
 #define BATT_PAC17_ADDR_MAX             0xFF	///< highest possible address
 
+#define BATT_PAC17_MEASUREMENT_INTERVAL_US	(1000000 / 10)	///< time in microseconds, measure at 10Hz
+#define BATT_PAC17_TIMEOUT_US			10000000	///< timeout looking for battery 10seconds after startup
+#define BATT_PAC17_SENS_RANGE			80   // mV
+#define BATT_PAC17_SENS_R				0.1f // mOhm
 
 #ifndef CONFIG_SCHED_WORKQUEUE
 # error This requires CONFIG_SCHED_WORKQUEUE.
 #endif
 
-#define BATT_PAC17xx_ADDR			0x4c //default 0x98 in 8 bit
-#define BATT_PAC17xx_REG_PID		0xfd // should be 0x57 or 0x58
-#define BATT_PAC17xx_REG_MID		0xfe // should be 0x5d
-#define BATT_PAC17xx_REG_REVISION	0xff // should be 0x81
+#define BATT_PAC17_ADDR			0x4c //default 0x98 in 8 bit
+#define BATT_PAC17_I2C_BUS		2
+
+
+#define BATT_PAC17_REG_CONFIG			0x00
+#define BATT_PAC17_REG_CONVERSION_RATE	0x01
+#define BATT_PAC17_REG_ONE_SHOT			0x02
+#define BATT_PAC17_REG_CHANNEL_MASK		0x03
+#define BATT_PAC17_REG_VOLT_SAMPLE_CONF	0x0A
+#define BATT_PAC17_REG_SENS1_SAMPLE_CONF	0x0B
+#define BATT_PAC17_REG_SENS2_SAMPLE_CONF	0x0C
+
+#define BATT_PAC17_REG_SENS_CH1_H	0x0D
+#define BATT_PAC17_REG_SENS_CH1_L	0x0E
+#define BATT_PAC17_REG_SENS_CH2_H	0x0F
+#define BATT_PAC17_REG_SENS_CH2_L	0x10
+
+#define BATT_PAC17_REG_VOLT_CH1_H	0x11
+#define BATT_PAC17_REG_VOLT_CH1_L	0x12
+#define BATT_PAC17_REG_VOLT_CH2_H	0x13
+#define BATT_PAC17_REG_VOLT_CH2_L	0x14
+
+#define BATT_PAC17_REG_PID		0xfd // should be 0x57 or 0x58
+#define BATT_PAC17_REG_MID		0xfe // should be 0x5d
+#define BATT_PAC17_REG_REVISION	0xff // should be 0x81
 
 class BATT_PAC17 : public device::I2C
 {
 public:
-	BATT_PAC17(int bus = PX4_I2C_BUS_EXPANSION, uint16_t batt_pac17_addr = BATT_PAC17_ADDR);
+	BATT_PAC17(int bus = PX4_I2C_BUS_EXPANSION, uint16_t batt_pac17_addr = BATT_PAC17_ADDR,
+			float sens_resistor=0, uint16_t sens_range=0);
 	virtual ~BATT_PAC17();
 
 	/**
@@ -97,36 +123,8 @@ public:
 	 */
 	int			search();
 
-	/**
-	 * Get the SBS manufacturer name of the battery device
-	 *
-	 * @param manufacturer_name pointer a buffer into which the manufacturer name is to be written
-	* @param max_length the maximum number of bytes to attempt to read from the manufacturer name register, including the null character that is appended to the end
-	 *
-	 * @return the number of bytes read
-	 */
-	uint8_t     manufacturer_name(uint8_t *man_name, uint8_t max_length);
+	int			dumpreg();
 
-	/**
-	 * Return the SBS manufacture date of the battery device
-	 *
-	 * @return the date in the following format:
-	*  see Smart Battery Data Specification, Revision  1.1
-	*  http://sbs-forum.org/specs/sbdat110.pdf for more details
-	 *  Date as uint16_t = (year-1980) * 512 + month * 32 + day
-	 *  | Field | Bits | Format             | Allowable Values                           |
-	 *  | ----- | ---- | ------------------ | ------------------------------------------ |
-	 *  | Day     0-4    5-bit binary value   1-31 (corresponds to day)                  |
-	 *  | Month   5-8    4-bit binary value   1-12 (corresponds to month number)         |
-	 *  | Year    9-15   7-bit binary value   0-127 (corresponds to year biased by 1980) |
-	 *  otherwise, return 0 on failure
-	 */
-	uint16_t  manufacture_date();
-
-	/**
-	 * Return the SBS serial number of the battery device
-	 */
-	uint16_t     serial_number();
 
 protected:
 	/**
@@ -159,13 +157,11 @@ private:
 	/**
 	 * Read a word from specified register
 	 */
-	int			read_reg(uint8_t reg, uint16_t &val);
 	int			read_reg(uint8_t reg, uint8_t &val);
 
 	/**
 	 * Write a word to specified register
 	 */
-	int			write_reg(uint8_t reg, uint16_t val);
 	int			write_reg(uint8_t reg, uint8_t val);
 
 	/**
@@ -186,17 +182,7 @@ private:
 	 */
 	uint8_t			write_block(uint8_t reg, uint8_t *data, uint8_t len);
 
-	/**
-	 * Calculate PEC for a read or write from the battery
-	 * @param buff is the data that was read or will be written
-	 */
-	uint8_t	get_PEC(uint8_t cmd, bool reading, const uint8_t buff[], uint8_t len);
 
-	/**
-	 * Write a word to Manufacturer Access register (0x00)
-	 * @param cmd the word to be written to Manufacturer Access
-	 */
-	uint8_t	ManufacturerAccess(uint16_t cmd);
 
 	// internal variables
 	bool			_enabled;	///< true if we have successfully connected to battery
@@ -210,13 +196,13 @@ private:
 	uint64_t		_start_time;	///< system time we first attempt to communicate with battery
 	uint16_t		_batt_capacity;	///< battery's design capacity in mAh (0 means unknown)
 	uint16_t		_batt_startup_capacity;	///< battery's remaining capacity on startup
-	char           *_manufacturer_name;  ///< The name of the battery manufacturer
-	uint16_t		_cycle_count;	///< number of cycles the battery has experienced
-	uint16_t		_serial_number;		///< serial number register
+	uint16_t		_sens_full_scale; ///< current sense full range voltage 10,20,40,80 mV
+	uint8_t			_sens_sample_reg; ///< sample scale reidter value
+	float			_sens_resistor;	///< current sense resistor value in mOhm
 	float 			_crit_thr;	///< Critical battery threshold param
 	float 			_low_thr;	///< Low battery threshold param
 	float 			_emergency_thr;		///< Emergency battery threshold param
-	typedef enum SMBUS_BATT_DEV_E
+	enum SMBUS_BATT_DEV_E
 	{
 		NONE=0,
 		BQ40Z50,
@@ -233,13 +219,10 @@ BATT_PAC17 *g_batt_pac17;	///< device handle. For now, we only support one BATT_
 
 void batt_pac17_usage();
 
-extern "C" __EXPORT int batt_pac17_main(int argc, char *argv[]);
+extern "C" __EXPORT int batt_pac17xx_main(int argc, char *argv[]);
 
-int manufacturer_name();
-int manufacture_date();
-int serial_number();
 
-BATT_PAC17::BATT_PAC17(int bus, uint16_t batt_pac17_addr) :
+BATT_PAC17::BATT_PAC17(int bus, uint16_t batt_pac17_addr, float sens_resistor, uint16_t sens_range) :
 	I2C("batt_pac17", "/dev/batt_pac170", bus, batt_pac17_addr, 100000),
 	_enabled(false),
 	_last_report{},
@@ -248,25 +231,45 @@ BATT_PAC17::BATT_PAC17(int bus, uint16_t batt_pac17_addr) :
 	_start_time(0),
 	_batt_capacity(0),
 	_batt_startup_capacity(0),
-	_manufacturer_name(nullptr),
-	_cycle_count(0),
-	_serial_number(0),
+	_sens_full_scale(BATT_PAC17_SENS_RANGE),
+	_sens_sample_reg(0x53),
+	_sens_resistor(BATT_PAC17_SENS_R),
 	_crit_thr(0.0f),
 	_low_thr(0.0f),
 	_emergency_thr(0.0f)
 {
 	// capture startup time
 	_start_time = hrt_absolute_time();
+
+	if(sens_resistor>0){
+		_sens_resistor=sens_resistor;
+	}
+	if(sens_range==10)
+	{
+		_sens_full_scale = 10;
+		_sens_sample_reg = 0x50;
+	}
+	if(sens_range==20)
+	{
+		_sens_full_scale = 20;
+		_sens_sample_reg = 0x51;
+	}
+	if(sens_range==40)
+	{
+		_sens_full_scale = 40;
+		_sens_sample_reg = 0x52;
+	}
+	if(sens_range==80)
+	{
+		_sens_full_scale = 80;
+		_sens_sample_reg = 0x53;
+	}
 }
 
 BATT_PAC17::~BATT_PAC17()
 {
 	// make sure we are truly inactive
 	stop();
-
-	if (_manufacturer_name != nullptr) {
-		delete[] _manufacturer_name;
-	}
 }
 
 int
@@ -323,10 +326,24 @@ BATT_PAC17::test()
 }
 
 int
+BATT_PAC17::dumpreg()
+{
+
+	for(uint8_t addr = 0;addr<0xff;addr++)
+	{
+		uint8_t reg=0;
+		if (read_reg(addr, reg) == OK) {
+			PX4_INFO("%i=0x%x", addr, reg);
+		}
+		usleep(1);
+	}
+	return 0;
+}
+
+int
 BATT_PAC17::search()
 {
 	bool found_slave = false;
-	uint16_t tmp;
 	int16_t orig_addr = get_device_address();
 	uint8_t reg;
 
@@ -335,10 +352,10 @@ BATT_PAC17::search()
 		set_device_address(i);
 
 		reg = 0;
-		if (read_reg(BATT_PAC17xx_REG_PID, reg) == OK) {
+		if (read_reg(BATT_PAC17_REG_PID, reg) == OK) {
 			if(reg>0){
 				uint8_t manufacturer;
-				if (read_reg(BATT_PAC17xx_REG_MID, manufacturer) == OK) {
+				if (read_reg(BATT_PAC17_REG_MID, manufacturer) == OK) {
 					if(manufacturer==0x5d) //microchip?
 					{
 						if(reg==0x57){
@@ -360,17 +377,6 @@ BATT_PAC17::search()
 				}
 			}
 		}
-
-		// short sleep
-		usleep(1);
-		if (read_reg(BATT_PAC17_VOLTAGE, tmp) == OK) {
-			if (tmp > 0) {
-				dev_id = SMBUS_BATT_DEV_E::BQ40Z50;
-				PX4_INFO("BQ40Z50 found at 0x%x", get_device_address());
-				found_slave = true;
-				break;
-			}
-		}
 		usleep(1);
 
 	}
@@ -378,60 +384,20 @@ BATT_PAC17::search()
 	if (found_slave == false) {
 		// restore original i2c address
 		set_device_address(orig_addr);
+	} else
+	{
+		dumpreg();
 	}
 
 	// display completion message
 	if (found_slave) {
-		PX4_INFO("smart battery connected");
+		PX4_INFO("current monitor connected");
 
 	} else {
-		PX4_INFO("No smart batteries found.");
+		PX4_INFO("No current monitor found.");
 	}
 
 	return OK;
-}
-
-uint8_t
-BATT_PAC17::manufacturer_name(uint8_t *man_name, uint8_t max_length)
-{
-	if(dev_id == BATT_)
-	uint8_t len = read_block(BATT_PAC17_MANUFACTURER_NAME, man_name, max_length, false);
-
-	if (len > 0) {
-		if (len >= max_length - 1) {
-			man_name[max_length - 1] = 0;
-
-		} else {
-			man_name[len] = 0;
-		}
-	}
-
-	return len;
-}
-
-uint16_t
-BATT_PAC17::manufacture_date()
-{
-	uint16_t man_date;
-
-	if (read_reg(BATT_PAC17_MANUFACTURE_DATE, man_date) == OK) {
-		return man_date;
-	}
-
-	// Return 0 if could not read the date correctly
-	return 0;
-}
-
-uint16_t
-BATT_PAC17::serial_number()
-{
-	uint16_t serial_num;
-
-	if (read_reg(BATT_PAC17_SERIAL_NUMBER, serial_num) == OK) {
-		return serial_num;
-	}
-
-	return -1;
 }
 
 int
@@ -446,6 +412,7 @@ BATT_PAC17::start()
 {
 	// schedule a cycle to start things
 	work_queue(HPWORK, &_work, (worker_t)&BATT_PAC17::cycle_trampoline, this, 1);
+
 }
 
 void
@@ -470,49 +437,15 @@ BATT_PAC17::cycle()
 
 	// exit without rescheduling if we have failed to find a battery after 10 seconds
 	if (!_enabled && (now - _start_time > BATT_PAC17_TIMEOUT_US)) {
-		PX4_INFO("did not find smart battery");
+		PX4_INFO("did not find current monitor");
 		return;
 	}
 
-	// Try and get battery SBS info
-	if (_manufacturer_name == nullptr) {
-		char man_name[21];
-		uint8_t len = manufacturer_name((uint8_t *)man_name, sizeof(man_name));
-
-		if (len > 0) {
-			_manufacturer_name = new char[len + 1];
-			strcpy(_manufacturer_name, man_name);
-		}
-	}
-
-	// read battery serial number on startup
-	if (_serial_number == 0) {
-		_serial_number = serial_number();
-	}
 
 	// temporary variable for storing SMBUS reads
-	uint16_t tmp;
+	uint8_t regval_H,regval_L;
+	int result = -1;
 
-	// read battery capacity on startup
-	if (_batt_startup_capacity == 0) {
-		if (read_reg(BATT_PAC17_REMAINING_CAPACITY, tmp) == OK) {
-			_batt_startup_capacity = tmp;
-		}
-	}
-
-	// read battery cycle count on startup
-	if (_cycle_count == 0) {
-		if (read_reg(BATT_PAC17_CYCLE_COUNT, tmp) == OK) {
-			_cycle_count = tmp;
-		}
-	}
-
-	// read battery design capacity on startup
-	if (_batt_capacity == 0) {
-		if (read_reg(BATT_PAC17_FULL_CHARGE_CAPACITY, tmp) == OK) {
-			_batt_capacity = tmp;
-		}
-	}
 
 	// read battery threshold params on startup
 	if (_crit_thr < 0.01f) {
@@ -532,57 +465,43 @@ BATT_PAC17::cycle()
 
 	// set time of reading
 	new_report.timestamp = now;
+//#define BATT_PAC17_CONVERSION_RATE 0x
+//	write_reg(BATT_PAC17_REG_CONVERSION_RATE, BATT_PAC17_CONVERSION_RATE);
+	write_reg(BATT_PAC17_REG_VOLT_SAMPLE_CONF, 0x33); // 8 averages
+	write_reg(BATT_PAC17_REG_SENS1_SAMPLE_CONF, _sens_sample_reg);
+	write_reg(BATT_PAC17_REG_SENS2_SAMPLE_CONF, _sens_sample_reg);
 
-	if (read_reg(BATT_PAC17_VOLTAGE, tmp) == OK) {
+	if (read_reg(BATT_PAC17_REG_VOLT_CH1_H, regval_H) == OK) {
 
-		new_report.connected = true;
+		result = read_reg(BATT_PAC17_REG_VOLT_CH1_L, regval_L);
+
+		new_report.connected =(result== OK);
+
+		uint16_t voltage = (((uint16_t)regval_H)<<3) + (regval_L>>5);
 
 		// convert millivolts to volts
-		new_report.voltage_v = ((float)tmp) / 1000.0f;
-		new_report.voltage_filtered_v = new_report.voltage_v;
+		new_report.voltage_v = ((float)voltage*19.53125f) / 1000.0f;
+		new_report.voltage_filtered_v = new_report.voltage_v*0.1f + _last_report.voltage_v*0.9f;
 
 		// read current
-		if (read_reg(BATT_PAC17_CURRENT, tmp) == OK) {
-			new_report.current_a = ((float)convert_twos_comp(tmp)) / 1000.0f;
-			new_report.current_filtered_a = new_report.current_a;
+		if ((read_reg(BATT_PAC17_REG_SENS_CH1_H, regval_H) == OK) &&
+			(read_reg(BATT_PAC17_REG_SENS_CH1_L, regval_L) == OK) ){
+			int16_t current = (((uint16_t)regval_H)<<4) + (regval_L>>4);
+			new_report.current_a = ((float)_sens_full_scale/_sens_resistor)*(float)current/2047.0f;
+			new_report.current_filtered_a = new_report.current_a*0.1f + _last_report.current_a*0.9f;
 		}
 
-		// read average current
-		if (read_reg(BATT_PAC17_AVERAGE_CURRENT, tmp) == OK) {
-			new_report.average_current_a = ((float)convert_twos_comp(tmp)) / 1000.0f;
-		}
+		new_report.average_current_a = new_report.current_filtered_a;
+		new_report.run_time_to_empty = 0;
+		new_report.average_time_to_empty = 0;
+		_batt_capacity = (uint16_t)0;
+		new_report.remaining = 0;
 
-		// read run time to empty
-		if (read_reg(BATT_PAC17_RUN_TIME_TO_EMPTY, tmp) == OK) {
-			new_report.run_time_to_empty = tmp;
-		}
+		// calculate total discharged amount
+		new_report.discharged_mah = _last_report.discharged_mah + new_report.current_a*BATT_PAC17_MEASUREMENT_INTERVAL_US/1000000.0f;
 
-		// read average time to empty
-		if (read_reg(BATT_PAC17_AVERAGE_TIME_TO_EMPTY, tmp) == OK) {
-			new_report.average_time_to_empty = tmp;
-		}
-
-		// read remaining capacity
-		if (read_reg(BATT_PAC17_REMAINING_CAPACITY, tmp) == OK) {
-
-			if (tmp > _batt_capacity) {
-				PX4_WARN("Remaining Cap greater than total: Cap:%hu RemainingCap:%hu", (uint16_t)_batt_capacity, (uint16_t)tmp);
-				_batt_capacity = (uint16_t)tmp;
-			}
-
-			// Calculate remaining capacity percent with complementary filter
-			new_report.remaining = (float)(_last_report.remaining * 0.8f) + (float)(0.2f * (float)(1.000f - (((
-						       float)_batt_capacity - (float)tmp) / (float)_batt_capacity)));
-
-			// calculate total discharged amount
-			new_report.discharged_mah = (float)((float)_batt_startup_capacity - (float)tmp);
-		}
-
-		// read battery temperature and covert to Celsius
-		if (read_reg(BATT_PAC17_TEMP, tmp) == OK) {
-			new_report.temperature = (float)(((float)tmp / 10.0f) + CONSTANTS_ABSOLUTE_NULL_CELSIUS);
-		}
-
+		new_report.temperature = 0;
+/*
 		//Check if remaining % is out of range
 		if ((new_report.remaining > 1.00f) || (new_report.remaining <= 0.00f)) {
 			new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
@@ -608,10 +527,10 @@ BATT_PAC17::cycle()
 				new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
 			}
 		}
-
+*/
 		new_report.capacity = _batt_capacity;
-		new_report.cycle_count = _cycle_count;
-		new_report.serial_number = _serial_number;
+		new_report.cycle_count = 0;
+		new_report.serial_number = 0;
 
 		// publish to orb
 		if (_batt_topic != nullptr) {
@@ -638,30 +557,6 @@ BATT_PAC17::cycle()
 		   USEC2TICK(BATT_PAC17_MEASUREMENT_INTERVAL_US));
 }
 
-int
-BATT_PAC17::read_reg(uint8_t reg, uint16_t &val)
-{
-	uint8_t buff[3];	// 2 bytes of data
-
-	// read from register
-	int ret = transfer(&reg, 1, buff, 3);
-
-	if (ret == OK) {
-		// check PEC
-		uint8_t pec = get_PEC(reg, true, buff, 2);
-
-		if (pec == buff[2]) {
-			val = (uint16_t)buff[1] << 8 | (uint16_t)buff[0];
-
-		} else {
-			PX4_ERR("BATT_PAC17 PEC Check Failed");
-			ret = ENOTTY;
-		}
-	}
-
-	// return success or failure
-	return ret;
-}
 
 int
 BATT_PAC17::read_reg(uint8_t reg, uint8_t &val)
@@ -672,27 +567,6 @@ BATT_PAC17::read_reg(uint8_t reg, uint8_t &val)
 	int ret = transfer(&reg, 1, buff, 2);
 
 	val = buff[0];
-	// return success or failure
-	return ret;
-}
-
-int
-BATT_PAC17::write_reg(uint8_t reg, uint16_t val)
-{
-	uint8_t buff[4];  // reg + 2 bytes of data + PEC
-
-	buff[0] = reg;
-	buff[2] = uint8_t(val << 8) & 0xff;
-	buff[1] = (uint8_t)val;
-	buff[3] = get_PEC(reg, false, &buff[1],  2); // Append PEC
-
-	// write bytes to register
-	int ret = transfer(buff, 3, nullptr, 0);
-
-	if (ret != OK) {
-		PX4_DEBUG("Register write error");
-	}
-
 	// return success or failure
 	return ret;
 }
@@ -726,7 +600,7 @@ BATT_PAC17::convert_twos_comp(uint16_t val)
 
 	return val;
 }
-
+/*
 uint8_t
 BATT_PAC17::read_block(uint8_t reg, uint8_t *data, uint8_t max_len, bool append_zero)
 {
@@ -791,81 +665,7 @@ BATT_PAC17::write_block(uint8_t reg, uint8_t *data, uint8_t len)
 	// return success
 	return len;
 }
-
-uint8_t
-BATT_PAC17::get_PEC(uint8_t cmd, bool reading, const uint8_t buff[], uint8_t len)
-{
-	// exit immediately if no data
-	if (len <= 0) {
-		return 0;
-	}
-
-	/**
-	 *  Note: The PEC is calculated on all the message bytes. See http://cache.freescale.com/files/32bit/doc/app_note/AN4471.pdf
-	 *  and http://www.ti.com/lit/an/sloa132/sloa132.pdf for more details
-	 */
-
-	// prepare temp buffer for calculating crc
-	uint8_t tmp_buff_len;
-
-	if (reading) {
-		tmp_buff_len = len + 3;
-
-	} else {
-		tmp_buff_len = len + 2;
-	}
-
-	uint8_t tmp_buff[tmp_buff_len];
-	tmp_buff[0] = (uint8_t)get_device_address() << 1;
-	tmp_buff[1] = cmd;
-
-	if (reading) {
-		tmp_buff[2] = tmp_buff[0] | (uint8_t)reading;
-		memcpy(&tmp_buff[3], buff, len);
-
-	} else {
-		memcpy(&tmp_buff[2], buff, len);
-	}
-
-	// initialise crc to zero
-	uint8_t crc = 0;
-	uint8_t shift_reg = 0;
-	bool do_invert;
-
-	// for each byte in the stream
-	for (uint8_t i = 0; i < sizeof(tmp_buff); i++) {
-		// load next data byte into the shift register
-		shift_reg = tmp_buff[i];
-
-		// for each bit in the current byte
-		for (uint8_t j = 0; j < 8; j++) {
-			do_invert = (crc ^ shift_reg) & 0x80;
-			crc <<= 1;
-			shift_reg <<= 1;
-
-			if (do_invert) {
-				crc ^= BATT_PAC17_PEC_POLYNOMIAL;
-			}
-		}
-	}
-
-	// return result
-	return crc;
-}
-
-uint8_t
-BATT_PAC17::ManufacturerAccess(uint16_t cmd)
-{
-	// write bytes to Manufacturer Access
-	int ret = write_reg(BATT_PAC17_MANUFACTURER_ACCESS, cmd);
-
-	if (ret != OK) {
-		PX4_WARN("Manufacturer Access error");
-	}
-
-	return ret;
-}
-
+*/
 ///////////////////////// shell functions ///////////////////////
 
 void
@@ -875,21 +675,25 @@ batt_pac17_usage()
 	PX4_INFO("options:");
 	PX4_INFO("    -b i2cbus (%d)", BATT_PAC17_I2C_BUS);
 	PX4_INFO("    -a addr (0x%x)", BATT_PAC17_ADDR);
+	PX4_INFO("    -r sense resistor (%fmOhm)",(double)BATT_PAC17_SENS_R);
+	PX4_INFO("    -s full range sense voltage (%imV)",BATT_PAC17_SENS_RANGE);
 }
 
 
 
 int
-batt_pac17_main(int argc, char *argv[])
+batt_pac17xx_main(int argc, char *argv[])
 {
 	int i2cdevice = BATT_PAC17_I2C_BUS;
 	int batt_pac17adr = BATT_PAC17_ADDR; // 7bit address
+	float	resistor = 0;
+	int range = 0;
 
 	int myoptind = 1;
 	const char *myoptarg = nullptr;
 
 	int ch;
-	while ((ch = px4_getopt(argc, argv, "a:b:", &myoptind, &myoptarg)) != EOF) {
+	while ((ch = px4_getopt(argc, argv, "a:b:r:s", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
 		case 'a':
 			batt_pac17adr = strtol(myoptarg, nullptr, 0);
@@ -897,7 +701,16 @@ batt_pac17_main(int argc, char *argv[])
 
 		case 'b':
 			i2cdevice = strtol(myoptarg, nullptr, 0);
-			PX4_INFO("bus %i", i2cdevice);
+			break;
+
+		case 's':
+			range = strtol(myoptarg, nullptr, 0);
+			PX4_INFO("range +-%imV", range);
+			break;
+
+		case 'r':
+			resistor = atof(myoptarg);
+			PX4_INFO("resistor %fmOhm", (double)resistor);
 			break;
 
 		default:
@@ -920,7 +733,7 @@ batt_pac17_main(int argc, char *argv[])
 
 		} else {
 			// create new global object
-			g_batt_pac17 = new BATT_PAC17(i2cdevice, batt_pac17adr);
+			g_batt_pac17 = new BATT_PAC17(i2cdevice, batt_pac17adr, resistor, range);
 
 			if (g_batt_pac17 == nullptr) {
 				PX4_ERR("new failed");
