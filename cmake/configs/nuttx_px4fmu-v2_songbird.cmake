@@ -1,13 +1,11 @@
 px4_nuttx_configure(HWCLASS m4 CONFIG nsh ROMFS y ROMFSROOT px4fmu_common IO px4io-v2)
 
-#set(config_uavcan_num_ifaces 2)
-
 set(config_module_list
 	#
 	# Board support modules
 	#
 	#drivers/barometer
-	drivers/differential_pressure
+	drivers/differential_pressure/ms4525
 	#drivers/distance_sensor
 	#drivers/magnetometer
 	#drivers/telemetry
@@ -115,7 +113,7 @@ set(config_module_list
 	#modules/local_position_estimator
 	#modules/position_estimator_inav
 	#modules/landing_target_estimator
-	modules/wind_estimator
+	#modules/wind_estimator
 
 	#
 	# Vehicle Control

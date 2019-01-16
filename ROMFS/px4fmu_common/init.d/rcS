@@ -428,7 +428,7 @@ then
 		else
 		 	if ver hwcmp PX4FMU_V2
 			then
-				gps start -d /dev/ttyS3
+				gps start -d /dev/ttyS6
 			else
 				# /dev/ttyS3 is GPS1
 				# /dev/ttyS6 is GPS2
