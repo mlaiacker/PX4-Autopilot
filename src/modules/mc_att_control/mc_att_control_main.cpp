@@ -103,7 +103,8 @@ MulticopterAttitudeControl::MulticopterAttitudeControl() :
 	_lp_filters_d{
 	{initial_update_rate_hz, 50.f},
 	{initial_update_rate_hz, 50.f},
-	{initial_update_rate_hz, 50.f}} // will be initialized correctly when params are loaded
+	{initial_update_rate_hz, 50.f}}, // will be initialized correctly when params are loaded
+	_tilt_lp_pitch(initial_update_rate_hz,_tilt_lp_freq)
 {
 	for (uint8_t i = 0; i < MAX_GYRO_COUNT; i++) {
 		_sensor_gyro_sub[i] = -1;
@@ -250,6 +251,29 @@ MulticopterAttitudeControl::vehicle_attitude_setpoint_poll()
 
 	if (updated) {
 		orb_copy(ORB_ID(vehicle_attitude_setpoint), _v_att_sp_sub, &_v_att_sp);
+	}
+	/* do pitch control with tilt */
+	Quatf qd(_v_att_sp.q_d);
+	qd.normalize();
+	Eulerf eulerSP(qd); /* TODO: do that in quaternion space */
+	float tilt_angle = _tilt_lp_pitch.apply(eulerSP.theta()); /* filter pitch angle value */
+	_tilt_cmd = 0;
+	if(_vehicle_status.is_vtol && _vehicle_status.system_type == 22) /* VTOL tiltrotor */
+	{
+		if(tilt_angle<0)
+		{
+			if(tilt_angle < -30.0f*M_PI_F/180.0f)
+			{
+				tilt_angle = -30.0f*M_PI_F/180.0f; /* limit tilt angle */
+			}
+			eulerSP.theta() -= tilt_angle; /* remove tilt angle from pitch setpoint */
+			_tilt_cmd = acosf(1.0f-(-tilt_angle)*4/M_PI_F)/M_PI_F; /* nonlinear map from tilt angle to servo angle*/
+			qd = eulerSP; /* back to quaternion */
+			qd.copyTo(_v_att_sp.q_d); /* copy to setpoint to use in control attitude */
+		}else
+		{
+			_tilt_cmd = 0;
+		}
 	}
 }
 
@@ -614,6 +638,7 @@ MulticopterAttitudeControl::run()
 
 	_sensor_correction_sub = orb_subscribe(ORB_ID(sensor_correction));
 	_sensor_bias_sub = orb_subscribe(ORB_ID(sensor_bias));
+	_tilt_cmd = 0;
 
 	/* wakeup source: gyro data from sensor selected by the sensor app */
 	px4_pollfd_struct_t poll_fds = {};
@@ -703,6 +728,7 @@ MulticopterAttitudeControl::run()
 				}
 
 			} else {
+				_tilt_cmd = 0;
 				/* attitude controller disabled, poll rates setpoint topic */
 				if (_v_control_mode.flag_control_manual_enabled) {
 					/* manual rates control - ACRO mode */
@@ -745,6 +771,7 @@ MulticopterAttitudeControl::run()
 				_actuators.control[1] = (PX4_ISFINITE(_att_control(1))) ? _att_control(1) : 0.0f;
 				_actuators.control[2] = (PX4_ISFINITE(_att_control(2))) ? _att_control(2) : 0.0f;
 				_actuators.control[3] = (PX4_ISFINITE(_thrust_sp)) ? _thrust_sp : 0.0f;
+				_actuators.control[4] = (PX4_ISFINITE(_tilt_cmd)) ? _tilt_cmd : 0.0f; /* tilt command from pitch */
 				_actuators.control[7] = _v_att_sp.landing_gear;
 				_actuators.timestamp = hrt_absolute_time();
 				_actuators.timestamp_sample = _sensor_gyro.timestamp;
@@ -822,6 +849,7 @@ MulticopterAttitudeControl::run()
 					_lp_filters_d[0].set_cutoff_frequency(_loop_update_rate_hz, _d_term_cutoff_freq.get());
 					_lp_filters_d[1].set_cutoff_frequency(_loop_update_rate_hz, _d_term_cutoff_freq.get());
 					_lp_filters_d[2].set_cutoff_frequency(_loop_update_rate_hz, _d_term_cutoff_freq.get());
+					_tilt_lp_pitch.set_cutoff_frequency(_loop_update_rate_hz, _tilt_lp_freq);
 				}
 			}
 

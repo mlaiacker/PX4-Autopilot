@@ -41,12 +41,14 @@
 
 #include "tiltrotor.h"
 #include "vtol_att_control_main.h"
+#include <float.h>
 
 #define ARSP_YAW_CTRL_DISABLE 7.0f	// airspeed at which we stop controlling yaw during a front transition
 
 Tiltrotor::Tiltrotor(VtolAttitudeControl *attc) :
 	VtolType(attc),
-	_tilt_control(0.0f)
+	_tilt_control(0.0f),
+	_tilt_yaw_lp_pitch(250,_tilt_yaw_lp_freq)
 {
 	_vtol_schedule.flight_mode = MC_MODE;
 	_vtol_schedule.transition_start = 0;
@@ -54,6 +56,7 @@ Tiltrotor::Tiltrotor(VtolAttitudeControl *attc) :
 	_mc_roll_weight = 1.0f;
 	_mc_pitch_weight = 1.0f;
 	_mc_yaw_weight = 1.0f;
+	_mc_throttle_weight = 1.0f;
 
 	_flag_was_in_trans_mode = false;
 
@@ -223,6 +226,13 @@ void Tiltrotor::update_fw_state()
 	_tilt_control = _params_tiltrotor.tilt_fw;
 }
 
+float Tiltrotor::back_transition_spin_up_curve(float x)
+{
+	float p = 6;
+	x = math::constrain(x, 0.0f, 1.0f);
+	return (atanf(M_PI_F*p)-atanf((1.0f-x)*M_PI_F*p))/atanf(M_PI_F*p);
+}
+
 void Tiltrotor::update_transition_state()
 {
 	VtolType::update_transition_state();
@@ -251,6 +261,7 @@ void Tiltrotor::update_transition_state()
 		// at low speeds give full weight to MC
 		_mc_roll_weight = 1.0f;
 		_mc_yaw_weight = 1.0f;
+		_mc_throttle_weight = 1.0f;
 
 		// reduce MC controls once the plane has picked up speed
 		if (!_params->airspeed_disabled && _airspeed->indicated_airspeed_m_s > ARSP_YAW_CTRL_DISABLE) {
@@ -308,10 +319,22 @@ void Tiltrotor::update_transition_state()
 					fabsf(_params_tiltrotor.tilt_fw - _params_tiltrotor.tilt_mc) * time_since_trans_start / _params->back_trans_duration;
 		}
 
-		// set zero throttle for backtransition otherwise unwanted moments will be created
-		_actuators_mc_in->control[actuator_controls_s::INDEX_THROTTLE] = 0.0f;
 
-		_mc_roll_weight = 0.0f;
+
+		float mc_weight = 0.0f;
+		if(_params->back_trans_duration > FLT_EPSILON)
+		{
+			mc_weight = time_since_trans_start / _params->back_trans_duration;
+		}
+		/* set zero throttle for backtransition otherwise unwanted moments will be created
+		 * spin up motors slowly at beginning of transition and bring them up to mc mode at the end
+		 * so there is no step after going into MC mode
+		 * */
+		_mc_throttle_weight = back_transition_spin_up_curve(mc_weight);
+
+		_mc_roll_weight = mc_weight;
+		_mc_pitch_weight = mc_weight;
+		_mc_yaw_weight = mc_weight;
 
 	}
 
@@ -333,6 +356,7 @@ void Tiltrotor::waiting_on_tecs()
 */
 void Tiltrotor::fill_actuator_outputs()
 {
+	float tilt_pitch = 0;
 	_actuators_out_0->timestamp = hrt_absolute_time();
 	_actuators_out_0->timestamp_sample = _actuators_mc_in->timestamp_sample;
 
@@ -342,6 +366,8 @@ void Tiltrotor::fill_actuator_outputs()
 		_actuators_mc_in->control[actuator_controls_s::INDEX_PITCH] * _mc_pitch_weight;
 	_actuators_out_0->control[actuator_controls_s::INDEX_YAW] = _actuators_mc_in->control[actuator_controls_s::INDEX_YAW] *
 			_mc_yaw_weight;
+	/* filter yaw control to use for differential tilt */
+	_actuators_out_0->control[actuator_controls_s::INDEX_AIRBRAKES] = _tilt_yaw_lp_pitch.apply(_actuators_out_0->control[actuator_controls_s::INDEX_YAW]);
 
 	if (_vtol_schedule.flight_mode == FW_MODE) {
 		_actuators_out_0->control[actuator_controls_s::INDEX_THROTTLE] =
@@ -355,7 +381,8 @@ void Tiltrotor::fill_actuator_outputs()
 
 	} else {
 		_actuators_out_0->control[actuator_controls_s::INDEX_THROTTLE] =
-			_actuators_mc_in->control[actuator_controls_s::INDEX_THROTTLE];
+			_actuators_mc_in->control[actuator_controls_s::INDEX_THROTTLE]*_mc_throttle_weight;
+		tilt_pitch = (PX4_ISFINITE(_actuators_mc_in->control[4])) ? _actuators_mc_in->control[4] : 0.0f; /* use output of  mc_att control for _tilt based on pitch cmd*/
 	}
 
 	_actuators_out_1->timestamp = hrt_absolute_time();
@@ -367,5 +394,5 @@ void Tiltrotor::fill_actuator_outputs()
 		(_actuators_fw_in->control[actuator_controls_s::INDEX_PITCH]);
 	_actuators_out_1->control[actuator_controls_s::INDEX_YAW] =
 		_actuators_fw_in->control[actuator_controls_s::INDEX_YAW];	// yaw
-	_actuators_out_1->control[4] = _tilt_control;
+	_actuators_out_1->control[4] = _tilt_control + tilt_pitch;
 }
