@@ -61,9 +61,9 @@
 #define BATT_PAC17_ADDR_MAX             0xFF	///< highest possible address
 
 #define BATT_PAC17_MEASUREMENT_INTERVAL_US	(1000000 / 10)	///< time in microseconds, measure at 10Hz
-#define BATT_PAC17_TIMEOUT_US			10000000	///< timeout looking for battery 10seconds after startup
-#define BATT_PAC17_SENS_RANGE			80   // mV
-#define BATT_PAC17_SENS_R				0.1f // mOhm
+#define BATT_PAC17_TIMEOUT_US			(10000000)	///< timeout looking for battery 10seconds after startup
+#define BATT_PAC17_SENS_RANGE			(80)   // mV
+#define BATT_PAC17_SENS_R				(0.1f) // mOhm
 
 #ifndef CONFIG_SCHED_WORKQUEUE
 # error This requires CONFIG_SCHED_WORKQUEUE.
@@ -384,9 +384,6 @@ BATT_PAC17::search()
 	if (found_slave == false) {
 		// restore original i2c address
 		set_device_address(orig_addr);
-	} else
-	{
-		dumpreg();
 	}
 
 	// display completion message
@@ -462,6 +459,7 @@ BATT_PAC17::cycle()
 
 	// read data from sensor
 	battery_status_s new_report = {};
+	memset(&new_report,0,sizeof(new_report));
 
 	// set time of reading
 	new_report.timestamp = now;
@@ -474,24 +472,23 @@ BATT_PAC17::cycle()
 	if (read_reg(BATT_PAC17_REG_VOLT_CH1_H, regval_H) == OK) {
 
 		result = read_reg(BATT_PAC17_REG_VOLT_CH1_L, regval_L);
-
 		new_report.connected =(result== OK);
 
 		uint16_t voltage = (((uint16_t)regval_H)<<3) + (regval_L>>5);
 
 		// convert millivolts to volts
 		new_report.voltage_v = ((float)voltage*19.53125f) / 1000.0f;
-		new_report.voltage_filtered_v = new_report.voltage_v*0.1f + _last_report.voltage_v*0.9f;
+		new_report.voltage_filtered_v = new_report.voltage_v*0.1f + _last_report.voltage_filtered_v*0.9f;
 
 		// read current
 		if ((read_reg(BATT_PAC17_REG_SENS_CH1_H, regval_H) == OK) &&
 			(read_reg(BATT_PAC17_REG_SENS_CH1_L, regval_L) == OK) ){
 			int16_t current = (((uint16_t)regval_H)<<4) + (regval_L>>4);
 			new_report.current_a = ((float)_sens_full_scale/_sens_resistor)*(float)current/2047.0f;
-			new_report.current_filtered_a = new_report.current_a*0.1f + _last_report.current_a*0.9f;
+			new_report.current_filtered_a = new_report.current_a*0.1f + _last_report.current_filtered_a*0.9f;
 		}
 
-		new_report.average_current_a = new_report.current_filtered_a;
+		new_report.average_current_a = new_report.current_filtered_a*0.1f+ _last_report.average_current_a*0.9f;
 		new_report.run_time_to_empty = 0;
 		new_report.average_time_to_empty = 0;
 		_batt_capacity = (uint16_t)0;
@@ -500,7 +497,24 @@ BATT_PAC17::cycle()
 		// calculate total discharged amount
 		new_report.discharged_mah = _last_report.discharged_mah + new_report.current_a*BATT_PAC17_MEASUREMENT_INTERVAL_US/1000000.0f;
 
-		new_report.temperature = 0;
+		result  = read_reg(BATT_PAC17_REG_VOLT_CH2_H, regval_H) == OK;
+		result &= read_reg(BATT_PAC17_REG_VOLT_CH2_L, regval_L) == OK;
+		if(result)
+		{
+			uint16_t voltage2 = (((uint16_t)regval_H)<<3) + (regval_L>>5);
+			// convert millivolts to volts
+			new_report.temperature = ((float)voltage2*19.53125f) / 1000.0f;
+
+			if(voltage2>10 && voltage>10)
+			{
+				new_report.warning = battery_status_s::BATTERY_WARNING_NONE;
+				if((float)fabs((float)voltage - (float)voltage2) > ((voltage+voltage2)*0.5f)/5.0f )
+				{
+					new_report.warning = battery_status_s::BATTERY_WARNING_FAILED; // difference too high
+				}
+			}
+		}
+
 /*
 		//Check if remaining % is out of range
 		if ((new_report.remaining > 1.00f) || (new_report.remaining <= 0.00f)) {
@@ -550,6 +564,14 @@ BATT_PAC17::cycle()
 
 		// record we are working
 		_enabled = true;
+	} else {
+		if (_last_report.connected)
+		{
+			_last_report.connected=0;
+			if (_batt_topic != nullptr) {
+				orb_publish(_batt_orb_id, _batt_topic, &_last_report); // report lost connection to battery
+			}
+		}
 	}
 
 	// schedule a fresh cycle call when the measurement is done
@@ -675,8 +697,8 @@ batt_pac17_usage()
 	PX4_INFO("options:");
 	PX4_INFO("    -b i2cbus (%d)", BATT_PAC17_I2C_BUS);
 	PX4_INFO("    -a addr (0x%x)", BATT_PAC17_ADDR);
-	PX4_INFO("    -r sense resistor (%fmOhm)",(double)BATT_PAC17_SENS_R);
-	PX4_INFO("    -s full range sense voltage (%imV)",BATT_PAC17_SENS_RANGE);
+	PX4_INFO("    -r sense resistor (%.2fmOhm)",(double)BATT_PAC17_SENS_R);
+	PX4_INFO("    -s full range sense voltage (%imV) 10,20,40,80",BATT_PAC17_SENS_RANGE);
 }
 
 
@@ -693,7 +715,7 @@ batt_pac17xx_main(int argc, char *argv[])
 	const char *myoptarg = nullptr;
 
 	int ch;
-	while ((ch = px4_getopt(argc, argv, "a:b:r:s", &myoptind, &myoptarg)) != EOF) {
+	while ((ch = px4_getopt(argc, argv, "a:b:r:s:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
 		case 'a':
 			batt_pac17adr = strtol(myoptarg, nullptr, 0);
@@ -771,6 +793,7 @@ batt_pac17xx_main(int argc, char *argv[])
 
 	if (!strcmp(verb, "search")) {
 		g_batt_pac17->search();
+		g_batt_pac17->dumpreg();
 		return 0;
 	}
 
