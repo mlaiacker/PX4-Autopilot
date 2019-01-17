@@ -56,13 +56,13 @@
  * @return indicated airspeed in m/s
  */
 float calc_indicated_airspeed_corrected(enum AIRSPEED_COMPENSATION_MODEL pmodel, enum AIRSPEED_SENSOR_MODEL smodel,
-					float tube_len, float tube_dia_mm, float differential_pressure, float pressure_ambient, float temperature_celsius)
+					float tube_len, float tube_dia_mm, float differential_pressure, float pressure_ambient, float temperature_celsius, float diff_press_gain)
 {
 
 	// air density in kg/m3
 	const float rho_air = get_air_density(pressure_ambient, temperature_celsius);
 
-	const float dp = fabsf(differential_pressure);
+	const float dp = fabsf(diff_press_gain * differential_pressure);
 	float dp_tot = dp;
 
 	float dv = 0.0f;
