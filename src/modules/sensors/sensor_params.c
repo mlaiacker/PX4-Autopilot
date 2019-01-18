@@ -91,6 +91,9 @@ PARAM_DEFINE_FLOAT(CAL_AIR_TUBED_MM, 1.5f);
  */
 PARAM_DEFINE_FLOAT(SENS_DPRES_OFF, 0.0f);
 
+/*Differential pressure gain for compensation*/
+PARAM_DEFINE_FLOAT(DP_GAIN, 1.0f);
+
 /**
  * Differential pressure sensor analog scaling
  *
