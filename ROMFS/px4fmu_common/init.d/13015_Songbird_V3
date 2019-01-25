@@ -21,6 +21,7 @@
 # @output AUX6 Camera Trigger
 #
 
+
 sh /etc/init.d/rc.vtol_defaults
 
 if [ $AUTOCNF == yes ]
@@ -76,4 +77,6 @@ set PWM_AUX_DISARMED 950
 set MAV_TYPE 22
 
 # unisens on TEL2
-uart_unisens start -d /dev/ttyS2
+#uart_unisens start -d /dev/ttyS2
+#batt_pac on I2C bus 2 
+batt_pac17xx start -b 2 -r 0.2 -s 40

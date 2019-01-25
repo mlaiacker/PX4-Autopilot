@@ -128,6 +128,7 @@ public:
 
 	int			dumpreg();
 
+	bool		identify();
 
 protected:
 	/**
@@ -157,6 +158,7 @@ private:
 	 */
 	void			cycle();
 
+	bool			try_read_data(battery_status_s &new_report, uint64_t now);
 	/**
 	 * Read a word from specified register
 	 */
@@ -186,7 +188,7 @@ private:
 	uint8_t			write_block(uint8_t reg, uint8_t *data, uint8_t len);
 
 
-	void vehicle_control_mode_poll();
+	void 			vehicle_control_mode_poll();
 
 	// internal variables
 	bool			_enabled;	///< true if we have successfully connected to battery
@@ -194,7 +196,7 @@ private:
 
 	battery_status_s _last_report;	///< last published report, used for test()
 	float			_discharged_mah;
-	float			_average_current_a;
+	float			_current_a_filtered;
 	float			_voltage_v;
 	float			_current_a;
 	float			_voltage2; 	///< for pac1720
@@ -209,7 +211,7 @@ private:
 
 	uint64_t		_start_time;	///< system time we first attempt to communicate with battery
 	uint16_t		_sens_full_scale; ///< current sense full range voltage 10,20,40,80 mV
-	uint8_t			_sens_sample_reg; ///< sample scale reidter value
+	uint8_t			_sens_sample_reg; ///< sample scale register value
 	float			_sens_resistor;	///< current sense resistor value in mOhm
 	enum SMBUS_BATT_DEV_E
 	{
@@ -218,7 +220,7 @@ private:
 		PAC1710,
 		PAC1720,
 	};
-	SMBUS_BATT_DEV_E			dev_id;	// 0 = BQ40Z50, 1 = PAC1710, 2=PAC1720
+	SMBUS_BATT_DEV_E			_dev_id;	// 0 = BQ40Z50, 1 = PAC1710, 2=PAC1720
 	Battery				_battery;			/**< Helper lib to publish battery_status topic. */
 };
 
@@ -270,6 +272,9 @@ BATT_PAC17::BATT_PAC17(int bus, uint16_t batt_pac17_addr, float sens_resistor, u
 		_sens_full_scale = 80;
 		_sens_sample_reg = 0x53;
 	}
+	_current_a_filtered = 0.0f;
+	_current_a = 0.0f;
+	_dev_id = SMBUS_BATT_DEV_E::NONE;
 }
 
 BATT_PAC17::~BATT_PAC17()
@@ -298,8 +303,8 @@ BATT_PAC17::init()
 
 	} else {
 		//Find the battery on the bus
-		search();
-
+		//search();
+		identify();
 		// start work queue
 		start();
 	}
@@ -357,42 +362,49 @@ BATT_PAC17::dumpreg()
 	return 0;
 }
 
+bool
+BATT_PAC17::identify()
+{
+	uint8_t reg=0;
+	if (read_reg(BATT_PAC17_REG_PID, reg) == OK) {
+		if(reg>0){
+			uint8_t manufacturer=0;
+			if (read_reg(BATT_PAC17_REG_MID, manufacturer) == OK) {
+				if(manufacturer==0x5d) //microchip?
+				{
+					if(reg==0x57){
+						_dev_id = SMBUS_BATT_DEV_E::PAC1720;
+						PX4_INFO("PAC1720 found at 0x%x", get_device_address());
+						return true;
+					}
+					if(reg==0x58){
+						_dev_id = SMBUS_BATT_DEV_E::PAC1710;
+						PX4_INFO("PAC1710 found at 0x%x", get_device_address());
+						return true;
+					}
+				}
+			}
+		} else
+		{
+			PX4_INFO("dev found at 0x%x PID=0x%x", get_device_address(), reg);
+		}
+	}
+	return false;
+}
+
 int
 BATT_PAC17::search()
 {
 	bool found_slave = false;
 	int16_t orig_addr = get_device_address();
-	uint8_t reg;
 
 	// search through all valid SMBus addresses
 	for (uint8_t i = BATT_PAC17_ADDR_MIN; i < BATT_PAC17_ADDR_MAX; i++) {
 		set_device_address(i);
-
-		reg = 0;
-		if (read_reg(BATT_PAC17_REG_PID, reg) == OK) {
-			if(reg>0){
-				uint8_t manufacturer;
-				if (read_reg(BATT_PAC17_REG_MID, manufacturer) == OK) {
-					if(manufacturer==0x5d) //microchip?
-					{
-						if(reg==0x57){
-							dev_id = SMBUS_BATT_DEV_E::PAC1720;
-							found_slave = true;
-							PX4_INFO("PAC1720 found at 0x%x", get_device_address());
-							break;
-						}
-						if(reg==0x58){
-							dev_id = SMBUS_BATT_DEV_E::PAC1710;
-							found_slave = true;
-							PX4_INFO("PAC1710 found at 0x%x", get_device_address());
-							break;
-						}
-					}
-				} else
-				{
-					PX4_INFO("dev found at 0x%x PID=0x%x", get_device_address(), reg);
-				}
-			}
+		if(identify())
+		{
+			found_slave = true;
+			break;
 		}
 		usleep(1);
 
@@ -442,37 +454,23 @@ BATT_PAC17::cycle_trampoline(void *arg)
 
 	dev->cycle();
 }
-
-void
-BATT_PAC17::cycle()
-{
-	// get current time
-	uint64_t now = hrt_absolute_time();
-
-	// exit without rescheduling if we have failed to find a battery after 10 seconds
-	if (!_enabled && (now - _start_time > BATT_PAC17_TIMEOUT_US)) {
-		PX4_INFO("did not find current monitor");
-		return;
-	}
-
-
+bool
+BATT_PAC17::try_read_data(battery_status_s &new_report, uint64_t now){
 	// temporary variable for storing SMBUS reads
 	uint8_t regval_H,regval_L;
 	int result = -1;
 
-	// read data from sensor
-	battery_status_s new_report = {};
-	memset(&new_report,0,sizeof(new_report));
 
-	// set time of reading
-	new_report.timestamp = now;
 //#define BATT_PAC17_CONVERSION_RATE 0x
 //	write_reg(BATT_PAC17_REG_CONVERSION_RATE, BATT_PAC17_CONVERSION_RATE);
-	write_reg(BATT_PAC17_REG_VOLT_SAMPLE_CONF, 0x33); // 8 averages
-	write_reg(BATT_PAC17_REG_SENS1_SAMPLE_CONF, _sens_sample_reg);
-	if(dev_id == SMBUS_BATT_DEV_E::PAC1720) write_reg(BATT_PAC17_REG_SENS2_SAMPLE_CONF, _sens_sample_reg);
+	write_reg(BATT_PAC17_REG_VOLT_SAMPLE_CONF, 0x88);
+	write_reg(BATT_PAC17_REG_SENS1_SAMPLE_CONF, _sens_sample_reg); // first channel range (10-80mV)
+	if(_dev_id == SMBUS_BATT_DEV_E::PAC1720) write_reg(BATT_PAC17_REG_SENS2_SAMPLE_CONF, _sens_sample_reg); // second channel range
 
 	if (read_reg(BATT_PAC17_REG_VOLT_CH1_H, regval_H) == OK) {
+		// read data from sensor
+		memset(&new_report,0,sizeof(new_report));
+		new_report.timestamp = now;
 
 		result = read_reg(BATT_PAC17_REG_VOLT_CH1_L, regval_L);
 
@@ -488,10 +486,8 @@ BATT_PAC17::cycle()
 			(read_reg(BATT_PAC17_REG_SENS_CH1_L, regval_L) == OK) ){
 			int16_t current = (((uint16_t)regval_H)<<4) + (regval_L>>4);
 			_current_a = ((float)_sens_full_scale/_sens_resistor)*(float)current/2047.0f;
-			//new_report.current_filtered_a = new_report.current_a*0.1f + _last_report.current_filtered_a*0.9f;
+			_current_a_filtered = _current_a*0.2f + _current_a_filtered*0.8f;
 		}
-
-		_average_current_a = _average_current_a*0.1f+ _last_report.average_current_a*0.9f;
 
 		// calculate total discharged amount
 		_discharged_mah = _discharged_mah + _current_a*BATT_PAC17_MEASUREMENT_INTERVAL_US/1000000.0f;
@@ -503,8 +499,10 @@ BATT_PAC17::cycle()
 				_voltage_v>2.0f, true , 0,
 				ctrl.control[actuator_controls_s::INDEX_THROTTLE],
 				_armed, &new_report);
+		new_report.average_current_a = new_report.current_filtered_a;
+		new_report.current_filtered_a = _current_a_filtered;
 
-		if(dev_id == SMBUS_BATT_DEV_E::PAC1720)
+		if(_dev_id == SMBUS_BATT_DEV_E::PAC1720)
 		{
 			result  = read_reg(BATT_PAC17_REG_VOLT_CH2_H, regval_H) == OK;
 			result &= read_reg(BATT_PAC17_REG_VOLT_CH2_L, regval_L) == OK;
@@ -517,7 +515,7 @@ BATT_PAC17::cycle()
 
 				if(voltage2>10 && voltage>10)
 				{
-					if((float)fabs((float)voltage/2 - (float)voltage2) > (voltage*0.5f)/5.0f )
+					if((float)fabs((float)voltage/2 - (float)voltage2) > (voltage2/5.0f) )
 					{
 						new_report.warning = battery_status_s::BATTERY_WARNING_FAILED; // difference too high
 					}
@@ -525,56 +523,81 @@ BATT_PAC17::cycle()
 			}
 		}
 
-/*
-		//Check if remaining % is out of range
-		if ((new_report.remaining > 1.00f) || (new_report.remaining <= 0.00f)) {
-			new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
-		}
+		return true;
+	}
+	return false;
+}
 
-		//Check if discharged amount is greater than the starting capacity
-		else if (new_report.discharged_mah > (float)_batt_startup_capacity) {
-			new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
-		}
+void
+BATT_PAC17::cycle()
+{
+	// get current time
+	uint64_t now = hrt_absolute_time();
 
-		// propagate warning state
-		else {
-			if (new_report.remaining > _low_thr) {
-				new_report.warning = battery_status_s::BATTERY_WARNING_NONE;
-
-			} else if (new_report.remaining > _crit_thr) {
-				new_report.warning = battery_status_s::BATTERY_WARNING_LOW;
-
-			} else if (new_report.remaining > _emergency_thr) {
-				new_report.warning = battery_status_s::BATTERY_WARNING_CRITICAL;
-
-			} else {
-				new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
-			}
-		}
+	/*
+	// exit without rescheduling if we have failed to find a battery after 10 seconds
+	if (!_enabled && (now - _start_time > BATT_PAC17_TIMEOUT_US)) {
+		PX4_INFO("did not find current monitor");
+		return;
+	}
 */
-		// publish to orb
-		if (_batt_topic != nullptr) {
-			orb_publish(_batt_orb_id, _batt_topic, &new_report);
-		} else {
-			_batt_topic = orb_advertise(_batt_orb_id, &new_report);
+	if(_dev_id==SMBUS_BATT_DEV_E::NONE)
+	{
+		identify();
+	}
 
-			if (_batt_topic == nullptr) {
-				PX4_ERR("ADVERT FAIL");
-				return;
-			}
-		}
+	if(_dev_id!=SMBUS_BATT_DEV_E::NONE)
+	{
+		battery_status_s new_report = {};
+		if(try_read_data(new_report, now)){
+			/*
+					//Check if remaining % is out of range
+					if ((new_report.remaining > 1.00f) || (new_report.remaining <= 0.00f)) {
+						new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
+					}
 
-		// copy report for test()
-		_last_report = new_report;
+					//Check if discharged amount is greater than the starting capacity
+					else if (new_report.discharged_mah > (float)_batt_startup_capacity) {
+						new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
+					}
 
-		// record we are working
-		_enabled = true;
-	} else {
-		if (_last_report.connected)
-		{
-			_last_report.connected=0;
+					// propagate warning state
+					else {
+						if (new_report.remaining > _low_thr) {
+							new_report.warning = battery_status_s::BATTERY_WARNING_NONE;
+
+						} else if (new_report.remaining > _crit_thr) {
+							new_report.warning = battery_status_s::BATTERY_WARNING_LOW;
+
+						} else if (new_report.remaining > _emergency_thr) {
+							new_report.warning = battery_status_s::BATTERY_WARNING_CRITICAL;
+
+						} else {
+							new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
+						}
+					}
+			*/
+
+			// publish to orb
 			if (_batt_topic != nullptr) {
-				orb_publish(_batt_orb_id, _batt_topic, &_last_report); // report lost connection to battery
+				orb_publish(_batt_orb_id, _batt_topic, &new_report);
+			} else {
+				_batt_topic = orb_advertise(_batt_orb_id, &new_report);
+				if (_batt_topic == nullptr) {
+					PX4_ERR("ADVERT FAIL");
+				}
+			}
+			// copy report for test()
+			_last_report = new_report;
+			// record we are working
+			_enabled = true;
+		} else {
+			if (_last_report.connected)
+			{
+				_last_report.connected=0;
+				if (_batt_topic != nullptr) {
+					orb_publish(_batt_orb_id, _batt_topic, &_last_report); // report lost connection to battery
+				}
 			}
 		}
 	}
@@ -810,8 +833,10 @@ batt_pac17xx_main(int argc, char *argv[])
 	}
 
 	if (!strcmp(verb, "search")) {
-		g_batt_pac17->search();
-		g_batt_pac17->dumpreg();
+		if(g_batt_pac17->search()==OK)
+		{
+			g_batt_pac17->dumpreg();
+		}
 		return 0;
 	}
 
