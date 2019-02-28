@@ -2519,11 +2519,11 @@ protected:
 	{
 		actuator_outputs_s act;
 
-		if (_act_sub->update(&_act_time, &act)) {
+		if (_act_sub->update(&_act_time, &act) || true) {
 			vehicle_status_s status = {};
 			_status_sub->update(&status);
 
-			if ((status.timestamp > 0) && (status.arming_state == vehicle_status_s::ARMING_STATE_ARMED)) {
+			if ((status.timestamp > 0) /*&& (status.arming_state == vehicle_status_s::ARMING_STATE_ARMED)*/) {
 				/* translate the current system state to mavlink state and mode */
 				uint8_t mavlink_state;
 				uint8_t mavlink_base_mode;
@@ -2566,7 +2566,7 @@ protected:
 						break;
 
 					case MAV_TYPE_VTOL_RESERVED2:
-						n = 8;
+						n = 4;
 						break;
 
 					default:
