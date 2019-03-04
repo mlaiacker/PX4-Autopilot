@@ -1910,9 +1910,9 @@ MavlinkReceiver::handle_message_hil_sensor(mavlink_message_t *msg)
 	uint64_t timestamp = hrt_absolute_time();
 
 	/* airspeed */
+	if(fabsf(imu.diff_pressure)>0.0f || fabsf(imu.abs_pressure)>0.0f) /* only do an update if valid data */
 	{
 		struct airspeed_s airspeed = {};
-
 		float ias = calc_indicated_airspeed(imu.diff_pressure * 1e2f);
 		float tas = calc_true_airspeed_from_indicated(ias, imu.abs_pressure * 100, imu.temperature);
 
@@ -1971,7 +1971,7 @@ MavlinkReceiver::handle_message_hil_sensor(mavlink_message_t *msg)
 	}
 
 	/* magnetometer */
-	{
+	if(fabsf(imu.xmag)>0.0f || fabsf(imu.ymag)>0.0f || fabsf(imu.zmag)>0.0f){
 		struct mag_report mag = {};
 
 		mag.timestamp = timestamp;
@@ -1992,6 +1992,7 @@ MavlinkReceiver::handle_message_hil_sensor(mavlink_message_t *msg)
 	}
 
 	/* baro */
+	if(imu.abs_pressure>0) /* only do an update if valid data */
 	{
 		struct baro_report baro = {};
 
