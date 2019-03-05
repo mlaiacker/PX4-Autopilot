@@ -63,7 +63,7 @@
 #define BATT_PAC17_ADDR_MIN             0x00	///< lowest possible address
 #define BATT_PAC17_ADDR_MAX             0xFF	///< highest possible address
 
-#define BATT_PAC17_MEASUREMENT_INTERVAL_US	(1000000 / 10)	///< time in microseconds, measure at 10Hz
+#define BATT_PAC17_MEASUREMENT_INTERVAL_US	(100000)	///< time in microseconds, measure at 10Hz
 #define BATT_PAC17_TIMEOUT_US			(10000000)	///< timeout looking for battery 10seconds after startup
 #define BATT_PAC17_SENS_RANGE			(80)   // mV
 #define BATT_PAC17_SENS_R				(0.1f) // mOhm
@@ -73,7 +73,7 @@
 #endif
 
 #define BATT_PAC17_ADDR			0x4c //default 0x98 in 8 bit
-#define BATT_PAC17_I2C_BUS		2
+#define BATT_PAC17_I2C_BUS		1
 
 
 #define BATT_PAC17_REG_CONFIG			0x00
@@ -252,15 +252,16 @@ BATT_PAC17::BATT_PAC17(int bus, uint16_t batt_pac17_addr, float sens_resistor, u
 	if(sens_resistor>0){
 		_sens_resistor=sens_resistor;
 	}
+	// 0x5x = sign + 11 bits resolution
 	if(sens_range==10)
 	{
 		_sens_full_scale = 10;
-		_sens_sample_reg = 0x50;
+		_sens_sample_reg = 0x50; // 0101 0000
 	}
 	if(sens_range==20)
 	{
 		_sens_full_scale = 20;
-		_sens_sample_reg = 0x51;
+		_sens_sample_reg = 0x51; // 0101 0001
 	}
 	if(sens_range==40)
 	{
@@ -474,7 +475,7 @@ BATT_PAC17::try_read_data(battery_status_s &new_report, uint64_t now){
 
 		result = read_reg(BATT_PAC17_REG_VOLT_CH1_L, regval_L);
 
-		uint16_t voltage = (((uint16_t)regval_H)<<3) + (regval_L>>5);
+		uint16_t voltage = (((uint16_t)regval_H)<<3) | ((uint16_t)regval_L>>5);
 
 		// convert millivolts to volts
 		_voltage_v = ((float)voltage*19.53125f) / 1000.0f;
@@ -484,8 +485,15 @@ BATT_PAC17::try_read_data(battery_status_s &new_report, uint64_t now){
 		// read current
 		if ((read_reg(BATT_PAC17_REG_SENS_CH1_H, regval_H) == OK) &&
 			(read_reg(BATT_PAC17_REG_SENS_CH1_L, regval_L) == OK) ){
-			int16_t current = (((uint16_t)regval_H)<<4) + (regval_L>>4);
-			_current_a = ((float)_sens_full_scale/_sens_resistor)*(float)current/2047.0f;
+			int16_t current = 0;
+			if(regval_H&0x80) // sing bit
+			{ // negative
+				current = 0xf000 | (((int16_t)regval_H)<<4) | ((int16_t)regval_L>>4);
+			} else
+			{
+				current = (((int16_t)regval_H)<<4) | ((int16_t)regval_L>>4);
+			}
+			_current_a = ((float)_sens_full_scale/_sens_resistor)*((float)current)/2047.0f;
 			_current_a_filtered = _current_a*0.2f + _current_a_filtered*0.8f;
 		}
 
