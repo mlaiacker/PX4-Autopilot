@@ -374,8 +374,9 @@ void GDPayload::run()
 				}
 				_battery_status.timestamp = hrt_absolute_time();
 				_battery_status.connected = connected;
-				_battery_status.temperature = 0;
+				_battery_status.temperature = INT16_MAX;
 				_battery_status.voltage_v = _voltage_v;
+				_battery_status.cell_count = 8;
 				_battery_status.current_a = _current_a;
 				_battery_status.voltage_filtered_v = _battery_status.voltage_filtered_v*0.8f + _voltage_v*0.2f; /* override filtered value */
 				_battery_status.current_filtered_a = _battery_status.current_filtered_a*0.8f + _current_a*0.2f;
@@ -392,7 +393,7 @@ void GDPayload::run()
 		usleep(100000);
 		if(hrt_elapsed_time(&second_timer)>=10e6) /* every 10 seconds*/
 		{
-			_rate = n; /* update rate is only once per second */
+			_rate = n/10; /* update rate in Hz */
 			second_timer += 10e6;
 			if(n==0 && _timeout==0)
 			{
