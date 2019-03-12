@@ -263,7 +263,7 @@ void GDPayload::parameters_update(int parameter_update_sub, bool force)
 		} else if (_parameters.battery_v_div <= 0.0f) {
 			/* apply scaling according to defaults if set to default */
 
-			_parameters.battery_v_div = 15.468f;
+			_parameters.battery_v_div = 15.468f; /* 68k and 4k7 ohm voltage divider */
 			param_set_no_notification(_parameters_handles.battery_v_div, &_parameters.battery_v_div);
 		}
 
@@ -274,7 +274,7 @@ void GDPayload::parameters_update(int parameter_update_sub, bool force)
 		} else if (_parameters.battery_a_per_v <= 0.0f) {
 			/* apply scaling according to defaults if set to default */
 
-			_parameters.battery_a_per_v = 1.0f;
+			_parameters.battery_a_per_v = 1.0f; /* 1V=1A */
 			param_set_no_notification(_parameters_handles.battery_a_per_v, &_parameters.battery_a_per_v);
 		}
 	}
