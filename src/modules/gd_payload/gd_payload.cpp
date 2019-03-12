@@ -214,17 +214,18 @@ _pub_battery(nullptr)
 
 	_debug_flag = debug_flag;
 	memset(&_battery_status,0,sizeof(_battery_status));
-	_used_mAh = 0;
+	memset(&_buf_adc,0,sizeof(_buf_adc));
+	_used_mAh = 0.0f;
+	_voltage_v = 0.0f;
+	_current_a = 0.0f;
 }
 
 bool GDPayload::init()
 {
 	bool result = true;
+
 	DriverFramework::DevMgr::getHandle(ADC0_DEVICE_PATH, _h_adc);
 
-	if (!_h_adc.isValid()) {
-		PX4_ERR("no ADC found: %s (%d)", ADC0_DEVICE_PATH, _h_adc.getError());
-	}
 	_parameters_handles.battery_v_div = param_find("BAT_V_DIV");
 	_parameters_handles.battery_a_per_v = param_find("BAT_A_PER_V");
 
@@ -312,7 +313,11 @@ bool  GDPayload::readPayloadAdc()
 {
 	if(!_h_adc.isValid())
 	{
-		return false;
+		DriverFramework::DevMgr::getHandle(ADC0_DEVICE_PATH, _h_adc);
+		if(!_h_adc.isValid())
+		{
+			return false;
+		}
 	}
 
 		/* make space for a maximum of twelve channels (to ensure reading all channels at once) */
