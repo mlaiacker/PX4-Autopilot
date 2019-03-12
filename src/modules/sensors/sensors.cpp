@@ -342,11 +342,11 @@ Sensors::diff_pres_poll(const vehicle_air_data_s &raw)
 		}
 
 		/* don't risk to feed negative airspeed into the system */
-		airspeed.indicated_airspeed_m_s = calc_indicated_airspeed_corrected((enum AIRSPEED_COMPENSATION_MODEL)
+		airspeed.indicated_airspeed_m_s = math::max(0.0f,calc_indicated_airspeed_corrected((enum AIRSPEED_COMPENSATION_MODEL)
 						  _parameters.air_cmodel,
 						  smodel, _parameters.air_tube_length, _parameters.air_tube_diameter_mm,
 						  diff_pres.differential_pressure_filtered_pa, raw.baro_pressure_pa,
-						  air_temperature_celsius, _parameters.dp_gain);
+						  air_temperature_celsius, _parameters.dp_gain));
 
 		airspeed.true_airspeed_m_s = math::max(0.0f,
 						       calc_true_airspeed_from_indicated(airspeed.indicated_airspeed_m_s, raw.baro_pressure_pa, air_temperature_celsius));

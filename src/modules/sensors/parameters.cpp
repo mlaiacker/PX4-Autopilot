@@ -162,7 +162,7 @@ void initialize_parameter_handles(ParameterHandles &parameter_handles)
 	parameter_handles.air_tube_diameter_mm = param_find("CAL_AIR_TUBED_MM");
 	
 	/*Differential pressure gain*/
-	parameter_handles.dp_gain = param_find("DP_GAIN");
+	parameter_handles.dp_gain = param_find("CAL_AIR_GAIN");
 
 	// These are parameters for which QGroundControl always expects to be returned in a list request.
 	// We do a param_find here to force them into the list.
