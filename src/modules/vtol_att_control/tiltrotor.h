@@ -69,6 +69,7 @@ private:
 		float front_trans_dur_p2;
 		int32_t diff_thrust;
 		float diff_thrust_scale;
+		float pitch_setpoint_offset;
 	} _params_tiltrotor;
 
 	struct {
@@ -78,6 +79,7 @@ private:
 		param_t front_trans_dur_p2;
 		param_t diff_thrust;
 		param_t diff_thrust_scale;
+		param_t pitch_setpoint_offset;
 	} _params_handles_tiltrotor;
 
 	enum vtol_mode {

@@ -132,6 +132,6 @@ set(config_module_list
 	#
 	# GD apps
 	#
-	modules/uart_unisens
+	modules/gd_payload
 	
 )

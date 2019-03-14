@@ -66,6 +66,7 @@ Tiltrotor::Tiltrotor(VtolAttitudeControl *attc) :
 	_params_handles_tiltrotor.front_trans_dur_p2 = param_find("VT_TRANS_P2_DUR");
 	_params_handles_tiltrotor.diff_thrust = param_find("VT_FW_DIFTHR_EN");
 	_params_handles_tiltrotor.diff_thrust_scale = param_find("VT_FW_DIFTHR_SC");
+	_params_handles_tiltrotor.pitch_setpoint_offset = param_find("FW_PSP_OFF");
 }
 
 Tiltrotor::~Tiltrotor() = default;
@@ -95,6 +96,10 @@ Tiltrotor::parameters_update()
 
 	param_get(_params_handles_tiltrotor.diff_thrust_scale, &v);
 	_params_tiltrotor.diff_thrust_scale = math::constrain(v, -1.0f, 1.0f);
+
+	/* pitch setpoint offset */
+	param_get(_params_handles_tiltrotor.pitch_setpoint_offset, &v);
+	_params_tiltrotor.pitch_setpoint_offset = math::radians(v);
 }
 
 void Tiltrotor::update_vtol_state()
@@ -237,6 +242,9 @@ void Tiltrotor::update_transition_state()
 {
 	VtolType::update_transition_state();
 
+	// copy virtual attitude setpoint to real attitude setpoint (we use multicopter att sp)
+	memcpy(_v_att_sp, _mc_virtual_att_sp, sizeof(vehicle_attitude_setpoint_s));
+
 	float time_since_trans_start = (float)(hrt_absolute_time() - _vtol_schedule.transition_start) * 1e-6f;
 
 	if (!_flag_was_in_trans_mode) {
@@ -303,10 +311,15 @@ void Tiltrotor::update_transition_state()
 		_thrust_transition = _mc_virtual_att_sp->thrust;
 
 	} else if (_vtol_schedule.flight_mode == TRANSITION_BACK) {
+		// maintain FW_PSP_OFF
+		_v_att_sp->pitch_body = _params_tiltrotor.pitch_setpoint_offset;
+		matrix::Quatf q_sp(matrix::Eulerf(_v_att_sp->roll_body, _v_att_sp->pitch_body, _v_att_sp->yaw_body));
+		q_sp.copyTo(_v_att_sp->q_d);
+		_v_att_sp->q_d_valid = true;
+
 		if (_motor_state != ENABLED) {
 			_motor_state = set_motor_state(_motor_state, ENABLED);
 		}
-
 
 		// set idle speed for rotary wing mode
 		if (!flag_idle_mc) {
@@ -341,8 +354,6 @@ void Tiltrotor::update_transition_state()
 	_mc_roll_weight = math::constrain(_mc_roll_weight, 0.0f, 1.0f);
 	_mc_yaw_weight = math::constrain(_mc_yaw_weight, 0.0f, 1.0f);
 
-	// copy virtual attitude setpoint to real attitude setpoint (we use multicopter att sp)
-	memcpy(_v_att_sp, _mc_virtual_att_sp, sizeof(vehicle_attitude_setpoint_s));
 }
 
 void Tiltrotor::waiting_on_tecs()

@@ -2668,7 +2668,8 @@ PX4IO::ioctl(file *filep, int cmd, unsigned long arg)
 			ret = OK;
 
 		} else {
-			ret = -EINVAL;
+			io_reg_set(PX4IO_PAGE_SETUP, PX4IO_P_SETUP_DSM, dsm_bind_power_down); // power down payload
+			ret = OK;//-EINVAL;
 		}
 
 		break;
