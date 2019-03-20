@@ -167,7 +167,14 @@ void RcInput::_measure(void)
 			 */
 			if (0x0f == _sbusData[0] && 0x00 == _sbusData[24]) {
 				break;
+			} else
+			{
+				PX4_DEBUG("data error 0x%x 0x%x", _sbusData[0], _sbusData[24]);
+
 			}
+		} else
+		{
+			PX4_DEBUG("read error %i", nread);
 		}
 
 		++count;
