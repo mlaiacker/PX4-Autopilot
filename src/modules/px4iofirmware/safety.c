@@ -58,11 +58,16 @@ static unsigned counter = 0;
 /*
  * Define the various LED flash sequences for each system state.
  */
-#define LED_PATTERN_FMU_OK_TO_ARM		0x0003			/**< slow blinking			*/
-#define LED_PATTERN_FMU_REFUSE_TO_ARM		0x5555		/**< fast blinking			*/
-#define LED_PATTERN_IO_ARMED			0x5050			/**< long off, then double blink 	*/
-#define LED_PATTERN_FMU_ARMED			0x5500			/**< long off, then quad blink 		*/
-#define LED_PATTERN_IO_FMU_ARMED		0xffff			/**< constantly on			*/
+//#define LED_PATTERN_FMU_OK_TO_ARM		(~0x0001)			/**< slow blinking			*/
+#define LED_PATTERN_FMU_OK_TO_ARM		(~0x0000)			/**< off			*/
+//#define LED_PATTERN_FMU_REFUSE_TO_ARM	(~0x1010)		/**< fast blinking			*/
+#define LED_PATTERN_FMU_REFUSE_TO_ARM	(~0x0000)		/**< off			*/
+//#define LED_PATTERN_IO_ARMED			(~0x5050)			/**< long off, then double blink 	*/
+#define LED_PATTERN_IO_ARMED			(~0x0000)			/**<  off 	*/
+//#define LED_PATTERN_FMU_ARMED			(~0x5500)			/**< long off, then quad blink 		*/
+#define LED_PATTERN_FMU_ARMED			(~0x0000)			/**< off 		*/
+//#define LED_PATTERN_IO_FMU_ARMED		0xffff			/**< constantly on			*/
+#define LED_PATTERN_IO_FMU_ARMED		(~0x0009)			/**< double blink, long off			*/
 
 static unsigned blink_counter = 0;
 
