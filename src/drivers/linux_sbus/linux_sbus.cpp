@@ -169,12 +169,12 @@ void RcInput::_measure(void)
 				break;
 			} else
 			{
-				PX4_DEBUG("data error 0x%x 0x%x", _sbusData[0], _sbusData[24]);
+				PX4_INFO("data error 0x%x 0x%x", _sbusData[0], _sbusData[24]);
 
 			}
 		} else
 		{
-			PX4_DEBUG("read error %i", nread);
+			PX4_INFO("read error %i", nread);
 		}
 
 		++count;
