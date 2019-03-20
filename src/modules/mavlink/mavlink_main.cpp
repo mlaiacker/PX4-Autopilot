@@ -872,13 +872,7 @@ Mavlink::set_hil_enabled(bool hil_enabled)
 	/* enable HIL */
 	if (hil_enabled && !_hil_enabled && (_mode != MAVLINK_MODE_IRIDIUM)) {
 		_hil_enabled = true;
-		if(_mode == MAVLINK_MODE_CONFIG) // USB
-		{
-			configure_stream("HIL_ACTUATOR_CONTROLS", 100.0f);
-		}
-		else {
-			configure_stream("HIL_ACTUATOR_CONTROLS", 1.0f);
-		}
+		configure_stream("HIL_ACTUATOR_CONTROLS", 100.0f);
 	}
 
 	/* disable HIL */

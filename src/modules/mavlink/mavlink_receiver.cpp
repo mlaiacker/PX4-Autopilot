@@ -2353,12 +2353,12 @@ MavlinkReceiver::handle_message_hil_state_quaternion(mavlink_message_t *msg)
 		struct accel_report accel = {};
 
 		accel.timestamp = timestamp;
-		accel.x_raw = hil_state.xacc / CONSTANTS_ONE_G * 1e3f;
-		accel.y_raw = hil_state.yacc / CONSTANTS_ONE_G * 1e3f;
-		accel.z_raw = hil_state.zacc / CONSTANTS_ONE_G * 1e3f;
-		accel.x = hil_state.xacc / CONSTANTS_ONE_G * 1e3f;
-		accel.y = hil_state.yacc / CONSTANTS_ONE_G * 1e3f;
-		accel.z = hil_state.zacc / CONSTANTS_ONE_G * 1e3f;
+		accel.x_raw = hil_state.xacc;
+		accel.y_raw = hil_state.yacc;
+		accel.z_raw = hil_state.zacc;
+		accel.x = hil_state.xacc * CONSTANTS_ONE_G / 1e3f;
+		accel.y = hil_state.yacc * CONSTANTS_ONE_G / 1e3f;
+		accel.z = hil_state.zacc * CONSTANTS_ONE_G / 1e3f;
 		accel.temperature = 25.0f;
 
 		if (_accel_pub == nullptr) {
