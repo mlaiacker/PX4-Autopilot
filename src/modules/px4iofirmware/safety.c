@@ -88,8 +88,8 @@ static void failsafe_blink(void *arg);
 void
 safety_init(void)
 {
-	/* arrange for the button handler to be called at 10Hz */
-	hrt_call_every(&arming_call, 1000, 100000, safety_check_button, NULL);
+	/* arrange for the button handler to be called at 20Hz */
+	hrt_call_every(&arming_call, 1000, 50000, safety_check_button, NULL);
 }
 
 void
