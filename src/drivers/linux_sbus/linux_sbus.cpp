@@ -165,21 +165,21 @@ void RcInput::_measure(void)
 			/**
 			 * Notice: most sbus rx device support sbus1
 			 */
-			if (0x0f == _sbusData[0] && 0x00 == _sbusData[24]) {
+			if (0x0f == _sbusData[0] && ((0x00 == _sbusData[24]) ||
+					((_sbusData[24]&0x0f) == 0x04))) /* sbus 2 */
+			{
 				break;
-			} else
+			}/* else
 			{
 				PX4_INFO("data error 0x%x 0x%x", _sbusData[0], _sbusData[24]);
 
-			}
-		} else
-		{
-			PX4_INFO("read error %i", nread);
+			}*/
 		}
 
 		++count;
 		usleep(RCINPUT_MEASURE_INTERVAL_US);
 	}
+
 
 	/**
 	 * parse sbus data to pwm
@@ -221,6 +221,8 @@ void RcInput::_measure(void)
 					 & 0x07FF) * SBUS_SCALE_FACTOR + .5f) + SBUS_SCALE_OFFSET;
 	_channels_data[15] = (uint16_t)(((_sbusData[21] >> 5 | _sbusData[22] << 3)
 					 & 0x07FF) * SBUS_SCALE_FACTOR + .5f) + SBUS_SCALE_OFFSET;
+
+
 	int i = 0;
 
 	for (i = 0; i < _channels; ++i) {
