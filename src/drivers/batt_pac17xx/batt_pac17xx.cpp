@@ -476,17 +476,13 @@ BATT_PAC17::try_read_data(battery_status_s &new_report, uint64_t now){
 		result = read_reg(BATT_PAC17_REG_VOLT_CH1_L, regval_L);
 
 		uint16_t voltage = (((uint16_t)regval_H)<<3) | ((uint16_t)regval_L>>5);
-
 		// convert millivolts to volts
 		_voltage_v = ((float)voltage*19.53125f) / 1000.0f;
-//		new_report.voltage_filtered_v = new_report.voltage_v*0.1f + _last_report.voltage_filtered_v*0.9f;
-//		new_report.connected = new_report.voltage_v>2.0f;;
-
 		// read current
 		if ((read_reg(BATT_PAC17_REG_SENS_CH1_H, regval_H) == OK) &&
 			(read_reg(BATT_PAC17_REG_SENS_CH1_L, regval_L) == OK) ){
 			int16_t current = 0;
-			if(regval_H&0x80) // sing bit
+			if(regval_H&0x80) // sign bit
 			{ // negative
 				current = 0xf000 | (((int16_t)regval_H)<<4) | ((int16_t)regval_L>>4);
 			} else
@@ -494,7 +490,7 @@ BATT_PAC17::try_read_data(battery_status_s &new_report, uint64_t now){
 				current = (((int16_t)regval_H)<<4) | ((int16_t)regval_L>>4);
 			}
 			_current_a = ((float)_sens_full_scale/_sens_resistor)*((float)current)/2047.0f;
-			_current_a_filtered = _current_a*0.2f + _current_a_filtered*0.8f;
+			_current_a_filtered = _current_a*0.05f + _current_a_filtered*0.95f;
 		}
 
 		// calculate total discharged amount

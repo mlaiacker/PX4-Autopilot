@@ -189,10 +189,10 @@ Battery::estimateRemaining(float voltage_v, float current_a, float throttle, boo
 
 		} else {
 			// The lower the voltage the more adjust the estimate with it to avoid deep discharge
-			const float weight_v = 3e-4f * (1 - _remaining_voltage);
-			_remaining = (1 - weight_v) * _remaining + weight_v * _remaining_voltage;
+//			const float weight_v = 3e-4f * (1 - _remaining_voltage);
+//			_remaining = (1 - weight_v) * _remaining + weight_v * _remaining_voltage;
 			// directly apply current capacity slope calculated using current
-			_remaining -= _discharged_mah_loop / _capacity.get();
+			_remaining = 1.0f - _discharged_mah_loop / _capacity.get();
 			_remaining = math::max(_remaining, 0.f);
 		}
 
