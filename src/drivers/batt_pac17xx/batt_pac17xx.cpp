@@ -213,6 +213,7 @@ private:
 	uint16_t		_sens_full_scale; ///< current sense full range voltage 10,20,40,80 mV
 	uint8_t			_sens_sample_reg; ///< sample scale register value
 	float			_sens_resistor;	///< current sense resistor value in mOhm
+	int 			_startupDelay; ///< prevent publish voltage before filter converged
 	enum SMBUS_BATT_DEV_E
 	{
 		NONE=0,
@@ -248,6 +249,7 @@ BATT_PAC17::BATT_PAC17(int bus, uint16_t batt_pac17_addr, float sens_resistor, u
 {
 	// capture startup time
 	_start_time = hrt_absolute_time();
+	_startupDelay = 100;
 
 	if(sens_resistor>0){
 		_sens_resistor=sens_resistor;
@@ -317,6 +319,7 @@ BATT_PAC17::init()
 	_actuator_ctrl_0_sub = orb_subscribe(ORB_ID(actuator_controls_0));
 	/* needed to read arming status */
 	_vcontrol_mode_sub = orb_subscribe(ORB_ID(vehicle_control_mode));
+	_startupDelay = 100;
 
 	return ret;
 }
@@ -494,7 +497,7 @@ BATT_PAC17::try_read_data(battery_status_s &new_report, uint64_t now){
 		}
 
 		// calculate total discharged amount
-		_discharged_mah = _discharged_mah + _current_a*BATT_PAC17_MEASUREMENT_INTERVAL_US/1000000.0f;
+		_discharged_mah = _discharged_mah + _current_a*1000.0f/3600.0f*BATT_PAC17_MEASUREMENT_INTERVAL_US/1000000.0f;
 		vehicle_control_mode_poll();
 		actuator_controls_s ctrl;
 		orb_copy(ORB_ID(actuator_controls_0), _actuator_ctrl_0_sub, &ctrl);
@@ -516,7 +519,7 @@ BATT_PAC17::try_read_data(battery_status_s &new_report, uint64_t now){
 				// convert millivolts to volts
 				_voltage2 = ((float)voltage2*19.53125f) / 1000.0f;
 				new_report.temperature = _voltage2; // hack to publish second channel
-
+/*
 				if(voltage2>10 && voltage>10)
 				{
 					if((float)fabs((float)voltage/2 - (float)voltage2) > (voltage2/5.0f) )
@@ -524,6 +527,7 @@ BATT_PAC17::try_read_data(battery_status_s &new_report, uint64_t now){
 						new_report.warning = battery_status_s::BATTERY_WARNING_FAILED; // difference too high
 					}
 				}
+				*/
 			}
 		}
 
@@ -554,37 +558,15 @@ BATT_PAC17::cycle()
 	{
 		battery_status_s new_report = {};
 		if(try_read_data(new_report, now)){
-			/*
-					//Check if remaining % is out of range
-					if ((new_report.remaining > 1.00f) || (new_report.remaining <= 0.00f)) {
-						new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
-					}
-
-					//Check if discharged amount is greater than the starting capacity
-					else if (new_report.discharged_mah > (float)_batt_startup_capacity) {
-						new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
-					}
-
-					// propagate warning state
-					else {
-						if (new_report.remaining > _low_thr) {
-							new_report.warning = battery_status_s::BATTERY_WARNING_NONE;
-
-						} else if (new_report.remaining > _crit_thr) {
-							new_report.warning = battery_status_s::BATTERY_WARNING_LOW;
-
-						} else if (new_report.remaining > _emergency_thr) {
-							new_report.warning = battery_status_s::BATTERY_WARNING_CRITICAL;
-
-						} else {
-							new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
-						}
-					}
-			*/
-
 			// publish to orb
 			if (_batt_topic != nullptr) {
-				orb_publish(_batt_orb_id, _batt_topic, &new_report);
+				if(_startupDelay<=0)
+				{
+					orb_publish(_batt_orb_id, _batt_topic, &new_report);
+				} else
+				{
+					_startupDelay--;
+				}
 			} else {
 				_batt_topic = orb_advertise(_batt_orb_id, &new_report);
 				if (_batt_topic == nullptr) {
