@@ -201,3 +201,5 @@ mavlink boot_complete
 #replay trystart
 mavlink stream -r 200 -s HIL_ACTUATOR_CONTROLS -u 14557
 
+linux_sbus start -d /dev/ttyUSB0
+
