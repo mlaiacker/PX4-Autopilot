@@ -37,5 +37,6 @@ px4_add_module(
 	SRCS
 		linux_sbus.cpp
 	DEPENDS
+	rc
 	)
 

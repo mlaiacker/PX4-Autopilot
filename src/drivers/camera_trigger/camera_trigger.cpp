@@ -292,6 +292,11 @@ CameraTrigger::CameraTrigger() :
 		break;
 
 #endif
+#ifdef __PX4_POSIX
+	case CAMERA_INTERFACE_MODE_GPIO:
+		_camera_interface = new CameraInterfaceGPIO();
+		break;
+#endif
 
 	case CAMERA_INTERFACE_MODE_MAVLINK:
 		// start an interface that does nothing. Instead mavlink will listen to the camera_trigger uORB message

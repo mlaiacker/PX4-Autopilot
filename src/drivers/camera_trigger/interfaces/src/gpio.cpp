@@ -60,3 +60,63 @@ void CameraInterfaceGPIO::info()
 }
 
 #endif /* ifdef __PX4_NUTTX */
+
+
+#ifdef __PX4_POSIX
+
+#include "gpio.h"
+#include <cstring>
+
+CameraInterfaceGPIO::CameraInterfaceGPIO():
+	CameraInterface(),
+	_trigger_invert(false),
+	_gpio(4)
+{
+	_p_polarity = param_find("TRIG_POLARITY");
+
+	// polarity of the trigger (0 = active low, 1 = active high )
+	int32_t polarity;
+	param_get(_p_polarity, &polarity);
+	_trigger_invert = (polarity == 0);
+
+	setup();
+}
+
+CameraInterfaceGPIO::~CameraInterfaceGPIO()
+{
+}
+
+void CameraInterfaceGPIO::setup()
+{
+	int res = 0;
+	res = _gpio.exportPin();
+
+	if (res != 0) {
+		PX4_ERR("gpio: failed to export");
+	}
+
+	res = _gpio.setDirection(LinuxGPIO::Direction::OUT);
+
+	if (res != 0) {
+		PX4_ERR("gpio failed to set direction");
+	}
+
+	PX4_INFO("using linux gpio4");
+}
+
+void CameraInterfaceGPIO::trigger(bool trigger_on_true)
+{
+	bool trigger_state = trigger_on_true ^ _trigger_invert;
+
+	_gpio.writeValue((LinuxGPIO::Value)trigger_state);
+	//PX4_INFO("gpio4 %i",trigger_state);
+}
+
+void CameraInterfaceGPIO::info()
+{
+	PX4_INFO("GPIO trigger mode, pins enabled : [%d], polarity : %s",
+		 _gpio.readValue(),
+		 _trigger_invert ? "ACTIVE_LOW" : "ACTIVE_HIGH");
+}
+
+#endif /* ifdef __PX4_POSIX */

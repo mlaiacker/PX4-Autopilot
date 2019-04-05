@@ -33,6 +33,8 @@
  *
  ****************************************************************************/
 #include "linux_sbus.h"
+#include <rc/sbus.h>
+
 using namespace linux_sbus;
 //---------------------------------------------------------------------------------------------------------//
 int RcInput::init()
@@ -121,6 +123,7 @@ int RcInput::start(char *device, int channels)
 		_isRunning = false;
 	}
 
+	_firstFrame = false;
 	return result;
 }
 //---------------------------------------------------------------------------------------------------------//
@@ -149,7 +152,6 @@ void RcInput::_cycle()
 void RcInput::_measure(void)
 {
 	uint64_t ts;
-	int nread;
 	fd_set fds;
 	FD_ZERO(&fds);
 	FD_SET(_device_fd, &fds);
@@ -157,70 +159,28 @@ void RcInput::_measure(void)
 	 *error counter to count the lost frame
 	 */
 	int count = 0; //
-
-	while (1) {
-		nread = read(_device_fd, &_sbusData, sizeof(_sbusData));
-
-		if (25 == nread) {
-			/**
-			 * Notice: most sbus rx device support sbus1
-			 */
-			if (0x0f == _sbusData[0] && ((0x00 == _sbusData[24]) ||
-					((_sbusData[24]&0x0f) == 0x04))) /* sbus 2 */
+	bool sbus_updated = false;
+	bool sbus_failsafe=true, sbus_frame_drop=true;
+	while (!sbus_updated) {
+		sbus_updated = sbus_input(_device_fd, _channels_data, &_channels, &sbus_failsafe, &sbus_frame_drop,
+					       16);
+		if(sbus_updated)
+		{
+			if(!_firstFrame)
 			{
-				break;
-			}/* else
-			{
-				PX4_INFO("data error 0x%x 0x%x", _sbusData[0], _sbusData[24]);
-
-			}*/
-		}
+				PX4_INFO("first frame fs:%i drop:%i channels: %i", sbus_failsafe, sbus_frame_drop, _channels);
+				PX4_INFO("ch0=%i",_channels_data[0]);
+				_firstFrame = true;
+			}
+			break;
+		}/* else
+		{
+			PX4_INFO("fs:%i drop:%i", sbus_failsafe, sbus_frame_drop);
+		}*/
 
 		++count;
 		usleep(RCINPUT_MEASURE_INTERVAL_US);
 	}
-
-
-	/**
-	 * parse sbus data to pwm
-	 */
-	_channels_data[0] =
-		(uint16_t)(((_sbusData[1] | _sbusData[2] << 8) & 0x07FF)
-			   * SBUS_SCALE_FACTOR + .5f) + SBUS_SCALE_OFFSET;
-	_channels_data[1] = (uint16_t)(((_sbusData[2] >> 3 | _sbusData[3] << 5)
-					& 0x07FF) * SBUS_SCALE_FACTOR + .5f) + SBUS_SCALE_OFFSET;
-	_channels_data[2] = (uint16_t)(((_sbusData[3] >> 6 | _sbusData[4] << 2
-					 | _sbusData[5] << 10) & 0x07FF) * SBUS_SCALE_FACTOR + .5f)
-			    + SBUS_SCALE_OFFSET;
-	_channels_data[3] = (uint16_t)(((_sbusData[5] >> 1 | _sbusData[6] << 7)
-					& 0x07FF) * SBUS_SCALE_FACTOR + .5f) + SBUS_SCALE_OFFSET;
-	_channels_data[4] = (uint16_t)(((_sbusData[6] >> 4 | _sbusData[7] << 4)
-					& 0x07FF) * SBUS_SCALE_FACTOR + .5f) + SBUS_SCALE_OFFSET;
-	_channels_data[5] = (uint16_t)(((_sbusData[7] >> 7 | _sbusData[8] << 1
-					 | _sbusData[9] << 9) & 0x07FF) * SBUS_SCALE_FACTOR + .5f)
-			    + SBUS_SCALE_OFFSET;
-	_channels_data[6] = (uint16_t)(((_sbusData[9] >> 2 | _sbusData[10] << 6)
-					& 0x07FF) * SBUS_SCALE_FACTOR + .5f) + SBUS_SCALE_OFFSET;
-	_channels_data[7] = (uint16_t)(((_sbusData[10] >> 5 | _sbusData[11] << 3)
-					& 0x07FF) * SBUS_SCALE_FACTOR + .5f) + SBUS_SCALE_OFFSET; // & the other 8 + 2 channels if you need them
-	_channels_data[8] = (uint16_t)(((_sbusData[12] | _sbusData[13] << 8)
-					& 0x07FF) * SBUS_SCALE_FACTOR + .5f) + SBUS_SCALE_OFFSET;
-	_channels_data[9] = (uint16_t)(((_sbusData[13] >> 3 | _sbusData[14] << 5)
-					& 0x07FF) * SBUS_SCALE_FACTOR + .5f) + SBUS_SCALE_OFFSET;
-	_channels_data[10] = (uint16_t)(((_sbusData[14] >> 6 | _sbusData[15] << 2
-					  | _sbusData[16] << 10) & 0x07FF) * SBUS_SCALE_FACTOR + .5f)
-			     + SBUS_SCALE_OFFSET;
-	_channels_data[11] = (uint16_t)(((_sbusData[16] >> 1 | _sbusData[17] << 7)
-					 & 0x07FF) * SBUS_SCALE_FACTOR + .5f) + SBUS_SCALE_OFFSET;
-	_channels_data[12] = (uint16_t)(((_sbusData[17] >> 4 | _sbusData[18] << 4)
-					 & 0x07FF) * SBUS_SCALE_FACTOR + .5f) + SBUS_SCALE_OFFSET;
-	_channels_data[13] = (uint16_t)(((_sbusData[18] >> 7 | _sbusData[19] << 1
-					  | _sbusData[20] << 9) & 0x07FF) * SBUS_SCALE_FACTOR + .5f)
-			     + SBUS_SCALE_OFFSET;
-	_channels_data[14] = (uint16_t)(((_sbusData[20] >> 2 | _sbusData[21] << 6)
-					 & 0x07FF) * SBUS_SCALE_FACTOR + .5f) + SBUS_SCALE_OFFSET;
-	_channels_data[15] = (uint16_t)(((_sbusData[21] >> 5 | _sbusData[22] << 3)
-					 & 0x07FF) * SBUS_SCALE_FACTOR + .5f) + SBUS_SCALE_OFFSET;
 
 
 	int i = 0;
@@ -237,8 +197,8 @@ void RcInput::_measure(void)
 	_data.rc_lost_frame_count = count;
 	_data.rc_total_frame_count = 1;
 	_data.rc_ppm_frame_length = 0;
-	_data.rc_failsafe = (_sbusData[23] & (1 << 3)) ? true : false;
-	_data.rc_lost = (_sbusData[23] & (1 << 2)) ? true : false;
+	_data.rc_failsafe =sbus_failsafe;
+	_data.rc_lost = sbus_frame_drop;
 	_data.input_source = input_rc_s::RC_INPUT_SOURCE_PX4IO_SBUS;
 	orb_publish(ORB_ID(input_rc), _rcinput_pub, &_data);
 }

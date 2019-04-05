@@ -8,9 +8,9 @@ set(config_module_list
 	#drivers/telemetry
 
 	drivers/batt_smbus
+	drivers/linux_gpio
 	drivers/camera_trigger
 	drivers/gps
-	drivers/linux_gpio
 	drivers/pwm_out_sim
 	drivers/vmount
 	drivers/linux_sbus

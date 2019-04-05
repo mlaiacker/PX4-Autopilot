@@ -107,13 +107,14 @@ private:
 	orb_advert_t _rcinput_pub;
 	struct input_rc_s _data;
 	uint8_t _sbusData[25];
-	int _channels;
+	uint16_t _channels;
 	int _device_fd;  /** serial port device to read SBUS; */
-	int _channels_data[16]; /** 16 channels support; */
+	uint16_t _channels_data[16]; /** 16 channels support; */
 	uint8_t _buffer[25];
 	char _device[30];
 	bool _failsafe;
 	bool _rc_loss;
+	bool _firstFrame;
 	int init();
 };
 
