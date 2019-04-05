@@ -42,6 +42,6 @@ px4_add_module(
                 interfaces/src/seagull_map2.cpp
                 interfaces/src/gpio.cpp
 	DEPENDS
-		drivers__linux_gpio
+#		drivers__linux_gpio
 	)
 

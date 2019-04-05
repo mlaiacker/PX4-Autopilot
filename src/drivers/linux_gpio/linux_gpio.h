@@ -43,11 +43,32 @@
 
 #pragma once
 
+#include <px4_posix.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+#define PIN_INDEX_BUFFER_MAX (16)
+#define PIN_DIRECTION_BUFFER_MAX (30 + PIN_INDEX_BUFFER_MAX)
+#define PIN_VALUE_BUFFER_MAX (26 + PIN_INDEX_BUFFER_MAX)
+
 class LinuxGPIO
 {
+private:
+	int _pin;
+	int _fd;
 public:
-	LinuxGPIO(unsigned int pin);
-	~LinuxGPIO();
+	LinuxGPIO(unsigned int pin)	:
+		_pin(pin)
+	, _fd(-1)
+	{
+	};
+
+	~LinuxGPIO(){
+		if (_fd != -1) {
+			close(_fd);
+		}
+	};
 
 	enum class Direction {
 		IN = 0,
@@ -59,13 +80,179 @@ public:
 		HIGH = 1,
 	};
 
-	int exportPin();
-	int unexportPin();
-	int setDirection(LinuxGPIO::Direction dir);
-	int readValue();
-	int writeValue(LinuxGPIO::Value value);
+	int exportPin(){
+		int ret;
+		char pinIndex[PIN_INDEX_BUFFER_MAX];
+		char valuePath[PIN_VALUE_BUFFER_MAX];
+		int fd = -1;
+		int bytes_to_write;
 
-private:
-	int _pin;
-	int _fd;
+		struct stat statbuf;
+
+		/* If GPIO was already opened, close it */
+		if (_fd != -1) {
+			close(_fd);
+			_fd = -1;
+		}
+
+		/* Check if GPIO is already exported */
+		snprintf(valuePath, PIN_VALUE_BUFFER_MAX, "/sys/class/gpio/gpio%d/value", _pin);
+		ret = stat(valuePath, &statbuf);
+
+		if (ret == -1) {
+			/* GPIO is not exported */
+			fd = open("/sys/class/gpio/export", O_WRONLY);
+
+			if (fd == -1) {
+				int err = errno;
+				PX4_ERR("export %u: open: %s (%d)", _pin, strerror(err), err);
+				return -1;
+			}
+
+			bytes_to_write = snprintf(pinIndex, PIN_INDEX_BUFFER_MAX, "%u", _pin);
+			ret = write(fd, pinIndex, bytes_to_write);
+
+			if (ret == -1) {
+				int err = errno;
+				PX4_ERR("export %u: write: %s (%d)", _pin, strerror(err), err);
+				goto cleanup;
+
+			} else if (ret != bytes_to_write) {
+				PX4_ERR("export %u: write incomplete %d != %d", _pin, ret, bytes_to_write);
+				goto cleanup;
+			}
+		}
+
+		_fd = open(valuePath, O_RDWR);
+
+		if (_fd == -1) {
+			int err = errno;
+			ret = -1;
+			PX4_ERR("export %u: open: %s (%d)", _pin, strerror(err), err);
+			goto cleanup;
+		}
+
+		ret = 0;
+
+	cleanup:
+
+		if (fd != -1) {
+			close(fd);
+		}
+
+		return ret;
+	};
+
+	int unexportPin(){
+		char pinIndex[PIN_INDEX_BUFFER_MAX];
+		int fd;
+		int ret;
+		int bytes_to_write;
+
+		if (_fd != -1) {
+			close(_fd);
+			_fd = -1;
+		}
+
+		fd = open("/sys/class/gpio/unexport", O_WRONLY);
+
+		if (fd == -1) {
+			int err = errno;
+			PX4_ERR("unexport %u: open: %s (%d)", _pin, strerror(err), err);
+			return -1;
+		}
+
+		bytes_to_write = snprintf(pinIndex, PIN_INDEX_BUFFER_MAX, "%u", _pin);
+		ret = write(fd, pinIndex, bytes_to_write);
+
+		if (ret == -1) {
+			int err = errno;
+			PX4_ERR("unexport %u: write: %s (%d)", _pin, strerror(err), err);
+			goto cleanup;
+
+		} else if (ret != bytes_to_write) {
+			PX4_ERR("unexport %u: write incomplete %d != %d", _pin, ret, bytes_to_write);
+			goto cleanup;
+		}
+
+		ret = 0;
+
+	cleanup:
+		close(fd);
+
+		return ret;
+	};
+
+	int setDirection(LinuxGPIO::Direction dir){
+		char path[PIN_DIRECTION_BUFFER_MAX];
+		int fd;
+		int ret;
+
+		snprintf(path, PIN_DIRECTION_BUFFER_MAX, "/sys/class/gpio/gpio%d/direction", _pin);
+		fd = open(path, O_WRONLY);
+
+		if (fd == -1) {
+			int err = errno;
+			PX4_ERR("dir %u: open: %s (%d)", _pin, strerror(err), err);
+			return -1;
+		}
+
+		if (dir == Direction::IN) {
+			ret = write(fd, "in", 2);
+
+		} else {
+			ret = write(fd, "out", 3);
+		}
+
+		if (ret == -1) {
+			int err = errno;
+			PX4_ERR("dir %u: write: %s (%d)", _pin, strerror(err), err);
+			goto cleanup;
+		}
+
+		ret = 0;
+
+	cleanup:
+		close(fd);
+
+		return ret;
+	};
+	int readValue(){
+		char buf[2];
+		int ret;
+
+		ret = ::read(_fd, buf, sizeof(buf));
+
+		if (ret == -1) {
+			int err = errno;
+			PX4_ERR("readValue %u: read: %s (%d)", _pin, strerror(err), err);
+			return ret;
+		}
+
+		ret = strtol(buf, nullptr, 10);
+
+		return ret;
+	};
+	int writeValue(LinuxGPIO::Value value){
+		char buf[2];
+		int ret;
+
+		if (value != Value::LOW && value != Value::HIGH) {
+			return -EINVAL;
+		}
+
+		int buflen = snprintf(buf, sizeof(buf), "%u", (unsigned int)value);
+
+		ret = ::write(_fd, buf, buflen);
+
+		if (ret == -1) {
+			int err = errno;
+			PX4_ERR("writeValue %u: write: %s (%d)", _pin, strerror(err), err);
+			return ret;
+		}
+
+		return 0;
+	};
+
 };
+
