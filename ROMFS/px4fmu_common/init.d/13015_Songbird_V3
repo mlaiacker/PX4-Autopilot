@@ -77,16 +77,18 @@ set MAV_TYPE 22
 
 # batt_pac on I2C bus 1
 batt_pac17xx start -b 1 -r 0.2 -s 40
+
 gd_payload start
 gd_payload on
 
 # start mavlink on payload serial port
-mavlink start -d /dev/ttyS2 -f
+#mavlink start -d /dev/ttyS2 -f
 
 
 # /dev/ttyS0		IO debug except v4, there ttyS0 is the wifi
-# /dev/ttyS1		TELEM1 flow control serial1
+# /dev/ttyS1		TELEM1 flow control serial1, telemetry
 # /dev/ttyS2		TELEM2 flow control serial2, payload
 # /dev/ttyS3		GPS
-# /dev/ttyS4		GPS2, ser4 free (was unisens)
+# /dev/ttyS4		PX4IO
 # /dev/ttyS5		debug console, serial5
+# /dev/ttyS6		GPS2, ser4 free (was unisens)

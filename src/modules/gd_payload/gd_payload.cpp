@@ -72,13 +72,12 @@ int GDPayload::print_usage(const char *reason)
 	driver for gd_payload
 ### Examples
 CLI usage example:
-$ uart_unisens start -v
+$ gd_payload start
 )DESCR_STR");
 
 	PRINT_MODULE_USAGE_NAME("gd_payload", "modules");
 	PRINT_MODULE_USAGE_COMMAND("start");
 	PRINT_MODULE_USAGE_PARAM_FLAG('v', "debug flag", true);
-//	PRINT_MODULE_USAGE_PARAM_STRING('d',"/dev/ttyS6", "", "debug flag", true);
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
 	return 0;

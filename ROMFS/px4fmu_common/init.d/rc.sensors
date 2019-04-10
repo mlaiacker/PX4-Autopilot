@@ -407,7 +407,7 @@ if param greater SENS_EN_TFMINI 0
 then
 	if ver hwcmp PX4FMU_V2 PX4FMU_V4PRO
 	then
-		# start the driver on serial 4/5
+		# start the driver on SER4 
 		tfmini start -d /dev/ttyS6
 	else
 		if ver hwcmp AEROFC_V1

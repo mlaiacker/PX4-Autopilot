@@ -15,7 +15,8 @@ set(config_module_list
 	#
 	drivers/barometer
 	drivers/differential_pressure
-	drivers/distance_sensor
+	#drivers/distance_sensor
+	drivers/distance_sensor/tfmini
 	drivers/magnetometer
 	drivers/telemetry
 
@@ -42,7 +43,7 @@ set(config_module_list
 	drivers/stm32
 	drivers/stm32/adc
 	drivers/stm32/tone_alarm
-	drivers/tap_esc
+	#drivers/tap_esc
 	drivers/vmount
 	modules/sensors
 

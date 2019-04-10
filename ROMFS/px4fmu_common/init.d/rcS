@@ -739,7 +739,7 @@ fi
 	if ver hwcmp PX4FMU_V2 PX4FMU_V4 PX4FMU_V4PRO MINDPX_V2 PX4FMU_V5 OMNIBUS_F4SD
 	then
 		# Check for flow sensor - as it is a background task, launch it last
-		px4flow start &
+		#px4flow start &
 	fi
 
 	if ver hwcmp AEROFC_V1

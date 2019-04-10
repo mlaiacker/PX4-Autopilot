@@ -44,7 +44,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-// #define TFMINI_DEBUG
+//#define TFMINI_DEBUG
 
 #ifdef TFMINI_DEBUG
 #include <stdio.h>
