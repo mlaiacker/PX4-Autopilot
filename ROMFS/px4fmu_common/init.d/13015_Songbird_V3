@@ -29,8 +29,8 @@ then
 #TODO: copy default parameter
 	param set VT_TYPE 2
 	param set VT_MOT_COUNT 4
-	param set VT_F_TRANS_THR 0.75
-	param set VT_ARSP_TRANS 13
+	param set VT_F_TRANS_THR 0.80
+	param set VT_ARSP_TRANS 14
 	param set VT_ARSP_BLEND 8
 
 	param set MC_ROLL_P 6.0
@@ -62,7 +62,9 @@ then
 	param set FW_RR_P 0.05
 	param set FW_THR_CRUISE 0.50
 
-	param set VT_IDLE_PWM_MC 1080
+	param set VT_IDLE_PWM_MC 1170
+	
+	param set MNT_TRIP_MAVLINK 0
 fi
 
 set MIXER SBV3
@@ -83,13 +85,14 @@ gd_payload on
 if param greater MNT_TRIP_MAVLINK 0
 then
 	# start mavlink on payload serial port
-	mavlink start -d /dev/ttyS2 -m custom
-	mavlink -d /dev/ttyS2 -s GLOBAL_POSITION_INT -r 25
-	mavlink -d /dev/ttyS2 -s ATTITUDE -r 25
-	mavlink -d /dev/ttyS2 -s GPS_RAW_INT -r 2
-	mavlink -d /dev/ttyS2 -s HEARTBEAT -r 2
-	mavlink -d /dev/ttyS2 -s SYS_STATUS -r 1
-	mavlink -d /dev/ttyS2 -s SYSTEM_TIME -r 1
+	#mavlink start -d /dev/ttyS2 -m custom this will kill mission download, so we have to use the companion parameter
+	# set rates for trip2
+	mavlink stream -d /dev/ttyS2 -s GLOBAL_POSITION_INT -r 25
+	mavlink stream -d /dev/ttyS2 -s ATTITUDE -r 25
+	mavlink stream -d /dev/ttyS2 -s GPS_RAW_INT -r 2
+	mavlink stream -d /dev/ttyS2 -s HEARTBEAT -r 2
+	mavlink stream -d /dev/ttyS2 -s SYS_STATUS -r 1
+	mavlink stream -d /dev/ttyS2 -s SYSTEM_TIME -r 1
 fi
 
 
@@ -97,5 +100,6 @@ fi
 # /dev/ttyS1		TELEM1 flow control serial1
 # /dev/ttyS2		TELEM2 flow control serial2, payload
 # /dev/ttyS3		GPS
-# /dev/ttyS4		GPS2, ser4 free (was unisens)
+# /dev/ttyS4		PX4IO
 # /dev/ttyS5		debug console, serial5
+# /dev/ttyS6		GPS2, ser4 free (was unisens)
