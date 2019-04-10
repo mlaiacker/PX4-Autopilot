@@ -99,6 +99,7 @@ RTL::on_active()
 		advance_rtl();
 		set_rtl_item();
 	}
+	cruising_speed_sp_update();
 }
 
 void
