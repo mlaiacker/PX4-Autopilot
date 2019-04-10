@@ -490,6 +490,24 @@ MissionBlock::item_contains_position(const mission_item_s &item)
 	       item.nav_cmd == NAV_CMD_DO_FOLLOW_REPOSITION;
 }
 
+void
+MissionBlock::cruising_speed_sp_update()
+{
+	struct position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
+
+	const float cruising_speed = _navigator->get_cruising_speed();
+
+	/* Don't change setpoint if the current waypoint is not valid */
+	if (!pos_sp_triplet->current.valid ||
+	    fabsf(pos_sp_triplet->current.cruising_speed - cruising_speed) < FLT_EPSILON) {
+		return;
+	}
+
+	pos_sp_triplet->current.cruising_speed = cruising_speed;
+
+	_navigator->set_position_setpoint_triplet_updated();
+}
+
 bool
 MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, position_setpoint_s *sp)
 {
