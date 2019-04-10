@@ -69,6 +69,7 @@ public:
 
 	static bool item_contains_position(const mission_item_s &item);
 
+
 protected:
 	/**
 	 * Check if mission item has been reached
@@ -124,6 +125,11 @@ protected:
 	float get_time_inside(const mission_item_s &item) const ;
 
 	float get_absolute_altitude_for_item(const mission_item_s &mission_item) const;
+
+	/**
+	 * Update the cruising speed setpoint.
+	 */
+	void cruising_speed_sp_update();
 
 	mission_item_s _mission_item{};
 

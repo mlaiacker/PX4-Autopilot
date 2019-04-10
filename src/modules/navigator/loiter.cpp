@@ -72,6 +72,8 @@ Loiter::on_active()
 		reposition();
 	}
 
+	cruising_speed_sp_update();
+
 	// reset the loiter position if we get disarmed
 	if (_navigator->get_vstatus()->arming_state != vehicle_status_s::ARMING_STATE_ARMED) {
 		_loiter_pos_set = false;
