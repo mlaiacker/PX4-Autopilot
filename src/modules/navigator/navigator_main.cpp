@@ -880,8 +880,7 @@ Navigator::get_cruising_speed()
 	} else {
 		if ((is_planned_mission() ||
 				(_navigation_mode == &_loiter) ||
-				(_navigation_mode == &_rtl) ||
-				(_navigation_mode == &_follow_target)
+				(_navigation_mode == &_rtl)
 				) && _mission_cruising_speed_fw > 0.0f) {
 			return _mission_cruising_speed_fw;
 
@@ -898,8 +897,6 @@ Navigator::set_cruising_speed(float speed)
 		_mission_cruising_speed_mc = speed;
 
 	} else {
-		if((int)_mission_cruising_speed_fw != (int)speed)
-			PX4_INFO("FW sSP=%.1fm/s->%.1fm/s",(double)_mission_cruising_speed_fw, (double)speed);
 		_mission_cruising_speed_fw = speed;
 	}
 }
@@ -907,7 +904,6 @@ Navigator::set_cruising_speed(float speed)
 void
 Navigator::reset_cruising_speed()
 {
-	PX4_INFO("reset sSP");
 	_mission_cruising_speed_mc = -1.0f;
 	_mission_cruising_speed_fw = -1.0f;
 }
