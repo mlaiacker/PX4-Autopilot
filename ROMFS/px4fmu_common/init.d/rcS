@@ -716,6 +716,18 @@ fi
 
 	unset MAVLINK_COMPANION_DEVICE
 
+	if param greater MNT_TRIP_MAVLINK 0
+	then
+		# "set mavlink rates for trip2"
+		# should be used together with SYS_COMPANION 257600		
+		mavlink stream -d /dev/ttyS2 -s GLOBAL_POSITION_INT -r 25
+		mavlink stream -d /dev/ttyS2 -s ATTITUDE -r 25
+		mavlink stream -d /dev/ttyS2 -s GPS_RAW_INT -r 2
+		mavlink stream -d /dev/ttyS2 -s HEARTBEAT -r 2
+		mavlink stream -d /dev/ttyS2 -s SYS_STATUS -r 1
+		mavlink stream -d /dev/ttyS2 -s SYSTEM_TIME -r 1
+	fi
+
 	#
 	# Starting stuff according to UAVCAN_ENABLE value
 	#
