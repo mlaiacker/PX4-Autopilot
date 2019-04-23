@@ -91,7 +91,7 @@ int GDPayload::print_status()
 {
 	// print additional runtime information about the state of the module
 	PX4_INFO("inst: %i", _instance);
-	PX4_INFO("rate: %i", _rate);
+//	PX4_INFO("rate: %i", _rate);
 	PX4_INFO("voltage: %.2fV (%f)", (double)_voltage_v, double(_parameters.battery_v_div));
 	PX4_INFO("current: %.3fA (%f)", (double)_current_a, double(_parameters.battery_a_per_v));
 	PX4_INFO("bat used: %.1fmAh", (double)_used_mAh);
@@ -156,15 +156,15 @@ void GDPayload::printTrip2Report()
 		char modes[11][16]={"Stow","Pilot","Retract","Retract Lock","Observation","GRR","Hold Coord","Point Coord","Local Pos","Global Pos","Track"};
 		trip2_sys_report_s uorb_trip2_sys;
 		orb_copy(ORB_ID(trip2_sys_report), sub_trip2_sys, &uorb_trip2_sys);
-		PX4_INFO("Trip2 sys report t=%ld", uorb_trip2_sys.timestamp);
-		PX4_INFO("roll=%.2f pitch=%.2f", (double)uorb_trip2_sys.roll, (double)uorb_trip2_sys.pitch);
-		PX4_INFO("FOV=%.2f", (double)uorb_trip2_sys.FOV);
-		PX4_INFO("track:%i rec:%i sens:%i", uorb_trip2_sys.tracker_status, uorb_trip2_sys.recording_status, uorb_trip2_sys.sensor_active);
-		if(uorb_trip2_sys.system_mode>0 && uorb_trip2_sys.system_mode<=10)
+		if(uorb_trip2_sys.system_mode<=10)
+		{
 			PX4_INFO("Mode:%s",modes[uorb_trip2_sys.system_mode]);
+		}
 		else
+		{
 			PX4_INFO("Mode:%i",uorb_trip2_sys.system_mode);
-
+		}
+		print_message(uorb_trip2_sys);
 		orb_unsubscribe(sub_trip2_sys);
 	} else
 	{

@@ -34,9 +34,9 @@
 px4_add_module(
 	MODULE modules__gd_payload
 	MAIN gd_payload
-	STACK_MAIN 1024
+	STACK_MAIN 1512
 	SRCS
-		gd_payload.cpp 
+		gd_payload.cpp  
 	DEPENDS
 		modules__uORB
 	)

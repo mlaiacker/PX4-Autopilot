@@ -2510,7 +2510,6 @@ void MavlinkReceiver::handle_message_V2Ext(mavlink_message_t *msg)
 
 		if (_trip2_sys_pub == nullptr) {
 			_trip2_sys_pub = orb_advertise(ORB_ID(trip2_sys_report), &uorb_sys_report);
-
 		} else {
 			orb_publish(ORB_ID(trip2_sys_report), _trip2_sys_pub, &uorb_sys_report);
 		}

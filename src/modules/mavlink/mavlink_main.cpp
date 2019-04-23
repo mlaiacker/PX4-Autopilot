@@ -538,9 +538,14 @@ Mavlink::forward_message(const mavlink_message_t *msg, Mavlink *self)
 				|| msg->msgid==MAVLINK_MSG_ID_V2_EXTENSION) {
 				inst->pass_message(msg);
 			} else {
-				char msg_text[100];
-				sprintf(msg_text,"not forward id=%i len=%i tid=%i tc=%i",msg->msgid, msg->len, target_system_id, target_component_id);
-				inst->send_statustext_info(msg_text);
+				if((msg->msgid!= MAVLINK_MSG_ID_PING)
+						&& (msg->msgid!= MAVLINK_MSG_ID_PARAM_REQUEST_READ)
+						&& (msg->msgid!= MAVLINK_MSG_ID_MISSION_REQUEST_INT))
+				{
+					char msg_text[100];
+					sprintf(msg_text,"not forward id=%i len=%i tid=%i tc=%i",msg->msgid, msg->len, target_system_id, target_component_id);
+					inst->send_statustext_info(msg_text);
+				}
 			}
 		}
 	}
