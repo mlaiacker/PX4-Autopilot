@@ -148,6 +148,8 @@ MavlinkReceiver::MavlinkReceiver(Mavlink *parent) :
 	_gps_inject_data_pub(nullptr),
 	_command_ack_pub(nullptr),
 	_trip2_sys_pub(nullptr),
+	_trip2_los_pub(nullptr),
+	_trip2_gnd_pub(nullptr),
 	_control_mode_sub(orb_subscribe(ORB_ID(vehicle_control_mode))),
 	_actuator_armed_sub(orb_subscribe(ORB_ID(actuator_armed))),
 	_global_ref_timestamp(0),
@@ -351,7 +353,6 @@ MavlinkReceiver::handle_message(mavlink_message_t *msg)
 
 	case MAVLINK_MSG_ID_V2_EXTENSION:
 		handle_message_V2Ext(msg);
-//		PX4_INFO("V2ext l=%i", msg->len);
 		break;
 
 	default:
@@ -2487,6 +2488,31 @@ void MavlinkReceiver::handle_message_V2Ext(mavlink_message_t *msg)
 		uint16_t tracker_rioy;  // Y offset of the center of the tracker ROI, measured from the top left corner of the frame.
 	}) v2ext_trip2_sys_report_t;
 
+	MAVPACKED(
+	typedef struct{
+    float los312_x;
+    float los312_y;
+    float los312_z;
+    float upperLeftLat;
+    float upperLeftLon;
+    float upperRightLat;
+    float upperRightLon;
+    float lowerRightLat;
+    float lowerRightLon;
+    float lowerLeftLat;
+    float lowerLeftLon;
+    float losElevation;
+    float losAzimuth;
+	}) v2ext_trip2_los_report_t;
+
+	MAVPACKED(
+	typedef struct{
+    float gndCrsLat;
+    float gndCrsLon;
+    float gndCrsAlt;
+    float gndCrsSlantRange;
+	}) v2ext_trip2_gnd_report_t;
+
 	mavlink_msg_v2_extension_decode(msg, &msg_v2);
 
 	if(msg_v2.message_type == 0)
@@ -2517,6 +2543,17 @@ void MavlinkReceiver::handle_message_V2Ext(mavlink_message_t *msg)
 	} else if(msg_v2.message_type == 1)
 	{
 //		_mavlink->send_statustext_info("TRIP LOS msg");
+		v2ext_trip2_los_report_t los_report;
+		trip2_los_report_s uorb_los_report;
+		memcpy(&los_report, &msg_v2.target_network, sizeof(los_report));
+		uorb_los_report.timestamp = hrt_absolute_time();
+		uorb_los_report.los312_x = los_report.los312_x;
+
+		if (_trip2_los_pub == nullptr) {
+			_trip2_los_pub = orb_advertise(ORB_ID(trip2_los_report), &uorb_los_report);
+		} else {
+			orb_publish(ORB_ID(trip2_los_report), _trip2_los_pub, &uorb_los_report);
+		}
 	} else if(msg_v2.message_type == 2)
 	{
 //		_mavlink->send_statustext_info("TRIP GND msg");

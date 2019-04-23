@@ -82,6 +82,8 @@
 #include <uORB/topics/vehicle_status.h>
 
 #include <uORB/topics/trip2_sys_report.h>
+#include <uORB/topics/trip2_los_report.h>
+#include <uORB/topics/trip2_gnd_report.h>
 
 #include "mavlink_ftp.h"
 #include "mavlink_log_handler.h"
@@ -247,6 +249,8 @@ private:
 	orb_advert_t _gps_inject_data_pub;
 	orb_advert_t _command_ack_pub;
 	orb_advert_t _trip2_sys_pub;
+	orb_advert_t _trip2_los_pub;
+	orb_advert_t _trip2_gnd_pub;
 	int _control_mode_sub;
 	int _actuator_armed_sub;
 	uint64_t _global_ref_timestamp;

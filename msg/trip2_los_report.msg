@@ -1,0 +1,13 @@
+float32 los312_x
+float32 los312_y
+float32 los312_z
+float32 upperLeftLat
+float32 upperLeftLon
+float32 upperRightLat
+float32 upperRightLon
+float32 lowerRightLat
+float32 lowerRightLon
+float32 lowerLeftLat
+float32 lowerLeftLon
+float32 losElevation
+float32 losAzimuth

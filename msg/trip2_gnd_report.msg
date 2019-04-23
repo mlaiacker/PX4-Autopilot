@@ -1,0 +1,4 @@
+float32 gndCrsLat
+float32 gndCrsLon
+float32 gndCrsAlt
+float32 gndCrsSlantRange
