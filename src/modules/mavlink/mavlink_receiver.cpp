@@ -147,6 +147,7 @@ MavlinkReceiver::MavlinkReceiver(Mavlink *parent) :
 	_debug_vect_pub(nullptr),
 	_gps_inject_data_pub(nullptr),
 	_command_ack_pub(nullptr),
+	_trip2_sys_pub(nullptr),
 	_control_mode_sub(orb_subscribe(ORB_ID(vehicle_control_mode))),
 	_actuator_armed_sub(orb_subscribe(ORB_ID(actuator_armed))),
 	_global_ref_timestamp(0),
@@ -348,7 +349,13 @@ MavlinkReceiver::handle_message(mavlink_message_t *msg)
 		handle_message_debug_vect(msg);
 		break;
 
+	case MAVLINK_MSG_ID_V2_EXTENSION:
+		handle_message_V2Ext(msg);
+//		PX4_INFO("V2ext l=%i", msg->len);
+		break;
+
 	default:
+//		PX4_INFO("msg id=%i len=%i",msg->msgid, msg->len);
 		break;
 	}
 
@@ -2450,6 +2457,76 @@ void MavlinkReceiver::handle_message_debug_vect(mavlink_message_t *msg)
 	} else {
 		orb_publish(ORB_ID(debug_vect), _debug_vect_pub, &debug_topic);
 	}
+}
+
+void MavlinkReceiver::handle_message_V2Ext(mavlink_message_t *msg)
+{
+	mavlink_v2_extension_t msg_v2;
+
+	MAVPACKED(
+	typedef struct{
+		float roll; // Camera roll angle (deg, -180..+180), float
+		float pitch; // Camera pitch angle (deg, -180..+180), float
+		float FOV; // Camera horizontal FOV in deg, float
+		uint8_t tracker_status; /* Status of the object tracker:
+		0		Tracker is Idle, ready for all tracking	commands
+		1		Crosshair is displayed, ready for track on command
+		2		Tracker is actively tracking an object
+		3		Re-Track crosshair is displayed, movable by the user, ready for track on command
+		4		Tracker is actively tracking an object
+		5		Tracker is actively tracking an object */
+		uint8_t recording_status; /*Status of the video recording:
+		0 Idle, not recording Detected
+		1 Active, video is being recorded Detected
+		2 Disabled Not Detected */
+		uint8_t sensor_active; // 0= Day Sensor, 1=IR Sensor
+		uint8_t sensor_polarity; // o=white hot, 1= black hot
+		uint8_t system_mode;
+		uint8_t laser_status;
+		uint16_t tracker_roix; // X offset of the center of the tracker ROI, measured from the top left corner of the frame.
+		uint16_t tracker_rioy;  // Y offset of the center of the tracker ROI, measured from the top left corner of the frame.
+	}) v2ext_trip2_sys_report_t;
+
+	mavlink_msg_v2_extension_decode(msg, &msg_v2);
+
+	if(msg_v2.message_type == 0)
+	{
+//		_mavlink->send_statustext_info("TRIP sys msg");
+		v2ext_trip2_sys_report_t sys_report;
+		trip2_sys_report_s uorb_sys_report;
+		memcpy(&sys_report, &msg_v2.target_network, sizeof(sys_report));
+		uorb_sys_report.timestamp = hrt_absolute_time();
+		uorb_sys_report.FOV = sys_report.FOV;
+		uorb_sys_report.roll = sys_report.roll;
+		uorb_sys_report.pitch = sys_report.pitch;
+		uorb_sys_report.laser_status = sys_report.laser_status;
+		uorb_sys_report.recording_status = sys_report.recording_status;
+		uorb_sys_report.sensor_active = sys_report.sensor_active;
+		uorb_sys_report.sensor_polarity = sys_report.sensor_polarity;
+		uorb_sys_report.system_mode = sys_report.system_mode;
+		uorb_sys_report.tracker_rioy = sys_report.tracker_rioy;
+		uorb_sys_report.tracker_roix = sys_report.tracker_roix;
+		uorb_sys_report.tracker_status = sys_report.tracker_status;
+
+		if (_trip2_sys_pub == nullptr) {
+			_trip2_sys_pub = orb_advertise(ORB_ID(trip2_sys_report), &uorb_sys_report);
+
+		} else {
+			orb_publish(ORB_ID(trip2_sys_report), _trip2_sys_pub, &uorb_sys_report);
+		}
+
+	} else if(msg_v2.message_type == 1)
+	{
+//		_mavlink->send_statustext_info("TRIP LOS msg");
+	} else if(msg_v2.message_type == 2)
+	{
+//		_mavlink->send_statustext_info("TRIP GND msg");
+	} else {
+		_mavlink->send_statustext_info("V2Ext unknown");
+
+	}
+
+
 }
 
 /**

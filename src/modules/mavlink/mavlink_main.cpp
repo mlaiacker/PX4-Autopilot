@@ -533,10 +533,14 @@ Mavlink::forward_message(const mavlink_message_t *msg, Mavlink *self)
 
 			// Broadcast or addressing this system and not trying to talk
 			// to the autopilot component -> pass on to other components
-			if ((target_system_id == 0 || target_system_id == self->get_system_id())
-			    && (target_component_id == 0 || target_component_id != self->get_component_id())) {
-
+			if (((target_system_id == 0 || target_system_id == self->get_system_id())
+			    && (target_component_id == 0 || target_component_id != self->get_component_id()))
+				|| msg->msgid==MAVLINK_MSG_ID_V2_EXTENSION) {
 				inst->pass_message(msg);
+			} else {
+				char msg_text[100];
+				sprintf(msg_text,"not forward id=%i len=%i tid=%i tc=%i",msg->msgid, msg->len, target_system_id, target_component_id);
+				inst->send_statustext_info(msg_text);
 			}
 		}
 	}

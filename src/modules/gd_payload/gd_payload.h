@@ -70,6 +70,7 @@ public:
 	int print_status() override;
 
 	static 	void writePayloadPower(bool on);
+	static  void printTrip2Report();
 private:
 	DriverFramework::DevHandle 	_h_adc;				/**< ADC driver handle */
 	struct {

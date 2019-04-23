@@ -54,6 +54,7 @@
 
 #include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/topics/parameter_update.h>
+#include <uORB/topics/trip2_sys_report.h>
 
 #include <drivers/drv_hrt.h>
 #include <drivers/drv_pwm_output.h>
@@ -77,6 +78,9 @@ $ gd_payload start
 
 	PRINT_MODULE_USAGE_NAME("gd_payload", "modules");
 	PRINT_MODULE_USAGE_COMMAND("start");
+	PRINT_MODULE_USAGE_COMMAND("on");
+	PRINT_MODULE_USAGE_COMMAND("off");
+	PRINT_MODULE_USAGE_COMMAND("trip2");
 	PRINT_MODULE_USAGE_PARAM_FLAG('v', "debug flag", true);
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
@@ -112,6 +116,11 @@ int GDPayload::custom_command(int argc, char *argv[])
 		return 0;
 	}
 
+	if (!strcmp(verb, "trip2")) {
+		printTrip2Report();
+		return 0;
+	}
+
 	return print_usage("unknown command");
 }
 
@@ -137,6 +146,30 @@ void GDPayload::writePayloadPower(bool on)
 		ioctl(fd, DSM_BIND_START,0);
 	}
 	close(fd);
+}
+
+void GDPayload::printTrip2Report()
+{
+	int sub_trip2_sys = orb_subscribe(ORB_ID(trip2_sys_report));
+	if(sub_trip2_sys>0)
+	{
+		char modes[11][16]={"Stow","Pilot","Retract","Retract Lock","Observation","GRR","Hold Coord","Point Coord","Local Pos","Global Pos","Track"};
+		trip2_sys_report_s uorb_trip2_sys;
+		orb_copy(ORB_ID(trip2_sys_report), sub_trip2_sys, &uorb_trip2_sys);
+		PX4_INFO("Trip2 sys report t=%ld", uorb_trip2_sys.timestamp);
+		PX4_INFO("roll=%.2f pitch=%.2f", (double)uorb_trip2_sys.roll, (double)uorb_trip2_sys.pitch);
+		PX4_INFO("FOV=%.2f", (double)uorb_trip2_sys.FOV);
+		PX4_INFO("track:%i rec:%i sens:%i", uorb_trip2_sys.tracker_status, uorb_trip2_sys.recording_status, uorb_trip2_sys.sensor_active);
+		if(uorb_trip2_sys.system_mode>0 && uorb_trip2_sys.system_mode<=10)
+			PX4_INFO("Mode:%s",modes[uorb_trip2_sys.system_mode]);
+		else
+			PX4_INFO("Mode:%i",uorb_trip2_sys.system_mode);
+
+		orb_unsubscribe(sub_trip2_sys);
+	} else
+	{
+		PX4_ERR("failed to subscribe to trip2_sys topic");
+	}
 }
 
 int GDPayload::task_spawn(int argc, char *argv[])
