@@ -43,3 +43,35 @@ private:
 };
 
 #endif /* ifdef __PX4_NUTTX */
+
+#ifdef __PX4_POSIX
+
+#include <drivers/linux_gpio/linux_gpio.h>
+
+#include "camera_interface.h"
+
+class CameraInterfaceGPIO : public CameraInterface
+{
+public:
+	CameraInterfaceGPIO();
+	virtual ~CameraInterfaceGPIO();
+
+	void trigger(bool trigger_on_true);
+
+	void info();
+
+private:
+
+	void setup();
+
+	param_t _p_polarity;
+	param_t _p_gpio;
+	int32_t _gpio_num;
+
+	bool _trigger_invert;
+	LinuxGPIO _gpio;
+
+};
+
+#endif /* ifdef __PX4_POSIX */
+

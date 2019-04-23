@@ -2533,7 +2533,7 @@ protected:
 	{
 		actuator_outputs_s act;
 
-		if (_act_sub->update(&_act_time, &act)) {
+		if (_act_sub->update(&_act_time, &act) || true) {
 			vehicle_status_s status = {};
 			_status_sub->update(&status);
 
@@ -2580,7 +2580,7 @@ protected:
 						break;
 
 					case MAV_TYPE_VTOL_RESERVED2:
-						n = 8;
+						n = 4;
 						break;
 
 					default:

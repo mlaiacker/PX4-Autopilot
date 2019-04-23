@@ -334,6 +334,7 @@ Navigator::run()
 				rep->current.loiter_direction = 1;
 				rep->current.type = position_setpoint_s::SETPOINT_TYPE_LOITER;
 				rep->current.cruising_speed = get_cruising_speed();
+				PX4_INFO("repo sSP=%fm/s",(double)rep->current.cruising_speed);
 				rep->current.cruising_throttle = get_cruising_throttle();
 
 				// Go on and check which changes had been requested
@@ -877,7 +878,10 @@ Navigator::get_cruising_speed()
 		}
 
 	} else {
-		if (is_planned_mission() && _mission_cruising_speed_fw > 0.0f) {
+		if ((is_planned_mission() ||
+				(_navigation_mode == &_loiter) ||
+				(_navigation_mode == &_rtl)
+				) && _mission_cruising_speed_fw > 0.0f) {
 			return _mission_cruising_speed_fw;
 
 		} else {

@@ -29,8 +29,8 @@ then
 #TODO: copy default parameter
 	param set VT_TYPE 2
 	param set VT_MOT_COUNT 4
-	param set VT_F_TRANS_THR 0.75
-	param set VT_ARSP_TRANS 13
+	param set VT_F_TRANS_THR 0.80
+	param set VT_ARSP_TRANS 14
 	param set VT_ARSP_BLEND 8
 
 	param set MC_ROLL_P 6.0
@@ -62,7 +62,9 @@ then
 	param set FW_RR_P 0.05
 	param set FW_THR_CRUISE 0.50
 
-	param set VT_IDLE_PWM_MC 1080
+	param set VT_IDLE_PWM_MC 1170
+	
+	param set MNT_TRIP_MAVLINK 0
 fi
 
 set MIXER SBV3
@@ -80,9 +82,6 @@ batt_pac17xx start -b 1 -r 0.2 -s 40
 
 gd_payload start
 gd_payload on
-
-# start mavlink on payload serial port
-#mavlink start -d /dev/ttyS2 -f
 
 
 # /dev/ttyS0		IO debug except v4, there ttyS0 is the wifi
