@@ -535,7 +535,9 @@ Mavlink::forward_message(const mavlink_message_t *msg, Mavlink *self)
 			// to the autopilot component -> pass on to other components
 			if (((target_system_id == 0 || target_system_id == self->get_system_id())
 			    && (target_component_id == 0 || target_component_id != self->get_component_id()))
-				|| msg->msgid==MAVLINK_MSG_ID_V2_EXTENSION) {
+				|| msg->msgid==MAVLINK_MSG_ID_V2_EXTENSION // Always forward
+				|| msg->msgid==MAVLINK_MSG_ID_COMMAND_LONG // Always forward
+				) {
 				inst->pass_message(msg);
 			} else {
 				if((msg->msgid!= MAVLINK_MSG_ID_PING)
