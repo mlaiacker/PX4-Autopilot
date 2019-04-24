@@ -2462,8 +2462,7 @@ void MavlinkReceiver::handle_message_debug_vect(mavlink_message_t *msg)
 
 void MavlinkReceiver::handle_message_V2Ext(mavlink_message_t *msg)
 {
-	mavlink_v2_extension_t msg_v2;
-
+	// structures send by TRIP2
 	MAVPACKED(
 	typedef struct{
 		float roll; // Camera roll angle (deg, -180..+180), float
@@ -2513,26 +2512,27 @@ void MavlinkReceiver::handle_message_V2Ext(mavlink_message_t *msg)
     float gndCrsSlantRange;
 	}) v2ext_trip2_gnd_report_t;
 
+	mavlink_v2_extension_t msg_v2;
 	mavlink_msg_v2_extension_decode(msg, &msg_v2);
 
-	if(msg_v2.message_type == 0)
+	if(msg_v2.message_type == 0) //	TRIP sys msg
 	{
-//		_mavlink->send_statustext_info("TRIP sys msg");
-		v2ext_trip2_sys_report_t sys_report;
+		// trip none std v2 extension message starts at byte 3 (target_network)
+		const v2ext_trip2_sys_report_t* sys_report  = (v2ext_trip2_sys_report_t*)&msg_v2.target_network;
 		trip2_sys_report_s uorb_sys_report;
-		memcpy(&sys_report, &msg_v2.target_network, sizeof(sys_report));
+
 		uorb_sys_report.timestamp = hrt_absolute_time();
-		uorb_sys_report.FOV = sys_report.FOV;
-		uorb_sys_report.roll = sys_report.roll;
-		uorb_sys_report.pitch = sys_report.pitch;
-		uorb_sys_report.laser_status = sys_report.laser_status;
-		uorb_sys_report.recording_status = sys_report.recording_status;
-		uorb_sys_report.sensor_active = sys_report.sensor_active;
-		uorb_sys_report.sensor_polarity = sys_report.sensor_polarity;
-		uorb_sys_report.system_mode = sys_report.system_mode;
-		uorb_sys_report.tracker_rioy = sys_report.tracker_rioy;
-		uorb_sys_report.tracker_roix = sys_report.tracker_roix;
-		uorb_sys_report.tracker_status = sys_report.tracker_status;
+		uorb_sys_report.FOV = sys_report->FOV;
+		uorb_sys_report.roll = sys_report->roll;
+		uorb_sys_report.pitch = sys_report->pitch;
+		uorb_sys_report.laser_status = sys_report->laser_status;
+		uorb_sys_report.recording_status = sys_report->recording_status;
+		uorb_sys_report.sensor_active = sys_report->sensor_active;
+		uorb_sys_report.sensor_polarity = sys_report->sensor_polarity;
+		uorb_sys_report.system_mode = sys_report->system_mode;
+		uorb_sys_report.tracker_rioy = sys_report->tracker_rioy;
+		uorb_sys_report.tracker_roix = sys_report->tracker_roix;
+		uorb_sys_report.tracker_status = sys_report->tracker_status;
 
 		if (_trip2_sys_pub == nullptr) {
 			_trip2_sys_pub = orb_advertise(ORB_ID(trip2_sys_report), &uorb_sys_report);
@@ -2540,23 +2540,47 @@ void MavlinkReceiver::handle_message_V2Ext(mavlink_message_t *msg)
 			orb_publish(ORB_ID(trip2_sys_report), _trip2_sys_pub, &uorb_sys_report);
 		}
 
-	} else if(msg_v2.message_type == 1)
+	} else if(msg_v2.message_type == 1) // TRIP LOS msg
 	{
-//		_mavlink->send_statustext_info("TRIP LOS msg");
-		v2ext_trip2_los_report_t los_report;
+		const v2ext_trip2_los_report_t* los_report = (v2ext_trip2_los_report_t*)&msg_v2.target_network;
 		trip2_los_report_s uorb_los_report;
-		memcpy(&los_report, &msg_v2.target_network, sizeof(los_report));
+
 		uorb_los_report.timestamp = hrt_absolute_time();
-		uorb_los_report.los312_x = los_report.los312_x;
+		uorb_los_report.los312_x = los_report->los312_x;
+		uorb_los_report.los312_y = los_report->los312_y;
+		uorb_los_report.los312_z = los_report->los312_z;
+		uorb_los_report.losAzimuth = los_report->losAzimuth;
+		uorb_los_report.losElevation = los_report->losElevation;
+		uorb_los_report.lowerLeftLat = los_report->lowerLeftLat;
+		uorb_los_report.lowerLeftLon = los_report->lowerRightLon;
+		uorb_los_report.lowerRightLat = los_report->lowerRightLat;
+		uorb_los_report.lowerRightLon = los_report->lowerRightLon;
+		uorb_los_report.upperLeftLat = los_report->upperLeftLat;
+		uorb_los_report.upperLeftLon = los_report->upperLeftLon;
+		uorb_los_report.upperRightLat = los_report->upperRightLat;
+		uorb_los_report.upperRightLon = los_report->upperRightLon;
 
 		if (_trip2_los_pub == nullptr) {
 			_trip2_los_pub = orb_advertise(ORB_ID(trip2_los_report), &uorb_los_report);
 		} else {
 			orb_publish(ORB_ID(trip2_los_report), _trip2_los_pub, &uorb_los_report);
 		}
-	} else if(msg_v2.message_type == 2)
+	} else if(msg_v2.message_type == 2) // TRIP GND msg
 	{
-//		_mavlink->send_statustext_info("TRIP GND msg");
+		const v2ext_trip2_gnd_report_t* gnd_report = (v2ext_trip2_gnd_report_t*)&msg_v2.target_network;
+		trip2_gnd_report_s uorb_gnd_report;
+
+		uorb_gnd_report.timestamp = hrt_absolute_time();
+		uorb_gnd_report.gndCrsAlt = gnd_report->gndCrsAlt;
+		uorb_gnd_report.gndCrsLat = gnd_report->gndCrsLat;
+		uorb_gnd_report.gndCrsLon = gnd_report->gndCrsLon;
+		uorb_gnd_report.gndCrsSlantRange = gnd_report->gndCrsSlantRange;
+
+		if (_trip2_gnd_pub == nullptr) {
+			_trip2_gnd_pub = orb_advertise(ORB_ID(trip2_gnd_report), &uorb_gnd_report);
+		} else {
+			orb_publish(ORB_ID(trip2_gnd_report), _trip2_gnd_pub, &uorb_gnd_report);
+		}
 	} else {
 		_mavlink->send_statustext_info("V2Ext unknown");
 
