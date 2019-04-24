@@ -55,6 +55,8 @@
 #include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/trip2_sys_report.h>
+#include <uORB/topics/trip2_los_report.h>
+#include <uORB/topics/trip2_gnd_report.h>
 
 #include <drivers/drv_hrt.h>
 #include <drivers/drv_pwm_output.h>
@@ -169,6 +171,28 @@ void GDPayload::printTrip2Report()
 	} else
 	{
 		PX4_ERR("failed to subscribe to trip2_sys topic");
+	}
+	int sub_trip2_los = orb_subscribe(ORB_ID(trip2_los_report));
+	if(sub_trip2_los>0)
+	{
+		trip2_los_report_s uorb_trip2_los;
+		orb_copy(ORB_ID(trip2_los_report), sub_trip2_los, &uorb_trip2_los);
+		print_message(uorb_trip2_los);
+		orb_unsubscribe(sub_trip2_los);
+	} else
+	{
+		PX4_ERR("failed to subscribe to trip2 los topic");
+	}
+	int sub_trip2_gnd = orb_subscribe(ORB_ID(trip2_gnd_report));
+	if(sub_trip2_gnd>0)
+	{
+		trip2_gnd_report_s uorb_trip2_gnd;
+		orb_copy(ORB_ID(trip2_gnd_report), sub_trip2_gnd, &uorb_trip2_gnd);
+		print_message(uorb_trip2_gnd);
+		orb_unsubscribe(sub_trip2_gnd);
+	} else
+	{
+		PX4_ERR("failed to subscribe to trip2 gnd topic");
 	}
 }
 
