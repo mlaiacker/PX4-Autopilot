@@ -182,16 +182,28 @@ void RcInput::_measure(void)
 		usleep(RCINPUT_MEASURE_INTERVAL_US);
 	}
 
-
-	int i = 0;
-
-	for (i = 0; i < _channels; ++i) {
-		_data.values[i] = _channels_data[i];
+	if(sbus_failsafe != _data.rc_failsafe)
+	{
+		PX4_INFO("fs:%i drop:%i %i", sbus_failsafe, sbus_frame_drop, count);
+	}
+	if(	_data.channel_count != _channels)
+	{
+		PX4_INFO("frame fs:%i drop:%i channels: %i", sbus_failsafe, sbus_frame_drop, _channels);
+		PX4_INFO("ch0=%i",_channels_data[0]);
 	}
 
+	int i = 0;
 	ts = hrt_absolute_time();
+
+	if(!sbus_failsafe)
+	{
+		for (i = 0; i < _channels; ++i) {
+			_data.values[i] = _channels_data[i];
+		}
+		_data.timestamp_last_signal = ts;
+	}
+
 	_data.timestamp = ts;
-	_data.timestamp_last_signal = ts;
 	_data.channel_count = _channels;
 	_data.rssi = 100;
 	_data.rc_lost_frame_count = count;
