@@ -59,6 +59,7 @@
 #include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/uORB.h>
 #include <battery/battery.h>
+#include <mathlib/mathlib.h>
 
 #define BATT_PAC17_ADDR_MIN             0x00	///< lowest possible address
 #define BATT_PAC17_ADDR_MAX             0xFF	///< highest possible address
@@ -214,6 +215,7 @@ private:
 	uint8_t			_sens_sample_reg; ///< sample scale register value
 	float			_sens_resistor;	///< current sense resistor value in mOhm
 	int 			_startupDelay; ///< prevent publish voltage before filter converged
+	float 			_startRemaining; //< remain estimate based on voltage at beginning
 	enum SMBUS_BATT_DEV_E
 	{
 		NONE=0,
@@ -245,6 +247,7 @@ BATT_PAC17::BATT_PAC17(int bus, uint16_t batt_pac17_addr, float sens_resistor, u
 	_sens_full_scale(BATT_PAC17_SENS_RANGE),
 	_sens_sample_reg(0x53),
 	_sens_resistor(BATT_PAC17_SENS_R),
+	_startRemaining(0),
 	_battery()
 {
 	// capture startup time
@@ -319,8 +322,6 @@ BATT_PAC17::init()
 	_actuator_ctrl_0_sub = orb_subscribe(ORB_ID(actuator_controls_0));
 	/* needed to read arming status */
 	_vcontrol_mode_sub = orb_subscribe(ORB_ID(vehicle_control_mode));
-	_startupDelay = 100;
-
 	return ret;
 }
 
@@ -424,7 +425,7 @@ BATT_PAC17::search()
 		PX4_INFO("current monitor connected");
 
 	} else {
-		PX4_INFO("No current monitor found.");
+		PX4_ERR("No current monitor found.");
 	}
 
 	return OK;
@@ -440,9 +441,9 @@ BATT_PAC17::probe()
 void
 BATT_PAC17::start()
 {
+	_startupDelay = 100;
 	// schedule a cycle to start things
 	work_queue(HPWORK, &_work, (worker_t)&BATT_PAC17::cycle_trampoline, this, 1);
-
 }
 
 void
@@ -508,6 +509,11 @@ BATT_PAC17::try_read_data(battery_status_s &new_report, uint64_t now){
 				_armed, &new_report);
 		new_report.average_current_a = new_report.current_filtered_a;
 		new_report.current_filtered_a = _current_a_filtered;
+		if(_startRemaining>=0.0f && _startRemaining<=1.0f)
+		{
+			// subtract start remaining from remaining based on used mAh to deal with a startup with not fully charged battery
+			new_report.remaining = math::max(new_report.remaining-(1.0f-_startRemaining), 0.0f);
+		}
 
 		if(_dev_id == SMBUS_BATT_DEV_E::PAC1720)
 		{
@@ -519,15 +525,6 @@ BATT_PAC17::try_read_data(battery_status_s &new_report, uint64_t now){
 				// convert millivolts to volts
 				_voltage2 = ((float)voltage2*19.53125f) / 1000.0f;
 				new_report.temperature = _voltage2; // hack to publish second channel
-/*
-				if(voltage2>10 && voltage>10)
-				{
-					if((float)fabs((float)voltage/2 - (float)voltage2) > (voltage2/5.0f) )
-					{
-						new_report.warning = battery_status_s::BATTERY_WARNING_FAILED; // difference too high
-					}
-				}
-				*/
 			}
 		}
 
@@ -542,13 +539,6 @@ BATT_PAC17::cycle()
 	// get current time
 	uint64_t now = hrt_absolute_time();
 
-	/*
-	// exit without rescheduling if we have failed to find a battery after 10 seconds
-	if (!_enabled && (now - _start_time > BATT_PAC17_TIMEOUT_US)) {
-		PX4_INFO("did not find current monitor");
-		return;
-	}
-*/
 	if(_dev_id==SMBUS_BATT_DEV_E::NONE)
 	{
 		identify();
@@ -566,6 +556,11 @@ BATT_PAC17::cycle()
 				} else
 				{
 					_startupDelay--;
+					_startRemaining = _battery.getRemainingVoltage();
+					if(_startupDelay==0)
+					{
+						PX4_INFO("remaining at start=%i", (int)_startRemaining*100);
+					}
 				}
 			} else {
 				_batt_topic = orb_advertise(_batt_orb_id, &new_report);
@@ -573,6 +568,7 @@ BATT_PAC17::cycle()
 					PX4_ERR("ADVERT FAIL");
 				}
 			}
+
 			// copy report for test()
 			_last_report = new_report;
 			// record we are working
@@ -618,7 +614,7 @@ BATT_PAC17::write_reg(uint8_t reg, uint8_t val)
 	// write bytes to register
 	int ret = transfer(buff, 2, nullptr, 0);
 	if (ret != OK) {
-		PX4_DEBUG("Register 0x%x write error", reg);
+		PX4_ERR("Reg 0x%x write error", reg);
 	}
 	// return success or failure
 	return ret;

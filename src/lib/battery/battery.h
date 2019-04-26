@@ -86,6 +86,10 @@ public:
 				 float throttle_normalized,
 				 bool armed, battery_status_s *status);
 
+	/**
+	 * get remaining estimate based on voltage
+	 */
+	float getRemainingVoltage() {return _remaining_voltage; }
 private:
 	void filterVoltage(float voltage_v);
 	void filterThrottle(float throttle);
