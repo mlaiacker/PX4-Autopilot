@@ -674,11 +674,11 @@ fi
 	fi
 	if param compare SYS_COMPANION 357600
 	then
-		mavlink start -d ${MAVLINK_COMPANION_DEVICE} -b 57600 -r 1000 -f
+		mavlink start -d ${MAVLINK_COMPANION_DEVICE} -b 57600 -r 5000 -f
 	fi
 	if param compare SYS_COMPANION 3115200
 	then
-		mavlink start -d ${MAVLINK_COMPANION_DEVICE} -b 115200 -r 1000 -f
+		mavlink start -d ${MAVLINK_COMPANION_DEVICE} -b 115200 -r 5000 -f
 	fi
 	if param compare SYS_COMPANION 419200
 	then
@@ -714,19 +714,21 @@ fi
 		mavlink start -d ${MAVLINK_COMPANION_DEVICE} -b 1500000 -m onboard -r 10000 -x -f
 	fi
 
-	unset MAVLINK_COMPANION_DEVICE
 
 	if param greater MNT_TRIP_MAVLINK 0
 	then
 		# "set mavlink rates for trip2"
 		# should be used together with SYS_COMPANION 257600		
-		mavlink stream -d /dev/ttyS2 -s GLOBAL_POSITION_INT -r 25
-		mavlink stream -d /dev/ttyS2 -s ATTITUDE -r 25
-		mavlink stream -d /dev/ttyS2 -s GPS_RAW_INT -r 2
-		mavlink stream -d /dev/ttyS2 -s HEARTBEAT -r 2
-		mavlink stream -d /dev/ttyS2 -s SYS_STATUS -r 1
-		mavlink stream -d /dev/ttyS2 -s SYSTEM_TIME -r 1
+		mavlink stream -d ${MAVLINK_COMPANION_DEVICE} -s GLOBAL_POSITION_INT -r 25
+		mavlink stream -d ${MAVLINK_COMPANION_DEVICE} -s ATTITUDE -r 25
+		mavlink stream -d ${MAVLINK_COMPANION_DEVICE} -s GPS_RAW_INT -r 2
+		mavlink stream -d ${MAVLINK_COMPANION_DEVICE} -s HEARTBEAT -r 2
+		mavlink stream -d ${MAVLINK_COMPANION_DEVICE} -s SYS_STATUS -r 1
+		mavlink stream -d ${MAVLINK_COMPANION_DEVICE} -s SYSTEM_TIME -r 1
 	fi
+
+	unset MAVLINK_COMPANION_DEVICE
+
 
 	#
 	# Starting stuff according to UAVCAN_ENABLE value
