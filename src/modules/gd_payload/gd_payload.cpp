@@ -458,7 +458,7 @@ void GDPayload::run()
 			second_timer += 10e6;
 			if(n==0 && _timeout==0)
 			{
-				updateBatteryDisconnect(); /* lost connection to unisens */
+				updateBatteryDisconnect(); /* lost connection */
 				_timeout = 1;
 			}
 			n=0;
