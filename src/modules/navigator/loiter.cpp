@@ -156,6 +156,12 @@ Loiter::reposition()
 								      _navigator->get_global_position()->lon,
 								      pos_sp_triplet->current.lat,
 								      pos_sp_triplet->current.lon);
+				PX4_INFO("loiter reposition set yaw to %fDeg", (double)(pos_sp_triplet->current.yaw*180.0f/M_PI_F));
+				PX4_INFO("rep yaw valid=i %fDeg",rep->current.yaw_valid, (double)(rep->current.yaw*180.0f/M_PI_F));
+				if(rep->current.yaw_valid && PX4_ISFINITE(rep->current.yaw))
+				{
+					pos_sp_triplet->current.yaw = rep->current.yaw;
+				}
 			}
 		}
 

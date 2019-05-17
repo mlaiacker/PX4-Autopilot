@@ -1215,6 +1215,13 @@ Mission::heading_sp_update()
 		}
 
 	} else {
+		if((_mission_item.nav_cmd == NAV_CMD_LOITER_UNLIMITED ||
+				_mission_item.nav_cmd == NAV_CMD_LOITER_TIME_LIMIT ||
+				_mission_item.nav_cmd == NAV_CMD_LOITER_TO_ALT) &&
+				PX4_ISFINITE(_mission_item.yaw))
+		{
+			pos_sp_triplet->current.yaw = _mission_item.yaw;
+		} else
 		/* set yaw angle for the waypoint if a loiter time has been specified */
 		if (_waypoint_position_reached && get_time_inside(_mission_item) > FLT_EPSILON) {
 			// XXX: should actually be param4 from mission item

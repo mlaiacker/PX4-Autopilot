@@ -831,24 +831,29 @@ FixedwingPositionControl::control_position(const Vector2f &curr_pos, const Vecto
 		} else if (pos_sp_curr.type == position_setpoint_s::SETPOINT_TYPE_LOITER) {
 
 			int8_t loiter_dir = pos_sp_curr.loiter_direction;
-			float bearing = 0.0f;
 			float LOITER8_ANGLE = M_PI_F/3.0f;
-
+			if(pos_sp_curr.yaw_valid && pos_sp_curr.loiter_direction==1)
+			{
 				if(_loiter8State==0 && _l1_control.circle_mode())
 				{
-					_loiter8Bearing = _l1_control.nav_bearing();
+					_loiter8Bearing = _l1_control.nav_bearing() + M_PI_2_F;
+					if(pos_sp_curr.yaw_valid && PX4_ISFINITE(pos_sp_curr.yaw))
+					{
+						_loiter8Bearing = pos_sp_curr.yaw + M_PI_2_F;
+					}
 					_loiter8State = 1;
-					PX4_INFO("start loiter1 %f", (double)_loiter8Bearing);
+					PX4_INFO("start loiter1 %fdeg prev=%fdeg", (double)(pos_sp_curr.yaw*180.0f/M_PI_F), (double)(pos_sp_prev.yaw*180.0f/M_PI_F));
+					_loiterSwitchPos = curr_pos;
 				} else if(_loiter8State==1)
 				{
 					double new_lat, new_lon;
-					waypoint_from_heading_and_distance(curr_wp(0), curr_wp(1), bearing + M_PI_F, pos_sp_curr.loiter_radius, &new_lat, &new_lon);
+					waypoint_from_heading_and_distance(curr_wp(0), curr_wp(1), _loiter8Bearing + M_PI_F, pos_sp_curr.loiter_radius, &new_lat, &new_lon);
 					curr_wp(0) = new_lat;
 					curr_wp(1) = new_lon;
-					if(fabs(matrix::wrap_pi(((M_PI_F-LOITER8_ANGLE) +bearing) - _l1_control.nav_bearing())) < 0.1 && _l1_control.circle_mode())
+					if(fabs(matrix::wrap_pi(((M_PI_F-LOITER8_ANGLE) +_loiter8Bearing) - _l1_control.nav_bearing())) < 0.1 && _l1_control.circle_mode())
 					{
 						PX4_INFO("line2 %f", (double)_l1_control.nav_bearing());
-						_loiter8Bearing = _l1_control.nav_bearing();
+						PX4_INFO("curr=%fdeg prev=%fdeg", (double)(pos_sp_curr.yaw*180.0f/M_PI_F), (double)(pos_sp_prev.yaw*180.0f/M_PI_F));
 						_loiter8State=2;
 						_loiterSwitchPos = curr_pos;
 					}
@@ -857,28 +862,34 @@ FixedwingPositionControl::control_position(const Vector2f &curr_pos, const Vecto
 					prev_wp = _loiterSwitchPos;
 					loiter_dir = 0;
 					double new_lat, new_lon;
-					waypoint_from_heading_and_distance(curr_wp(0), curr_wp(1), bearing, pos_sp_curr.loiter_radius, &new_lat, &new_lon);
+					waypoint_from_heading_and_distance(curr_wp(0), curr_wp(1), _loiter8Bearing, pos_sp_curr.loiter_radius, &new_lat, &new_lon);
 					curr_wp(0) = new_lat;
 					curr_wp(1) = new_lon;
-					waypoint_from_heading_and_distance(curr_wp(0), curr_wp(1), bearing+(M_PI_F-LOITER8_ANGLE), pos_sp_curr.loiter_radius, &new_lat, &new_lon);
+					waypoint_from_heading_and_distance(curr_wp(0), curr_wp(1), _loiter8Bearing+(M_PI_F-LOITER8_ANGLE), pos_sp_curr.loiter_radius, &new_lat, &new_lon);
 					curr_wp(0) = new_lat;
 					curr_wp(1) = new_lon;
-					if(ECL_L1_Pos_Controller::get_local_planar_vector(curr_pos, curr_wp).length()<10.0f)
+
+					if(get_distance_to_next_waypoint(curr_pos(0), curr_pos(1), curr_wp(0), curr_wp(1))<10.0f)
 					{
+						if(pos_sp_curr.yaw_valid && PX4_ISFINITE(pos_sp_curr.yaw))
+						{
+							_loiter8Bearing = pos_sp_curr.yaw + M_PI_2_F;
+						}
 						PX4_INFO("loiter3 %f", (double)_l1_control.nav_bearing());
+						PX4_INFO("curr=%fdeg prev=%fdeg", (double)(pos_sp_curr.yaw*180.0f/M_PI_F), (double)(pos_sp_prev.yaw*180.0f/M_PI_F));
 						_loiter8State=3;
 					}
 				} else if(_loiter8State==3)
 				{
 					loiter_dir*=-1;
 					double new_lat, new_lon;
-					waypoint_from_heading_and_distance(curr_wp(0), curr_wp(1), bearing, pos_sp_curr.loiter_radius, &new_lat, &new_lon);
+					waypoint_from_heading_and_distance(curr_wp(0), curr_wp(1), _loiter8Bearing, pos_sp_curr.loiter_radius, &new_lat, &new_lon);
 					curr_wp(0) = new_lat;
 					curr_wp(1) = new_lon;
-					if(fabs(matrix::wrap_pi((LOITER8_ANGLE+bearing) - _l1_control.nav_bearing())) <0.1 && _l1_control.circle_mode())
+					if(fabs(matrix::wrap_pi((LOITER8_ANGLE+_loiter8Bearing) - _l1_control.nav_bearing())) <0.1 && _l1_control.circle_mode())
 					{
 						PX4_INFO("line4 %f", (double)_l1_control.nav_bearing());
-						_loiter8Bearing = _l1_control.nav_bearing();
+						PX4_INFO("curr=%fdeg prev=%fdeg", (double)(pos_sp_curr.yaw*180.0f/M_PI_F), (double)(pos_sp_prev.yaw*180.0f/M_PI_F));
 						_loiter8State=4;
 						_loiterSwitchPos = curr_pos;
 					}
@@ -887,22 +898,31 @@ FixedwingPositionControl::control_position(const Vector2f &curr_pos, const Vecto
 					prev_wp = _loiterSwitchPos;
 					loiter_dir = 0;
 					double new_lat, new_lon;
-					waypoint_from_heading_and_distance(curr_wp(0), curr_wp(1), bearing + M_PI_F, pos_sp_curr.loiter_radius, &new_lat, &new_lon);
+					waypoint_from_heading_and_distance(curr_wp(0), curr_wp(1), _loiter8Bearing + M_PI_F, pos_sp_curr.loiter_radius, &new_lat, &new_lon);
 					curr_wp(0) = new_lat;
 					curr_wp(1) = new_lon;
-					waypoint_from_heading_and_distance(curr_wp(0), curr_wp(1), bearing+LOITER8_ANGLE, pos_sp_curr.loiter_radius, &new_lat, &new_lon);
+					waypoint_from_heading_and_distance(curr_wp(0), curr_wp(1), _loiter8Bearing+LOITER8_ANGLE, pos_sp_curr.loiter_radius, &new_lat, &new_lon);
 					curr_wp(0) = new_lat;
 					curr_wp(1) = new_lon;
-					if(ECL_L1_Pos_Controller::get_local_planar_vector(curr_pos, curr_wp).length()<10.0f)
+					if(get_distance_to_next_waypoint(curr_pos(0), curr_pos(1), curr_wp(0), curr_wp(1))<10.0f)
 					{
+						if(pos_sp_curr.yaw_valid && PX4_ISFINITE(pos_sp_curr.yaw))
+						{
+							_loiter8Bearing = pos_sp_curr.yaw + M_PI_2_F;
+						}
 						PX4_INFO("loiter1 %f", (double)_l1_control.nav_bearing());
+						PX4_INFO("curr=%fdeg prev=%fdeg", (double)(pos_sp_curr.yaw*180.0f/M_PI_F), (double)(pos_sp_prev.yaw*180.0f/M_PI_F));
 						_loiter8State=1;
 					}
 				}
+			} else
+			{
+				_loiter8State=0;
+			}
 			if(loiter_dir!=0)
 			{
-			/* waypoint is a loiter waypoint */
-			_l1_control.navigate_loiter(curr_wp, curr_pos, pos_sp_curr.loiter_radius,
+				/* waypoint is a loiter waypoint */
+				_l1_control.navigate_loiter(curr_wp, curr_pos, pos_sp_curr.loiter_radius,
 										loiter_dir, nav_speed_2d);
 			} else {
 				_l1_control.navigate_waypoints(prev_wp, curr_wp, curr_pos, nav_speed_2d);
