@@ -254,9 +254,9 @@ private:
 	ECL_L1_Pos_Controller	_l1_control;
 	TECS			_tecs;
 
-	int _loiter8State{0};
-	float _loiter8Bearing{0};
-	Vector2f _loiterSwitchPos;
+	int _loiter8_state{0};
+	float _loiter8_bearing{0};
+	Vector2f _loiter8_switch_pos, _loiter8_wp;
 
 	enum FW_POSCTRL_MODE {
 		FW_POSCTRL_MODE_AUTO,
