@@ -1329,7 +1329,8 @@ MavlinkMissionManager::parse_mavlink_mission_item(const mavlink_mission_item_t *
 			mission_item->nav_cmd = NAV_CMD_LOITER_TIME_LIMIT;
 			mission_item->time_inside = mavlink_mission_item->param1;
 			mission_item->loiter_radius = mavlink_mission_item->param3;
-			mission_item->loiter_exit_xtrack = (mavlink_mission_item->param4 > 0);
+			mission_item->yaw = wrap_pi(math::radians(mavlink_mission_item->param4));
+			mission_item->loiter_exit_xtrack = 0;//(mavlink_mission_item->param4 > 0);
 			break;
 
 		case MAV_CMD_NAV_LAND:
