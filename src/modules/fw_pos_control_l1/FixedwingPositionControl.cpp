@@ -831,7 +831,7 @@ FixedwingPositionControl::control_position(const Vector2f &curr_pos, const Vecto
 		} else if (pos_sp_curr.type == position_setpoint_s::SETPOINT_TYPE_LOITER) {
 
 			int8_t loiter_dir = pos_sp_curr.loiter_direction;
-			float LOITER8_ANGLE = M_PI_F/3.0f;
+			float LOITER8_ANGLE = M_PI_F/2.0f-0.1f;
 			if(pos_sp_curr.yaw_valid && pos_sp_curr.loiter_direction==1)
 			{
 				if(_loiter8_wp != curr_wp) // loiter point has changed
@@ -843,15 +843,15 @@ FixedwingPositionControl::control_position(const Vector2f &curr_pos, const Vecto
 					_loiter8_state=0; // reset loiter state
 					_loiter8_wp = curr_wp;
 				}
-				if(_loiter8_state==0 && _l1_control.circle_mode())
+				if(_loiter8_state==0)
 				{
 					_loiter8_bearing = _l1_control.nav_bearing() + M_PI_2_F;
 					if(pos_sp_curr.yaw_valid && PX4_ISFINITE(pos_sp_curr.yaw))
 					{
 						_loiter8_bearing = pos_sp_curr.yaw + M_PI_2_F;
 					}
-					_loiter8_state = 1;
-					PX4_INFO("start loiter1 %fdeg prev=%fdeg", (double)(pos_sp_curr.yaw*180.0f/M_PI_F), (double)(pos_sp_prev.yaw*180.0f/M_PI_F));
+					_loiter8_state = 2;
+					PX4_INFO("start line2 %fdeg", (double)(pos_sp_curr.yaw*180.0f/M_PI_F));
 					_loiter8_switch_pos = curr_pos;
 				} else if(_loiter8_state==1)
 				{
@@ -861,8 +861,7 @@ FixedwingPositionControl::control_position(const Vector2f &curr_pos, const Vecto
 					curr_wp(1) = new_lon;
 					if(fabsf(matrix::wrap_pi(((M_PI_F-LOITER8_ANGLE) +_loiter8_bearing) - _l1_control.nav_bearing())) < 0.1f && _l1_control.circle_mode())
 					{
-						PX4_INFO("line2 %f", (double)_l1_control.nav_bearing());
-						PX4_INFO("curr=%fdeg prev=%fdeg", (double)(pos_sp_curr.yaw*180.0f/M_PI_F), (double)(pos_sp_prev.yaw*180.0f/M_PI_F));
+						PX4_INFO("line2 %f", (double)math::degrees(_l1_control.nav_bearing()));
 						_loiter8_state=2;
 						_loiter8_switch_pos = curr_pos;
 					}
@@ -878,14 +877,13 @@ FixedwingPositionControl::control_position(const Vector2f &curr_pos, const Vecto
 					curr_wp(0) = new_lat;
 					curr_wp(1) = new_lon;
 
-					if(get_distance_to_next_waypoint(curr_pos(0), curr_pos(1), curr_wp(0), curr_wp(1)) < pos_sp_curr.acceptance_radius)
+					if(get_distance_to_next_waypoint(curr_pos(0), curr_pos(1), curr_wp(0), curr_wp(1)) <= (pos_sp_curr.loiter_radius/5.0f))
 					{
 						if(pos_sp_curr.yaw_valid && PX4_ISFINITE(pos_sp_curr.yaw))
 						{
 							_loiter8_bearing = pos_sp_curr.yaw + M_PI_2_F;
 						}
-						PX4_INFO("loiter3 %f", (double)_l1_control.nav_bearing());
-						PX4_INFO("curr=%fdeg prev=%fdeg", (double)(pos_sp_curr.yaw*180.0f/M_PI_F), (double)(pos_sp_prev.yaw*180.0f/M_PI_F));
+						PX4_INFO("loiter3 %f", (double)math::degrees(pos_sp_curr.yaw));
 						_loiter8_state=3;
 					}
 				} else if(_loiter8_state==3)
@@ -897,8 +895,7 @@ FixedwingPositionControl::control_position(const Vector2f &curr_pos, const Vecto
 					curr_wp(1) = new_lon;
 					if(fabsf(matrix::wrap_pi((LOITER8_ANGLE+_loiter8_bearing) - _l1_control.nav_bearing())) <0.1f && _l1_control.circle_mode())
 					{
-						PX4_INFO("line4 %f", (double)_l1_control.nav_bearing());
-						PX4_INFO("curr=%fdeg prev=%fdeg", (double)(pos_sp_curr.yaw*180.0f/M_PI_F), (double)(pos_sp_prev.yaw*180.0f/M_PI_F));
+						PX4_INFO("line4 %f", (double)math::degrees(_l1_control.nav_bearing()));
 						_loiter8_state=4;
 						_loiter8_switch_pos = curr_pos;
 					}
@@ -913,14 +910,13 @@ FixedwingPositionControl::control_position(const Vector2f &curr_pos, const Vecto
 					waypoint_from_heading_and_distance(curr_wp(0), curr_wp(1), _loiter8_bearing+LOITER8_ANGLE, pos_sp_curr.loiter_radius, &new_lat, &new_lon);
 					curr_wp(0) = new_lat;
 					curr_wp(1) = new_lon;
-					if(get_distance_to_next_waypoint(curr_pos(0), curr_pos(1), curr_wp(0), curr_wp(1))<pos_sp_curr.acceptance_radius)
+					if(get_distance_to_next_waypoint(curr_pos(0), curr_pos(1), curr_wp(0), curr_wp(1)) <= (pos_sp_curr.loiter_radius/5.0f))
 					{
 						if(pos_sp_curr.yaw_valid && PX4_ISFINITE(pos_sp_curr.yaw))
 						{
 							_loiter8_bearing = pos_sp_curr.yaw + M_PI_2_F;
 						}
-						PX4_INFO("loiter1 %f", (double)_l1_control.nav_bearing());
-						PX4_INFO("curr=%fdeg prev=%fdeg", (double)(pos_sp_curr.yaw*180.0f/M_PI_F), (double)(pos_sp_prev.yaw*180.0f/M_PI_F));
+						PX4_INFO("loiter1 %f", (double)math::degrees(pos_sp_curr.yaw));
 						_loiter8_state=1;
 					}
 				}
