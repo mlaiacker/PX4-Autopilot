@@ -469,8 +469,11 @@ MulticopterAttitudeControl::control_attitude(float dt)
 	if (_vehicle_status.is_vtol && _v_att_sp.disable_mc_yaw_control) {
 		if (_v_control_mode.flag_control_velocity_enabled || _v_control_mode.flag_control_auto_enabled) {
 
+			_rates_sp(2) *= 0.1f;
 			const float wv_yaw_rate_max = _auto_rate_max(2) * _vtol_wv_yaw_rate_scale.get();
 			_rates_sp(2) = math::constrain(_rates_sp(2), -wv_yaw_rate_max, wv_yaw_rate_max);
+
+			_rates_sp(2) += _v_att_sp.roll_body * 0.5f;
 
 			// prevent integrator winding up in weathervane mode
 			_rates_int(2) = 0.0f;
