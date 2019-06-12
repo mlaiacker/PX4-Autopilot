@@ -138,5 +138,7 @@ protected:
 	hrt_abstime _action_start{0};
 	hrt_abstime _time_wp_reached{0};
 
+	float _dist_min{9999.0f};
+
 	orb_advert_t    _actuator_pub{nullptr};
 };

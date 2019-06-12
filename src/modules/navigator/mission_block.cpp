@@ -304,7 +304,23 @@ MissionBlock::is_mission_item_reached()
 
 			}
 
+//			float chi = atan2f(_navigator->get_global_position()->vel_e, _navigator->get_global_position()->vel_n);
+//			float chi_error = fabsf(wrap_pi(chi-_navigator->get_fw_pos_ctrl_status()->target_bearing));
+			bool is_loiter = _mission_item.nav_cmd == NAV_CMD_LOITER_TO_ALT
+					|| _mission_item.nav_cmd == NAV_CMD_LOITER_TIME_LIMIT
+					|| _mission_item.nav_cmd == NAV_CMD_LOITER_UNLIMITED;
+/*			if(dist<_dist_min && dist <= mission_acceptance_radius)
+			{
+				PX4_INFO("min_dist=%.1f e=%.1f",(double)dist,
+						(double) chi,
+						(double)(chi_error*180.0f/M_PI_F));
+			}*/
+			_dist_min = fminf(dist,_dist_min);
 			if (dist >= 0.0f && dist <= mission_acceptance_radius
+					&& ((dist-_dist_min)>=2.0f /*|| (chi_error > 45.0f*M_PI_F/180.0f)*/ // distance is increasing so minimum was reached
+							|| (dist <= mission_acceptance_radius*0.2f)
+							|| _navigator->get_vstatus()->is_rotary_wing || _mission_item.vtol_back_transition // do this only in fixed wing
+							|| is_loiter) // not in loiter so we enter the loiter early and not only after reaching the center point
 			    && dist_z <= _navigator->get_altitude_acceptance_radius()) {
 				_waypoint_position_reached = true;
 			}
@@ -407,6 +423,7 @@ MissionBlock::reset_mission_item_reached()
 	_waypoint_yaw_reached = false;
 	_time_first_inside_orbit = 0;
 	_time_wp_reached = 0;
+	_dist_min = 99999.0f;
 }
 
 void
