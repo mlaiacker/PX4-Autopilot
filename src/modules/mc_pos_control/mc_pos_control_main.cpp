@@ -298,6 +298,7 @@ private:
 	float _manual_jerk_limit_xy; /**< jerk limit in manual mode dependent on stick input */
 	float _manual_jerk_limit_z; /**< jerk limit in manual mode in z */
 	float _z_derivative; /**< velocity in z that agrees with position rate */
+	float _saturation_xy_factor; /**< slowly ramp up and down the saturation value to prevent jerky motion when going in and out of saturation */
 
 	float _takeoff_vel_limit; /**< velocity limit value which gets ramped up */
 
@@ -479,6 +480,7 @@ MulticopterPositionControl::MulticopterPositionControl() :
 	_manual_jerk_limit_xy(1.0f),
 	_manual_jerk_limit_z(1.0f),
 	_z_derivative(0.0f),
+	_saturation_xy_factor(1.0f),
 	_takeoff_vel_limit(0.0f),
 	_z_reset_counter(0),
 	_xy_reset_counter(0),
@@ -1269,7 +1271,14 @@ MulticopterPositionControl::control_manual()
 	if (_control_mode.flag_control_position_enabled) {
 		/* set horizontal velocity setpoint with roll/pitch stick */
 		man_vel_sp(0) = math::expo_deadzone(_manual.x, _xy_vel_man_expo.get(), _hold_dz.get());
-		man_vel_sp(1) = math::expo_deadzone(_manual.y, _xy_vel_man_expo.get(), _hold_dz.get());
+		if(_vehicle_status.is_vtol)
+		{
+			man_vel_sp(1) = math::expo_deadzone(_manual.y*0.5f, _xy_vel_man_expo.get(), _hold_dz.get()); // only half velocity sideways in vtol mode
+		}
+		else
+		{
+			man_vel_sp(1) = math::expo_deadzone(_manual.y, _xy_vel_man_expo.get(), _hold_dz.get());
+		}
 
 		const float man_vel_hor_length = ((matrix::Vector2f)man_vel_sp.slice<2, 1>(0, 0)).length();
 
@@ -2620,8 +2629,17 @@ MulticopterPositionControl::calculate_thrust_setpoint()
 		if (thrust_sp(2) < 0.0f) {
 			if (-thrust_sp(2) > thr_max) {
 				/* thrust Z component is too large, limit it */
-				thrust_sp(0) = 0.0f;
-				thrust_sp(1) = 0.0f;
+				if(_saturation_xy_factor>0.0f)
+				{
+					_saturation_xy_factor -= 1.0f*_dt; /* one second to ramp down */
+/*					if(_saturation_xy_factor<=0.0f)
+					{
+						PX4_INFO("xy_satuated %.3f",(double)thrust_body_z);
+					}*/
+				}
+				_saturation_xy_factor = math::max(_saturation_xy_factor,0.0f); /* limit to 0 */
+				thrust_sp(0) *= _saturation_xy_factor;
+				thrust_sp(1) *= _saturation_xy_factor;
 				thrust_sp(2) = -thr_max;
 				saturation_xy = true;
 				/* Don't freeze altitude integral if it wants to throttle down */
@@ -2647,6 +2665,16 @@ MulticopterPositionControl::calculate_thrust_setpoint()
 		}
 
 		thrust_body_z = thr_max;
+	}
+
+	if(!saturation_xy && _saturation_xy_factor<1.0f)
+	{
+		_saturation_xy_factor += 1.0f*_dt; /* one second to ramp up */
+		_saturation_xy_factor = math::min(_saturation_xy_factor,1.0f); /* limit to 1*/
+/*		if(_saturation_xy_factor>=1.0f)
+		{
+			PX4_INFO("xy_unsat %.3f",(double)thrust_body_z);
+		}*/
 	}
 
 	/* if any of the thrust setpoint is bogus, send out a warning */
@@ -3191,6 +3219,7 @@ MulticopterPositionControl::task_main()
 				_local_pos_sp.vx = _vel_sp(0);
 				_local_pos_sp.vy = _vel_sp(1);
 				_local_pos_sp.vz = _vel_sp(2);
+				_local_pos_sp.thrust[2] = _saturation_xy_factor;
 
 				/* publish local position setpoint */
 				if (_local_pos_sp_pub != nullptr) {
