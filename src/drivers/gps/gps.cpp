@@ -974,18 +974,21 @@ int GPS::task_spawn(int argc, char *argv[])
 int GPS::task_spawn(int argc, char *argv[], Instance instance)
 {
 	px4_main_t entry_point;
+	int prio = SCHED_PRIORITY_SLOW_DRIVER;
 	if (instance == Instance::Main) {
 		entry_point = (px4_main_t)&run_trampoline;
 	} else {
 		entry_point = (px4_main_t)&run_trampoline_secondary;
+		prio-=1;
 	}
 
 	int task_id = px4_task_spawn_cmd("gps", SCHED_DEFAULT,
-				   SCHED_PRIORITY_SLOW_DRIVER, 1610,
+				   prio, 1610,
 				   entry_point, (char *const *)argv);
 
 	if (task_id < 0) {
 		task_id = -1;
+		PX4_ERR("failed to spawn %i",errno);
 		return -errno;
 	}
 
@@ -1004,12 +1007,13 @@ int GPS::run_trampoline_secondary(int argc, char *argv[])
 	argc -= 1;
 	argv += 1;
 #endif
-
+	PX4_INFO("starting second");
 	GPS *gps = instantiate(argc, argv, Instance::Secondary);
 	if (gps) {
 		_secondary_instance = gps;
+		PX4_INFO("run second");
 		gps->run();
-
+		PX4_INFO("exit second");
 		_secondary_instance = nullptr;
 		delete gps;
 	}
@@ -1082,6 +1086,7 @@ GPS *GPS::instantiate(int argc, char *argv[], Instance instance)
 			break;
 
 		case '?':
+			PX4_ERR("unknown flag");
 			error_flag = true;
 			break;
 
@@ -1117,6 +1122,10 @@ GPS *GPS::instantiate(int argc, char *argv[], Instance instance)
 		}
 	} else { // secondary instance
 		gps = new GPS(device_name_secondary, mode, interface, fake_gps, enable_sat_info, instance);
+		if(!gps)
+		{
+			PX4_ERR("failed to create second instance");
+		}
 	}
 
 	return gps;

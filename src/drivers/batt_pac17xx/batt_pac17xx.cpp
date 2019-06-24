@@ -817,9 +817,10 @@ batt_pac17xx_main(int argc, char *argv[])
 	if (!strcmp(verb, "search")) {
 		if(g_batt_pac17->search()==OK)
 		{
-			g_batt_pac17->dumpreg();
+			//g_batt_pac17->dumpreg();
+			return 0;
 		}
-		return 0;
+		return 1;
 	}
 
 
