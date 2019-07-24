@@ -473,7 +473,7 @@ MulticopterAttitudeControl::control_attitude(float dt)
 			const float wv_yaw_rate_max = _auto_rate_max(2) * _vtol_wv_yaw_rate_scale.get();
 			_rates_sp(2) = math::constrain(_rates_sp(2), -wv_yaw_rate_max, wv_yaw_rate_max);
 
-			_rates_sp(2) += _v_att_sp.roll_body * 1.0f;
+			_rates_sp(2) += _v_att_sp.roll_body * 4.0f;
 
 			// prevent integrator winding up in weathervane mode
 			_rates_int(2) = 0.0f;
