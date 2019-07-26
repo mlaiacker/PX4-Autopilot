@@ -122,7 +122,7 @@ void LandDetector::_cycle()
 	    (_landDetected.ground_contact != ground_contactDetected) ||
 	    (fabsf(_landDetected.alt_max - alt_max) > FLT_EPSILON)) {
 
-		if (!landDetected && _landDetected.landed) {
+		if (!landDetected && _landDetected.landed && _takeoff_time == 0) { /* only set takeoff time once until disarming */
 			// We did take off
 			_takeoff_time = now;
 		}
