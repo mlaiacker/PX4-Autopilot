@@ -1622,6 +1622,17 @@ Mission::set_current_offboard_mission_item()
 }
 
 void
+Mission::on_arming()
+{
+	MissionFeasibilityChecker missionFeasibilityChecker(_navigator);
+	if(missionFeasibilityChecker.checkMissionWhenArming(_offboard_mission, _navigator->get_global_position()->lat, _navigator->get_global_position()->lon))
+	{
+		_mission_changed = true;
+	}
+
+}
+
+void
 Mission::check_mission_valid(bool force)
 {
 	if ((!_home_inited && _navigator->home_position_valid()) || force) {

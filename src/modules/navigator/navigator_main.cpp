@@ -158,6 +158,19 @@ Navigator::vehicle_status_update()
 	if (orb_copy(ORB_ID(vehicle_status), _vstatus_sub, &_vstatus) != OK) {
 		/* in case the commander is not be running */
 		_vstatus.arming_state = vehicle_status_s::ARMING_STATE_STANDBY;
+	} else
+	{
+		if(_vstatus.arming_state==vehicle_status_s::ARMING_STATE_ARMED && !_armed)
+		{
+			_armed  = true;
+			_mission.on_arming();
+			PX4_INFO("armed");
+		}
+		if(_vstatus.arming_state!=vehicle_status_s::ARMING_STATE_ARMED && _armed)
+		{
+			_armed  = false;
+			PX4_INFO("disarmed");
+		}
 	}
 }
 
