@@ -142,7 +142,9 @@ void LandDetector::_cycle()
 	// set the flight time when disarming (not necessarily when landed, because all param changes should
 	// happen on the same event and it's better to set/save params while not in armed state)
 	if (_takeoff_time != 0 && !_arming.armed && _previous_arming_state) {
-		_total_flight_time += now - _takeoff_time;
+		uint64_t flight_time_to_add = now - _takeoff_time;
+		PX4_INFO("added flight time %is", flight_time_to_add/1000000);
+		_total_flight_time += flight_time_to_add;
 		_takeoff_time = 0;
 		uint32_t flight_time = (_total_flight_time >> 32) & 0xffffffff;
 		param_set_no_notification(_p_total_flight_time_high, &flight_time);
