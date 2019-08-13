@@ -1927,6 +1927,8 @@ MavlinkReceiver::handle_message_hil_sensor(mavlink_message_t *msg)
 		airspeed.timestamp = timestamp;
 		airspeed.indicated_airspeed_m_s = ias;
 		airspeed.true_airspeed_m_s = tas;
+		airspeed.true_airspeed_unfiltered_m_s = tas;
+		airspeed.air_temperature_celsius = imu.temperature;
 
 		if (_airspeed_pub == nullptr) {
 			_airspeed_pub = orb_advertise(ORB_ID(airspeed), &airspeed);
@@ -2284,6 +2286,7 @@ MavlinkReceiver::handle_message_hil_state_quaternion(mavlink_message_t *msg)
 		hil_global_pos.vel_d = hil_state.vz / 100.0f;
 		hil_global_pos.eph = 2.0f;
 		hil_global_pos.epv = 4.0f;
+		hil_global_pos.yaw = matrix::Eulerf(matrix::Quatf(hil_attitude.q)).psi();
 
 		if (_global_pos_pub == nullptr) {
 			_global_pos_pub = orb_advertise(ORB_ID(vehicle_global_position), &hil_global_pos);
