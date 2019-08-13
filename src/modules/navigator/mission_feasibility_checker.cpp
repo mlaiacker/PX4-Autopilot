@@ -58,11 +58,6 @@ MissionFeasibilityChecker::checkMissionWhenArming(const mission_s &mission,
 	int land_index = 0;
 	bool land_found = false;
 	bool rtl_found = false;
-
-	int takeoff_index = 0;
-	bool takeoff_found = false;
-	struct mission_item_s takeoff_missionitem = {};
-
 	const ssize_t len = sizeof(struct mission_item_s);
 
 	for (size_t i = 0; i < mission.count; i++) {
@@ -84,12 +79,6 @@ MissionFeasibilityChecker::checkMissionWhenArming(const mission_s &mission,
 			land_missionitem = missionitem;
 			land_found = true;
 		}
-		if((missionitem.nav_cmd == NAV_CMD_VTOL_TAKEOFF || missionitem.nav_cmd == NAV_CMD_TAKEOFF) && !takeoff_found)
-		{
-			takeoff_index = i;
-			takeoff_missionitem = missionitem;
-			takeoff_found = true;
-		}
 	}
 
 	if(rtl_found && land_found)
@@ -100,24 +89,11 @@ MissionFeasibilityChecker::checkMissionWhenArming(const mission_s &mission,
 
 		if (dm_write((dm_item_t)mission.dataman_id, land_index, DM_PERSIST_POWER_ON_RESET, &land_missionitem, len) != len) {
 			/* not supposed to happen unless the datamanager can't access the SD card, etc. */
-			PX4_INFO("failed to write land");
+			PX4_INFO("failed to write mission");
 			return false;
 		}
 
-		if(takeoff_found)
-		{
-			takeoff_missionitem.lat = lat;
-			takeoff_missionitem.lon = lon;
-			PX4_INFO("updating takeoff pos.");
-
-			if (dm_write((dm_item_t)mission.dataman_id, takeoff_index, DM_PERSIST_POWER_ON_RESET, &takeoff_missionitem, len) != len) {
-				/* not supposed to happen unless the datamanager can't access the SD card, etc. */
-				PX4_INFO("failed to write takeoff");
-				return false;
-			}
-		}
-
-		mavlink_log_info(_navigator->get_mavlink_log_pub(), "Mission: land at arm position");
+		mavlink_log_info(_navigator->get_mavlink_log_pub(), "Mission: land at cur. position");
 		return true;
 	}
 	// all checks have passed
