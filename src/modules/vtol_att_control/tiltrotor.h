@@ -101,6 +101,7 @@ private:
 		vtol_mode flight_mode;			/**< vtol flight mode, defined by enum vtol_mode */
 		hrt_abstime transition_start;	/**< absoulte time at which front transition started */
 	} _vtol_schedule;
+	float _fw_throttle_weight = 0.0f;	// weight to do a somoth thrust transition after switching to FW control
 
 	float _tilt_control;		/**< actuator value for the tilt servo */
 	static constexpr const float _tilt_yaw_lp_freq = 1.0f;
