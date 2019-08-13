@@ -722,6 +722,15 @@ MissionBlock::set_vtol_transition_item(struct mission_item_s *item, const uint8_
 	item->params[0] = (float) new_mode;
 	item->yaw = _navigator->get_global_position()->yaw;
 	item->autocontinue = true;
+
+	struct position_setpoint_s next_sp = _navigator->get_position_setpoint_triplet()->next;
+	if (next_sp.valid) {
+		/* set yaw setpoint to point towards next waypoint so we do the transition in this direction*/
+		item->yaw = get_bearing_to_next_waypoint(_navigator->get_global_position()->lat,
+				    _navigator->get_global_position()->lon,
+				    next_sp.lat, next_sp.lon);
+	}
+	//PX4_INFO("set yaw transition to:%f current:%f", (double)(item->yaw*180.0f/M_PI_F), (double)(_navigator->get_global_position()->yaw*180.0f/M_PI_F));
 }
 
 void
