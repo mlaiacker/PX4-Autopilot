@@ -90,6 +90,7 @@ void LandDetector::_cycle()
 
 		_p_total_flight_time_high = param_find("LND_FLIGHT_T_HI");
 		_p_total_flight_time_low = param_find("LND_FLIGHT_T_LO");
+		_p_total_flights = param_find("LND_FLIGHT_COUNT");
 
 		// Initialize uORB topics.
 		_armingSub = orb_subscribe(ORB_ID(actuator_armed));
@@ -150,6 +151,12 @@ void LandDetector::_cycle()
 		param_set_no_notification(_p_total_flight_time_high, &flight_time);
 		flight_time = _total_flight_time & 0xffffffff;
 		param_set_no_notification(_p_total_flight_time_low, &flight_time);
+		if(flight_time_to_add>20000000) // 20 seconds
+		{
+			_total_flights++;
+			param_set_no_notification(_p_total_flights, &_total_flights);
+		}
+
 	}
 
 	_previous_arming_state = _arming.armed;
@@ -184,6 +191,7 @@ void LandDetector::_check_params(const bool force)
 		_total_flight_time = ((uint64_t)flight_time) << 32;
 		param_get(_p_total_flight_time_low, (int32_t *)&flight_time);
 		_total_flight_time |= flight_time;
+		param_get(_p_total_flights, (int32_t *)&_total_flights);
 	}
 }
 
