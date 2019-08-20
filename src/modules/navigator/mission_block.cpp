@@ -53,8 +53,10 @@
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/vehicle_command.h>
 #include <uORB/topics/vtol_vehicle_status.h>
+#include <uORB/topics/wind_estimate.h>
 
 using matrix::wrap_pi;
+using matrix::wrap_2pi;
 
 MissionBlock::MissionBlock(Navigator *navigator) :
 	NavigatorMode(navigator)
@@ -107,6 +109,7 @@ MissionBlock::is_mission_item_reached()
 		    !_navigator->get_vstatus()->in_transition_mode) {
 
 			_action_start = 0;
+			PX4_INFO("vtol transition reached");
 			return true;
 
 		} else {
@@ -203,6 +206,7 @@ MissionBlock::is_mission_item_reached()
 			if (dist >= 0.0f && dist <= _navigator->get_acceptance_radius()
 			    && dist_z <= _navigator->get_altitude_acceptance_radius()) {
 				_waypoint_position_reached = true;
+				PX4_INFO("take off reached");
 			}
 
 		} else if (!_navigator->get_vstatus()->is_rotary_wing &&
@@ -323,6 +327,7 @@ MissionBlock::is_mission_item_reached()
 							|| is_loiter) // not in loiter so we enter the loiter early and not only after reaching the center point
 			    && dist_z <= _navigator->get_altitude_acceptance_radius()) {
 				_waypoint_position_reached = true;
+				PX4_INFO("WP reached");
 			}
 		}
 
@@ -574,6 +579,22 @@ MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, posi
 
 	case NAV_CMD_LAND:
 	case NAV_CMD_VTOL_LAND:
+		PX4_INFO("land %f", (double)(sp->yaw*180.0f/M_PI_F));
+		if(_navigator->get_vstatus()->is_vtol /*&& _navigator->get_vstatus()->is_rotary_wing*/)
+		{
+			int wind_estimate_sub = orb_subscribe(ORB_ID(wind_estimate));
+			struct wind_estimate_s wind;
+			if(orb_copy(ORB_ID(wind_estimate), wind_estimate_sub, &wind)==0)
+			{
+				if(wind.windspeed_east*wind.windspeed_east + wind.windspeed_north*wind.windspeed_north> 9.0f) /* more then 2m/s */
+				{
+				/* set yaw setpoint to point towards wind direction for landing*/
+						sp->yaw = wrap_pi(atan2f(wind.windspeed_east, wind.windspeed_north) + M_PI_F);
+						PX4_INFO("set yaw land to wind:%f current:%f", (double)(sp->yaw*180.0f/M_PI_F), (double)(_navigator->get_global_position()->yaw*180.0f/M_PI_F));
+				}
+			}
+			orb_unsubscribe(wind_estimate_sub);
+		}
 		sp->type = position_setpoint_s::SETPOINT_TYPE_LAND;
 		break;
 
@@ -723,14 +744,21 @@ MissionBlock::set_vtol_transition_item(struct mission_item_s *item, const uint8_
 	item->yaw = _navigator->get_global_position()->yaw;
 	item->autocontinue = true;
 
+
 	struct position_setpoint_s next_sp = _navigator->get_position_setpoint_triplet()->next;
 	if (next_sp.valid) {
-		/* set yaw setpoint to point towards next waypoint so we do the transition in this direction*/
-		item->yaw = get_bearing_to_next_waypoint(_navigator->get_global_position()->lat,
-				    _navigator->get_global_position()->lon,
-				    next_sp.lat, next_sp.lon);
+		if(get_distance_to_next_waypoint(_navigator->get_global_position()->lat,
+			    _navigator->get_global_position()->lon,
+			    next_sp.lat, next_sp.lon)>=20.0f)
+		{
+			/* set yaw setpoint to point towards next waypoint so we do the transition in this direction*/
+			item->yaw = get_bearing_to_next_waypoint(_navigator->get_global_position()->lat,
+						_navigator->get_global_position()->lon,
+						next_sp.lat, next_sp.lon);
+			PX4_INFO("set yaw transition to WP:%f current:%f", (double)(item->yaw*180.0f/M_PI_F), (double)(_navigator->get_global_position()->yaw*180.0f/M_PI_F));
+		}
 	}
-	//PX4_INFO("set yaw transition to:%f current:%f", (double)(item->yaw*180.0f/M_PI_F), (double)(_navigator->get_global_position()->yaw*180.0f/M_PI_F));
+
 }
 
 void
