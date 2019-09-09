@@ -143,13 +143,13 @@ then
 	param set VT_FW_QC_P		0
 	param set VT_FW_QC_R		0
 	param set VT_F_TRANS_DUR	4.0
-	param set VT_F_TRANS_THR	1.0
+	param set VT_F_TRANS_THR	0.85
 	param set VT_F_TR_OL_TM		6.0
 	param set VT_IDLE_PWM_MC	1070
 	param set VT_MOT_COUNT		4
 	param set VT_TILT_FW		1.0
 	param set VT_TILT_MC		0.0
-	param set VT_TILT_TRANS		0.3
+	param set VT_TILT_TRANS		0.35
 	param set VT_TRANS_MIN_TM	3.0
 	param set VT_TRANS_P2_DUR	1.0
 	param set VT_TRANS_TIMEOUT	15.0

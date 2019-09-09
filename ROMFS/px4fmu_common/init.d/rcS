@@ -718,7 +718,8 @@ fi
 	if param greater MNT_TRIP_MAVLINK 0
 	then
 		# "set mavlink rates for trip2"
-		# should be used together with SYS_COMPANION 257600		
+		# should be used together with SYS_COMPANION 257600
+		# mavlink stream -d /dev/ttyS2 -s RC_CHANNELS -r 10		
 		mavlink stream -d ${MAVLINK_COMPANION_DEVICE} -s GLOBAL_POSITION_INT -r 25
 		mavlink stream -d ${MAVLINK_COMPANION_DEVICE} -s ATTITUDE -r 25
 		mavlink stream -d ${MAVLINK_COMPANION_DEVICE} -s GPS_RAW_INT -r 2
