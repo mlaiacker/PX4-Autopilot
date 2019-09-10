@@ -109,7 +109,6 @@ MissionBlock::is_mission_item_reached()
 		    !_navigator->get_vstatus()->in_transition_mode) {
 
 			_action_start = 0;
-			PX4_INFO("vtol transition reached");
 			return true;
 
 		} else {
@@ -206,7 +205,6 @@ MissionBlock::is_mission_item_reached()
 			if (dist >= 0.0f && dist <= _navigator->get_acceptance_radius()
 			    && dist_z <= _navigator->get_altitude_acceptance_radius()) {
 				_waypoint_position_reached = true;
-				PX4_INFO("take off reached");
 			}
 
 		} else if (!_navigator->get_vstatus()->is_rotary_wing &&
@@ -327,7 +325,6 @@ MissionBlock::is_mission_item_reached()
 							|| is_loiter) // not in loiter so we enter the loiter early and not only after reaching the center point
 			    && dist_z <= _navigator->get_altitude_acceptance_radius()) {
 				_waypoint_position_reached = true;
-				PX4_INFO("WP reached");
 			}
 		}
 
@@ -579,7 +576,6 @@ MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, posi
 
 	case NAV_CMD_LAND:
 	case NAV_CMD_VTOL_LAND:
-		PX4_INFO("land %f", (double)(sp->yaw*180.0f/M_PI_F));
 		if(_navigator->get_vstatus()->is_vtol /*&& _navigator->get_vstatus()->is_rotary_wing*/)
 		{
 			int wind_estimate_sub = orb_subscribe(ORB_ID(wind_estimate));
@@ -590,7 +586,6 @@ MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, posi
 				{
 				/* set yaw setpoint to point towards wind direction for landing*/
 						sp->yaw = wrap_pi(atan2f(wind.windspeed_east, wind.windspeed_north) + M_PI_F);
-						PX4_INFO("set yaw land to wind:%f current:%f", (double)(sp->yaw*180.0f/M_PI_F), (double)(_navigator->get_global_position()->yaw*180.0f/M_PI_F));
 				}
 			}
 			orb_unsubscribe(wind_estimate_sub);
@@ -755,7 +750,6 @@ MissionBlock::set_vtol_transition_item(struct mission_item_s *item, const uint8_
 			item->yaw = get_bearing_to_next_waypoint(_navigator->get_global_position()->lat,
 						_navigator->get_global_position()->lon,
 						next_sp.lat, next_sp.lon);
-			PX4_INFO("set yaw transition to WP:%f current:%f", (double)(item->yaw*180.0f/M_PI_F), (double)(_navigator->get_global_position()->yaw*180.0f/M_PI_F));
 		}
 	}
 

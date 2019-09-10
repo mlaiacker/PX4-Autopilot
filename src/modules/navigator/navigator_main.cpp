@@ -347,7 +347,6 @@ Navigator::run()
 				rep->current.loiter_direction = 1;
 				rep->current.type = position_setpoint_s::SETPOINT_TYPE_LOITER;
 				rep->current.cruising_speed = get_cruising_speed();
-				PX4_INFO("repo sSP=%fm/s",(double)rep->current.cruising_speed);
 				rep->current.cruising_throttle = get_cruising_throttle();
 
 				// Go on and check which changes had been requested
