@@ -201,6 +201,7 @@ RTL::set_rtl_item()
 
 	case RTL_STATE_TRANSITION_TO_MC: {
 			set_vtol_transition_item(&_mission_item, vtol_vehicle_status_s::VEHICLE_VTOL_STATE_MC);
+			mavlink_and_console_log_info(_navigator->get_mavlink_log_pub(), "RTL: transition to MC");
 			break;
 		}
 
@@ -257,8 +258,14 @@ RTL::set_rtl_item()
 							     (double)get_time_inside(_mission_item));
 
 			} else {
-				_mission_item.nav_cmd = NAV_CMD_LOITER_UNLIMITED;
-				mavlink_and_console_log_info(_navigator->get_mavlink_log_pub(), "RTL: completed, loitering");
+				if (_navigator->get_vstatus()->is_vtol && !_navigator->get_vstatus()->is_rotary_wing)
+				{
+					_mission_item.nav_cmd = NAV_CMD_LOITER_TO_ALT;
+					mavlink_and_console_log_info(_navigator->get_mavlink_log_pub(), "RTL: loiter to alt %i m", (int)ceilf(loiter_altitude));
+				} else {
+					_mission_item.nav_cmd = NAV_CMD_LOITER_UNLIMITED;
+					mavlink_and_console_log_info(_navigator->get_mavlink_log_pub(), "RTL: completed, loitering");
+				}
 			}
 
 			break;
@@ -309,6 +316,11 @@ RTL::set_rtl_item()
 void
 RTL::advance_rtl()
 {
+	const home_position_s &home = *_navigator->get_home_position();
+	const vehicle_global_position_s &gpos = *_navigator->get_global_position();
+	// compute the loiter altitude
+	const float loiter_altitude = min(home.alt + _param_descend_alt.get(), gpos.alt);
+
 	switch (_rtl_state) {
 	case RTL_STATE_CLIMB:
 		_rtl_state = RTL_STATE_RETURN;
@@ -318,23 +330,34 @@ RTL::advance_rtl()
 		_rtl_state = RTL_STATE_DESCEND;
 
 		if (_navigator->get_vstatus()->is_vtol && !_navigator->get_vstatus()->is_rotary_wing) {
-			_rtl_state = RTL_STATE_TRANSITION_TO_MC;
+			if( fabsf(gpos.alt- loiter_altitude)<5.0f || rtl_type() != RTL_HOME)
+			{
+				_rtl_state = RTL_STATE_TRANSITION_TO_MC;
+			} else
+			{
+				_rtl_state = RTL_STATE_LOITER;
+			}
 		}
 
 		break;
 
 	case RTL_STATE_TRANSITION_TO_MC:
-		_rtl_state = RTL_STATE_RETURN;
+		_rtl_state = RTL_STATE_DESCEND;
 		break;
 
 	case RTL_STATE_DESCEND:
 
 		/* only go to land if autoland is enabled */
-		if (_param_land_delay.get() < -DELAY_SIGMA || _param_land_delay.get() > DELAY_SIGMA) {
+		if (_param_land_delay.get() < -DELAY_SIGMA || _param_land_delay.get() > DELAY_SIGMA
+				|| (_navigator->get_vstatus()->is_vtol && !_navigator->get_vstatus()->is_rotary_wing)) {
 			_rtl_state = RTL_STATE_LOITER;
 
 		} else {
 			_rtl_state = RTL_STATE_LAND;
+		}
+
+		if (_navigator->get_vstatus()->is_vtol && !_navigator->get_vstatus()->is_rotary_wing) {
+			_rtl_state = RTL_STATE_TRANSITION_TO_MC; /* should not happen */
 		}
 
 		break;
