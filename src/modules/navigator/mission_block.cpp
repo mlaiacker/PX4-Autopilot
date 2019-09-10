@@ -711,7 +711,11 @@ MissionBlock::set_land_item(struct mission_item_s *item, bool at_current_locatio
 	item->loiter_radius = _navigator->get_loiter_radius();
 	item->acceptance_radius = _navigator->get_acceptance_radius();
 	item->time_inside = 0.0f;
-	item->autocontinue = true;
+	if(_navigator->get_vstatus()->is_vtol)	{
+		item->autocontinue = false; /* changed to false to enable multiple landings */
+	} else {
+		item->autocontinue = true;
+	}
 	item->origin = ORIGIN_ONBOARD;
 }
 
@@ -744,7 +748,7 @@ MissionBlock::set_vtol_transition_item(struct mission_item_s *item, const uint8_
 	if (next_sp.valid) {
 		if(get_distance_to_next_waypoint(_navigator->get_global_position()->lat,
 			    _navigator->get_global_position()->lon,
-			    next_sp.lat, next_sp.lon)>=20.0f)
+			    next_sp.lat, next_sp.lon)>=5.0f)
 		{
 			/* set yaw setpoint to point towards next waypoint so we do the transition in this direction*/
 			item->yaw = get_bearing_to_next_waypoint(_navigator->get_global_position()->lat,
