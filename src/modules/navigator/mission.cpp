@@ -883,7 +883,7 @@ Mission::set_mission_items()
 					_mission_item.yaw = NAN;
 					if(_mission_item.nav_cmd == NAV_CMD_VTOL_LAND)
 					{
-						_mission_item.autocontinue = false; /* stop mission after landing */
+						_mission_item.autocontinue = false; // stop mission after landing
 					}
 				}
 

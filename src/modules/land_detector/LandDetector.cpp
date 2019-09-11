@@ -123,7 +123,7 @@ void LandDetector::_cycle()
 	    (_landDetected.ground_contact != ground_contactDetected) ||
 	    (fabsf(_landDetected.alt_max - alt_max) > FLT_EPSILON)) {
 
-		if (!landDetected && _landDetected.landed && _takeoff_time == 0) { /* only set takeoff time once until disarming */
+		if (!landDetected && _landDetected.landed && _takeoff_time == 0) { /* only set take off time once until disarming */
 			// We did take off
 			_takeoff_time = now;
 		}
@@ -144,7 +144,6 @@ void LandDetector::_cycle()
 	// happen on the same event and it's better to set/save params while not in armed state)
 	if (_takeoff_time != 0 && !_arming.armed && _previous_arming_state) {
 		uint64_t flight_time_to_add = now - _takeoff_time;
-		PX4_INFO("added flight time %is", flight_time_to_add/1000000);
 		_total_flight_time += flight_time_to_add;
 		_takeoff_time = 0;
 		uint32_t flight_time = (_total_flight_time >> 32) & 0xffffffff;
