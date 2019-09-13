@@ -881,6 +881,10 @@ Mission::set_mission_items()
 				 * that aligns the vehicle first */
 				if (_mission_item.nav_cmd == NAV_CMD_LAND || _mission_item.nav_cmd == NAV_CMD_VTOL_LAND) {
 					_mission_item.yaw = NAN;
+					if(_mission_item.nav_cmd == NAV_CMD_VTOL_LAND)
+					{
+						_mission_item.autocontinue = false; // stop mission after landing
+					}
 				}
 
 
