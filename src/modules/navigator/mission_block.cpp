@@ -53,8 +53,10 @@
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/vehicle_command.h>
 #include <uORB/topics/vtol_vehicle_status.h>
+#include <uORB/topics/wind_estimate.h>
 
 using matrix::wrap_pi;
+using matrix::wrap_2pi;
 
 MissionBlock::MissionBlock(Navigator *navigator) :
 	NavigatorMode(navigator)
@@ -283,9 +285,24 @@ MissionBlock::is_mission_item_reached()
 			/* for normal mission items used their acceptance radius */
 			float mission_acceptance_radius = _navigator->get_acceptance_radius(_mission_item.acceptance_radius);
 
+			float dist_wp = get_distance_to_next_waypoint(_navigator->get_position_setpoint_triplet()->previous.lat,
+					_navigator->get_position_setpoint_triplet()->previous.lon,
+					_navigator->get_position_setpoint_triplet()->current.lat,
+					_navigator->get_position_setpoint_triplet()->current.lon);
 			/* if set to zero use the default instead */
 			if (mission_acceptance_radius < NAV_EPSILON_POSITION) {
 				mission_acceptance_radius = _navigator->get_acceptance_radius();
+			}
+
+			if(_mission_item.acceptance_radius < NAV_EPSILON_POSITION) {
+			}
+
+			if(mission_acceptance_radius > dist_wp &&
+					!_navigator->get_vstatus()->is_rotary_wing &&
+					dist_wp > _navigator->get_acceptance_radius() &&
+					dist_wp > NAV_EPSILON_POSITION)
+			{
+				mission_acceptance_radius = dist_wp*0.9f; /* prevents from immediately going to the next WP */
 			}
 
 			/* for vtol back transition calculate acceptance radius based on time and ground speed */
@@ -299,15 +316,36 @@ MissionBlock::is_mission_item_reached()
 
 				if (back_trans_dec > FLT_EPSILON && velocity > FLT_EPSILON) {
 					mission_acceptance_radius = ((velocity / back_trans_dec / 2) * velocity) + reverse_delay * velocity;
-
 				}
-
 			}
 
+//			float chi = atan2f(_navigator->get_global_position()->vel_e, _navigator->get_global_position()->vel_n);
+//			float chi_error = fabsf(wrap_pi(chi-_navigator->get_fw_pos_ctrl_status()->target_bearing));
+/*			bool is_loiter = _mission_item.nav_cmd == NAV_CMD_LOITER_TO_ALT
+					|| _mission_item.nav_cmd == NAV_CMD_LOITER_TIME_LIMIT
+					|| _mission_item.nav_cmd == NAV_CMD_LOITER_UNLIMITED
+					|| _mission_item.nav_cmd == NAV_CMD_TAKEOFF
+					|| _mission_item.nav_cmd == NAV_CMD_VTOL_TAKEOFF;*/
+/*			if(dist<_dist_min && dist <= mission_acceptance_radius)
+			{
+				PX4_INFO("min_dist=%.1f e=%.1f",(double)dist,
+						(double) chi,
+						(double)(chi_error*180.0f/M_PI_F));
+			}*/
+			_dist_min = fminf(dist,_dist_min);
 			if (dist >= 0.0f && dist <= mission_acceptance_radius
+/*					&& ((dist-_dist_min)>=0.5f // distance is increasing so minimum was reached
+							|| (dist <= mission_acceptance_radius*0.2f)
+							|| _navigator->get_vstatus()->is_rotary_wing
+							|| _mission_item.vtol_back_transition // do this only in fixed wing
+							|| _navigator->get_vstatus()->in_transition_to_fw
+							|| is_loiter // not in loiter so we enter the loiter early and not only after reaching the center point
+							|| have_mission_acceptance_radius) // when we have a radius for this WP in the mission we use it
+*/
 			    && dist_z <= _navigator->get_altitude_acceptance_radius()) {
 				_waypoint_position_reached = true;
 			}
+
 		}
 
 		if (_waypoint_position_reached) {
@@ -407,6 +445,7 @@ MissionBlock::reset_mission_item_reached()
 	_waypoint_yaw_reached = false;
 	_time_first_inside_orbit = 0;
 	_time_wp_reached = 0;
+	_dist_min = 99999.0f;
 }
 
 void
@@ -557,6 +596,24 @@ MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, posi
 
 	case NAV_CMD_LAND:
 	case NAV_CMD_VTOL_LAND:
+		if(_navigator->get_vstatus()->is_vtol)
+		{
+			int wind_estimate_sub = orb_subscribe(ORB_ID(wind_estimate));
+			struct wind_estimate_s wind;
+			if(orb_copy(ORB_ID(wind_estimate), wind_estimate_sub, &wind)==0)
+			{
+				/* only when more then 3m/s wind*/
+				if((wind.windspeed_east*wind.windspeed_east + wind.windspeed_north*wind.windspeed_north) > 9.0f)
+				{
+					/* set yaw setpoint to point towards wind direction for landing*/
+					sp->yaw = wrap_pi(atan2f(wind.windspeed_east, wind.windspeed_north) + M_PI_F);
+				}
+			} else
+			{
+				PX4_ERR("failed to get wind estimate for landing");
+			}
+			orb_unsubscribe(wind_estimate_sub);
+		}
 		sp->type = position_setpoint_s::SETPOINT_TYPE_LAND;
 		break;
 
@@ -705,6 +762,21 @@ MissionBlock::set_vtol_transition_item(struct mission_item_s *item, const uint8_
 	item->params[0] = (float) new_mode;
 	item->yaw = _navigator->get_global_position()->yaw;
 	item->autocontinue = true;
+
+
+	struct position_setpoint_s next_sp = _navigator->get_position_setpoint_triplet()->next;
+	if (next_sp.valid) {
+		if(get_distance_to_next_waypoint(_navigator->get_global_position()->lat,
+			    _navigator->get_global_position()->lon,
+			    next_sp.lat, next_sp.lon)>=5.0f) /* only use waypoint for heading when 5m away from current position */
+		{
+			/* set yaw setpoint to point towards next waypoint so we do the transition in this direction*/
+			item->yaw = get_bearing_to_next_waypoint(_navigator->get_global_position()->lat,
+						_navigator->get_global_position()->lon,
+						next_sp.lat, next_sp.lon);
+		}
+	}
+
 }
 
 void

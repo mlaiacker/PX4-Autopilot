@@ -75,6 +75,8 @@ public:
 	void on_activation() override;
 	void on_active() override;
 
+	void on_arming();
+
 	enum mission_altitude_mode {
 		MISSION_ALTMODE_ZOH = 0,
 		MISSION_ALTMODE_FOH = 1

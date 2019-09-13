@@ -61,7 +61,7 @@ param set EKF2_MAG_TYPE 1
 
 param set FW_AIRSPD_MAX 30
 param set FW_AIRSPD_MIN 16
-param set FW_AIRSPD_TRIM 20
+param set FW_AIRSPD_TRIM 18
 
 set MIXER SBV3
 set PWM_OUT 1234
@@ -113,7 +113,7 @@ then
 	param set NAV_DLL_ACT 2
 	param set NAV_LOITER_RAD 80
 	
-	param set RTL_DESCEND_ALT 20.0
+	param set RTL_DESCEND_ALT 45.0
 	param set RTL_LAND_DELAY 0
 	param set RTL_RETURN_ALT 100.0
 	
@@ -131,7 +131,7 @@ then
 	param set VT_ARSP_TRANS		14.0
 	param set VT_B_DEC_MSS		1.0
 	param set VT_B_REV_DEL		0.0
-	param set VT_B_TRANS_DUR	5.0
+	param set VT_B_TRANS_DUR	4.0
 	param set VT_B_TRANS_THR	1.0
 	param set VT_ELEV_MC_LOCK	1
 	param set VT_FW_ALT_ERR		0.0
@@ -143,13 +143,13 @@ then
 	param set VT_FW_QC_P		0
 	param set VT_FW_QC_R		0
 	param set VT_F_TRANS_DUR	4.0
-	param set VT_F_TRANS_THR	1.0
+	param set VT_F_TRANS_THR	0.85
 	param set VT_F_TR_OL_TM		6.0
 	param set VT_IDLE_PWM_MC	1070
 	param set VT_MOT_COUNT		4
 	param set VT_TILT_FW		1.0
 	param set VT_TILT_MC		0.0
-	param set VT_TILT_TRANS		0.3
+	param set VT_TILT_TRANS		0.35
 	param set VT_TRANS_MIN_TM	3.0
 	param set VT_TRANS_P2_DUR	1.0
 	param set VT_TRANS_TIMEOUT	15.0
@@ -157,7 +157,7 @@ then
 	param set VT_WV_LND_EN		1
 	param set VT_WV_LTR_EN		1
 	param set VT_WV_TKO_EN		1
-	param set VT_WV_YAWR_SCL	0.15
+	param set VT_WV_YAWR_SCL	2.0
 fi
 
 replay tryapplyparams

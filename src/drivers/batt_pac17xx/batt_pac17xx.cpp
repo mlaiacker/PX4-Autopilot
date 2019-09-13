@@ -199,6 +199,7 @@ private:
 	float			_discharged_mah;
 	float			_current_a_filtered;
 	float			_voltage_v;
+	float			_voltage_v_filtered;
 	float			_current_a;
 	float			_voltage2; 	///< for pac1720
 	float			_current2; 	///< for pac1720
@@ -279,6 +280,7 @@ BATT_PAC17::BATT_PAC17(int bus, uint16_t batt_pac17_addr, float sens_resistor, u
 		_sens_sample_reg = 0x53;
 	}
 	_current_a_filtered = 0.0f;
+	_voltage_v_filtered = 0.0f;
 	_current_a = 0.0f;
 	_dev_id = SMBUS_BATT_DEV_E::NONE;
 }
@@ -482,6 +484,7 @@ BATT_PAC17::try_read_data(battery_status_s &new_report, uint64_t now){
 		uint16_t voltage = (((uint16_t)regval_H)<<3) | ((uint16_t)regval_L>>5);
 		// convert millivolts to volts
 		_voltage_v = ((float)voltage*19.53125f) / 1000.0f;
+		_voltage_v_filtered = _voltage_v*0.05f + _voltage_v_filtered*0.95f; /* voltage filter */
 		// read current
 		if ((read_reg(BATT_PAC17_REG_SENS_CH1_H, regval_H) == OK) &&
 			(read_reg(BATT_PAC17_REG_SENS_CH1_L, regval_L) == OK) ){
@@ -494,7 +497,7 @@ BATT_PAC17::try_read_data(battery_status_s &new_report, uint64_t now){
 				current = (((int16_t)regval_H)<<4) | ((int16_t)regval_L>>4);
 			}
 			_current_a = ((float)_sens_full_scale/_sens_resistor)*((float)current)/2047.0f;
-			_current_a_filtered = _current_a*0.05f + _current_a_filtered*0.95f;
+			_current_a_filtered = _current_a*0.05f + _current_a_filtered*0.95f; /* current filter */
 		}
 
 		// calculate total discharged amount
@@ -507,7 +510,11 @@ BATT_PAC17::try_read_data(battery_status_s &new_report, uint64_t now){
 				_voltage_v>2.0f, true , 0,
 				ctrl.control[actuator_controls_s::INDEX_THROTTLE],
 				_armed, &new_report);
-		new_report.average_current_a = new_report.current_filtered_a;
+		new_report.voltage_filtered_v = _voltage_v_filtered;
+		if((hrt_absolute_time()-_start_time)>=1000000)
+		{
+			new_report.average_current_a = _discharged_mah*3600.0f/((hrt_absolute_time()-_start_time)*1.0e-6f*1000.0f);
+		}
 		new_report.current_filtered_a = _current_a_filtered;
 		if(_startRemaining>=0.0f && _startRemaining<=1.0f)
 		{
@@ -817,9 +824,10 @@ batt_pac17xx_main(int argc, char *argv[])
 	if (!strcmp(verb, "search")) {
 		if(g_batt_pac17->search()==OK)
 		{
-			g_batt_pac17->dumpreg();
+			//g_batt_pac17->dumpreg();
+			return 0;
 		}
-		return 0;
+		return 1;
 	}
 
 

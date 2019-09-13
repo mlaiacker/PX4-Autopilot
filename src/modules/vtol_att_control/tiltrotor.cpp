@@ -381,19 +381,28 @@ void Tiltrotor::fill_actuator_outputs()
 	_actuators_out_0->control[actuator_controls_s::INDEX_AIRBRAKES] = _tilt_yaw_lp_pitch.apply(_actuators_out_0->control[actuator_controls_s::INDEX_YAW]);
 
 	if (_vtol_schedule.flight_mode == FW_MODE) {
+		if(_fw_throttle_weight<1.0f)
+		{
+			_fw_throttle_weight += (1.0f/250.0f)/1.0f;
+			//PX4_INFO("th w:%f", (double)_fw_throttle_weight);
+		} else
+		{
+			_fw_throttle_weight = 1.0f;
+		}
 		_actuators_out_0->control[actuator_controls_s::INDEX_THROTTLE] =
-			_actuators_fw_in->control[actuator_controls_s::INDEX_THROTTLE];
+			_actuators_fw_in->control[actuator_controls_s::INDEX_THROTTLE]*_fw_throttle_weight +
+			_thrust_transition*(1.0f-_fw_throttle_weight);
 
 		/* allow differential thrust if enabled */
 		if (_params_tiltrotor.diff_thrust == 1) {
 			_actuators_out_0->control[actuator_controls_s::INDEX_ROLL] =
 				_actuators_fw_in->control[actuator_controls_s::INDEX_YAW] * _params_tiltrotor.diff_thrust_scale;
 		}
-
 	} else {
 		_actuators_out_0->control[actuator_controls_s::INDEX_THROTTLE] =
 			_actuators_mc_in->control[actuator_controls_s::INDEX_THROTTLE]*_mc_throttle_weight;
 		tilt_pitch = (PX4_ISFINITE(_actuators_mc_in->control[4])) ? _actuators_mc_in->control[4] : 0.0f; /* use output of  mc_att control for _tilt based on pitch cmd*/
+		_fw_throttle_weight = 0.0f;
 	}
 
 	_actuators_out_1->timestamp = hrt_absolute_time();

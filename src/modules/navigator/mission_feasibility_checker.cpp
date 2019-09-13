@@ -51,6 +51,57 @@
 #include <systemlib/mavlink_log.h>
 
 bool
+MissionFeasibilityChecker::checkMissionWhenArming(const mission_s &mission,
+		double lat,	double lon)
+{
+	struct mission_item_s land_missionitem = {};
+	int land_index = 0;
+	bool land_found = false;
+	bool rtl_found = false;
+	const ssize_t len = sizeof(struct mission_item_s);
+
+	for (size_t i = 0; i < mission.count; i++) {
+		struct mission_item_s missionitem = {};
+
+		if (dm_read((dm_item_t)mission.dataman_id, i, &missionitem, len) != len) {
+			/* not supposed to happen unless the datamanager can't access the SD card, etc. */
+			return false;
+		}
+
+		// look for a RTL command
+		if (missionitem.nav_cmd == NAV_CMD_RETURN_TO_LAUNCH) {
+			PX4_INFO("found RTL");
+			rtl_found = true;
+		}
+		if((missionitem.nav_cmd == NAV_CMD_VTOL_LAND || missionitem.nav_cmd == NAV_CMD_LAND) && !land_found)
+		{
+			land_index = i;
+			land_missionitem = missionitem;
+			land_found = true;
+		}
+	}
+
+	if(rtl_found && land_found)
+	{
+		land_missionitem.lat = lat;
+		land_missionitem.lon = lon;
+		PX4_INFO("updating landing pos.");
+
+		if (dm_write((dm_item_t)mission.dataman_id, land_index, DM_PERSIST_POWER_ON_RESET, &land_missionitem, len) != len) {
+			/* not supposed to happen unless the datamanager can't access the SD card, etc. */
+			PX4_INFO("failed to write mission");
+			return false;
+		}
+
+		mavlink_log_info(_navigator->get_mavlink_log_pub(), "Mission: land at cur. position");
+		return true;
+	}
+	// all checks have passed
+	return false;
+}
+
+
+bool
 MissionFeasibilityChecker::checkMissionFeasible(const mission_s &mission,
 		float max_distance_to_1st_waypoint, float max_distance_between_waypoints,
 		bool land_start_req)

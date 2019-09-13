@@ -104,7 +104,9 @@ MulticopterAttitudeControl::MulticopterAttitudeControl() :
 	{initial_update_rate_hz, 50.f},
 	{initial_update_rate_hz, 50.f},
 	{initial_update_rate_hz, 50.f}}, // will be initialized correctly when params are loaded
-	_tilt_lp_pitch(initial_update_rate_hz,_tilt_lp_freq)
+	_tilt_lp_pitch(initial_update_rate_hz,_tilt_lp_freq),
+	_weathervane_lp_roll(initial_update_rate_hz,_tilt_lp_freq)
+
 {
 	for (uint8_t i = 0; i < MAX_GYRO_COUNT; i++) {
 		_sensor_gyro_sub[i] = -1;
@@ -469,7 +471,21 @@ MulticopterAttitudeControl::control_attitude(float dt)
 	if (_vehicle_status.is_vtol && _v_att_sp.disable_mc_yaw_control) {
 		if (_v_control_mode.flag_control_velocity_enabled || _v_control_mode.flag_control_auto_enabled) {
 
-			const float wv_yaw_rate_max = _auto_rate_max(2) * _vtol_wv_yaw_rate_scale.get();
+			_rates_sp(2) *= 0.1f;
+			float roll_lp = _weathervane_lp_roll.apply(_v_att_sp.roll_body);
+
+			if(fabsf(roll_lp) > math::radians(1.0f)) // threshold for small angles
+			{
+				_rates_sp(2) += roll_lp * _vtol_wv_yaw_rate_scale.get();
+			}
+/*			static int print_counter = 0;
+			if(print_counter==0)
+			{
+				print_counter=250;
+				PX4_INFO("vw roll=%f yawrate_sp=%f yawrate=%f", (double)roll_lp, (double)_rates_sp(2), (double)_v_att.yawspeed);
+			}
+			print_counter--;*/
+			const float wv_yaw_rate_max = _auto_rate_max(2) *0.15f;
 			_rates_sp(2) = math::constrain(_rates_sp(2), -wv_yaw_rate_max, wv_yaw_rate_max);
 
 			// prevent integrator winding up in weathervane mode

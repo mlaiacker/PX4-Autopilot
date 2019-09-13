@@ -58,3 +58,16 @@ PARAM_DEFINE_INT32(LND_FLIGHT_T_HI, 0);
  *
  */
 PARAM_DEFINE_INT32(LND_FLIGHT_T_LO, 0);
+
+/**
+ * Total flight cycles
+ *
+ * Total flight cycles of this autopilot.
+ *
+ * @min 0
+ * @volatile
+ * @category system
+ * @group Land Detector
+ *
+ */
+PARAM_DEFINE_INT32(LND_FLIGHT_COUNT, 0);

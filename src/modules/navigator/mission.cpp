@@ -881,6 +881,10 @@ Mission::set_mission_items()
 				 * that aligns the vehicle first */
 				if (_mission_item.nav_cmd == NAV_CMD_LAND || _mission_item.nav_cmd == NAV_CMD_VTOL_LAND) {
 					_mission_item.yaw = NAN;
+					if(_mission_item.nav_cmd == NAV_CMD_VTOL_LAND)
+					{
+						_mission_item.autocontinue = false; // stop mission after landing
+					}
 				}
 
 
@@ -1626,6 +1630,17 @@ Mission::set_current_offboard_mission_item()
 	_navigator->set_mission_result_updated();
 
 	save_offboard_mission_state();
+}
+
+void
+Mission::on_arming()
+{
+	MissionFeasibilityChecker missionFeasibilityChecker(_navigator);
+	if(missionFeasibilityChecker.checkMissionWhenArming(_offboard_mission, _navigator->get_global_position()->lat, _navigator->get_global_position()->lon))
+	{
+		_mission_changed = true;
+	}
+
 }
 
 void

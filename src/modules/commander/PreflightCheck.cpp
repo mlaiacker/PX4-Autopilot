@@ -180,7 +180,7 @@ static bool imuConsistencyCheck(orb_advert_t *mavlink_log_pub, vehicle_status_s 
 
 	if (sensors.accel_inconsistency_m_s_s > test_limit) {
 		if (report_status) {
-			mavlink_log_critical(mavlink_log_pub, "PREFLIGHT FAIL: ACCELS INCONSISTENT - CHECK CAL");
+			mavlink_log_critical(mavlink_log_pub, "PREFLIGHT FAIL: ACCELS INCONSISTENT - %.3f", (double)sensors.accel_inconsistency_m_s_s);
 			set_health_flags_healthy(subsystem_info_s::SUBSYSTEM_TYPE_ACC, false, status);
 			set_health_flags_healthy(subsystem_info_s::SUBSYSTEM_TYPE_ACC2, false, status);
 		}
@@ -189,7 +189,7 @@ static bool imuConsistencyCheck(orb_advert_t *mavlink_log_pub, vehicle_status_s 
 
 	} else if (sensors.accel_inconsistency_m_s_s > test_limit * 0.8f) {
 		if (report_status) {
-			mavlink_log_info(mavlink_log_pub, "PREFLIGHT ADVICE: ACCELS INCONSISTENT - CHECK CAL");
+			mavlink_log_info(mavlink_log_pub, "PREFLIGHT ADVICE: ACCELS INCONSISTENT - %.3f", (double)sensors.accel_inconsistency_m_s_s);
 		}
 	}
 
@@ -208,7 +208,7 @@ static bool imuConsistencyCheck(orb_advert_t *mavlink_log_pub, vehicle_status_s 
 
 	} else if (sensors.gyro_inconsistency_rad_s > test_limit * 0.5f) {
 		if (report_status) {
-			mavlink_log_info(mavlink_log_pub, "PREFLIGHT ADVICE: GYROS INCONSISTENT - CHECK CAL");
+			mavlink_log_info(mavlink_log_pub, "PREFLIGHT ADVICE: GYROS INCONSISTENT - %.3f", (double)sensors.gyro_inconsistency_rad_s);
 		}
 	}
 
@@ -238,7 +238,7 @@ static bool magConsistencyCheck(orb_advert_t *mavlink_log_pub, vehicle_status_s 
 
 	if (sensors.mag_inconsistency_ga > test_limit) {
 		if (report_status) {
-			mavlink_log_critical(mavlink_log_pub, "PREFLIGHT FAIL: MAG SENSORS INCONSISTENT");
+			mavlink_log_critical(mavlink_log_pub, "PREFLIGHT FAIL: MAG SENSORS INCONSISTENT %.3f", (double)sensors.mag_inconsistency_ga);
 			set_health_flags_healthy(subsystem_info_s::SUBSYSTEM_TYPE_MAG, false, status);
 			set_health_flags_healthy(subsystem_info_s::SUBSYSTEM_TYPE_MAG2, false, status);
 		}
@@ -475,7 +475,7 @@ static bool airspeedCheck(orb_advert_t *mavlink_log_pub, vehicle_status_s &statu
 	 */
 	if (fabsf(differential_pressure.differential_pressure_filtered_pa) > 15.0f && !prearm) {
 		if (report_fail) {
-			mavlink_log_critical(mavlink_log_pub, "PREFLIGHT FAIL: CHECK AIRSPEED CAL OR PITOT");
+			mavlink_log_critical(mavlink_log_pub, "PREFLIGHT FAIL: CHECK AIRSPEED CAL - %.3f", (double) differential_pressure.differential_pressure_filtered_pa);
 		}
 		present = true;
 		success = false;

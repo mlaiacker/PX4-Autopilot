@@ -251,5 +251,6 @@ private:
 	static constexpr const float _tilt_lp_freq = 0.5f;
 	math::LowPassFilter2p	_tilt_lp_pitch; /* in vtol mode use tilt for low frequency pitch control (rad)*/
 	float _tilt_cmd; /* the servo command offset to the tilt servo 0..1, output on actuator[4] */
+	math::LowPassFilter2p	_weathervane_lp_roll; /* filter roll angle to command smooth yaw rate cmd (rad)*/
 };
 

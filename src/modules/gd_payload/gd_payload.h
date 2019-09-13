@@ -94,8 +94,11 @@ private:
 	battery_status_s	_battery_status;
 	float _voltage_v, _current_a, _used_mAh;
 	int		_vcontrol_mode_sub{-1};		/**< vehicle control mode subscription */
+	int		_sub_manual_control{-1};		/**< vehicle control mode subscription */
+	int		_sub_trip2{-1};
 	int _parameter_update_sub{-1};
 	bool		_armed{false};
+	bool		_auto_mode{false};
 
 	bool init();
 

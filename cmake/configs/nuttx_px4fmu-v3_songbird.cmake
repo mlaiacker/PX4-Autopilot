@@ -18,7 +18,7 @@ set(config_module_list
 	#drivers/distance_sensor
 	drivers/distance_sensor/tfmini
 	drivers/magnetometer
-	drivers/telemetry
+	#drivers/telemetry
 
 	drivers/batt_pac17xx
 	drivers/blinkm
@@ -35,8 +35,8 @@ set(config_module_list
 	drivers/oreoled
 	drivers/protocol_splitter
 	drivers/pwm_input
-	drivers/pwm_out_sim
-	drivers/px4flow
+	#drivers/pwm_out_sim
+	#drivers/px4flow
 	drivers/px4fmu
 	drivers/px4io
 	drivers/rgbled
@@ -53,19 +53,19 @@ set(config_module_list
 	systemcmds/bl_update
 	systemcmds/config
 	systemcmds/dumpfile
-	systemcmds/esc_calib
+	#systemcmds/esc_calib
 	systemcmds/hardfault_log
 	systemcmds/led_control
 	systemcmds/mixer
 	systemcmds/motor_ramp
-	systemcmds/motor_test
+	#systemcmds/motor_test
 	systemcmds/mtd
 	systemcmds/nshterm
 	systemcmds/param
 	systemcmds/perf
 	systemcmds/pwm
 	systemcmds/reboot
-	systemcmds/sd_bench
+	#systemcmds/sd_bench
 	systemcmds/top
 	systemcmds/topic_listener
 	systemcmds/tune_control
@@ -95,7 +95,7 @@ set(config_module_list
 	modules/load_mon
 	modules/mavlink
 	modules/navigator
-	modules/uavcan
+	#modules/uavcan
 
 	#
 	# Estimation modules
