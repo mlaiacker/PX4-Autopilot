@@ -364,6 +364,9 @@ RTL::advance_rtl()
 
 	case RTL_STATE_LOITER:
 		_rtl_state = RTL_STATE_LAND;
+		if (_navigator->get_vstatus()->is_vtol && !_navigator->get_vstatus()->is_rotary_wing) {
+			_rtl_state = RTL_STATE_TRANSITION_TO_MC; /* should not happen */
+		}
 		break;
 
 	case RTL_STATE_LAND:
