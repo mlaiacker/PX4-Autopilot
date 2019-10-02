@@ -62,7 +62,7 @@
 #include <mathlib/mathlib.h>
 
 #define BATT_PAC17_ADDR_MIN             0x00	///< lowest possible address
-#define BATT_PAC17_ADDR_MAX             0xFF	///< highest possible address
+#define BATT_PAC17_ADDR_MAX             0x7F	///< highest possible address
 
 #define BATT_PAC17_MEASUREMENT_INTERVAL_US	(100000)	///< time in microseconds, measure at 10Hz
 #define BATT_PAC17_TIMEOUT_US			(10000000)	///< timeout looking for battery 10seconds after startup
@@ -394,6 +394,7 @@ BATT_PAC17::identify()
 		} else
 		{
 			PX4_INFO("dev found at 0x%x PID=0x%x", get_device_address(), reg);
+			dumpreg();
 		}
 	}
 	return false;
@@ -411,7 +412,7 @@ BATT_PAC17::search()
 		if(identify())
 		{
 			found_slave = true;
-			break;
+			//break;
 		}
 		usleep(1);
 

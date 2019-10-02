@@ -21,6 +21,7 @@ set(config_module_list
 	#drivers/telemetry
 
 	drivers/batt_pac17xx
+	drivers/temp_lm75
 	drivers/blinkm
 	drivers/camera_trigger
 	drivers/gps
