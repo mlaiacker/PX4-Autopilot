@@ -77,7 +77,7 @@
 class TEMP_LM75 : public device::I2C
 {
 public:
-	TEMP_LM75(int bus = PX4_I2C_BUS_EXPANSION, uint16_t temp_lm75_addr = TEMP_LM75_ADDR);
+	TEMP_LM75(int bus = PX4_I2C_BUS_EXPANSION, uint16_t temp_lm75_addr = TEMP_LM75_ADDR, const char* name=NULL);
 	virtual ~TEMP_LM75();
 
 	/**
@@ -158,6 +158,7 @@ private:
 
 	float			_temperature_C;
 	struct debug_key_value_s _last_report;
+	char			_name[10];
 
 	orb_advert_t	_temp_topic;	///< uORB
 	orb_id_t		_temp_orb_id;	///< uORB
@@ -176,8 +177,8 @@ void temp_lm75_usage();
 extern "C" __EXPORT int temp_lm75_main(int argc, char *argv[]);
 
 
-TEMP_LM75::TEMP_LM75(int bus, uint16_t temp_lm75_addr) :
-	I2C("temp_lm75", "/dev/temp_lm750", bus, temp_lm75_addr, 100000),
+TEMP_LM75::TEMP_LM75(int bus, uint16_t temp_lm75_addr, const char* name) :
+	I2C("temp_lm75", "/dev/temp_lm750", bus, temp_lm75_addr, 400000),
 	_enabled(false),
 	_last_report{},
 	_temp_topic(nullptr),
@@ -187,7 +188,20 @@ TEMP_LM75::TEMP_LM75(int bus, uint16_t temp_lm75_addr) :
 	// capture startup time
 	_start_time = hrt_absolute_time();
 	_startupDelay = 100;
-
+	memset(_name,0,sizeof(_name));
+	if(name)
+	{
+		size_t len = strlen(name);
+		if(len>sizeof(_name))
+		{
+			len = sizeof(_name);
+		}
+		memcpy(_name, name,len);
+		_name[sizeof(_name)-1] = 0;
+	} else
+	{
+		snprintf(_name,sizeof(_name),"temp0x%02x",temp_lm75_addr);
+	}
 }
 
 TEMP_LM75::~TEMP_LM75()
@@ -301,7 +315,7 @@ TEMP_LM75::identify()
 			return result;
 		} else
 		{
-			PX4_INFO("dev found at 0x%x", get_device_address());
+			PX4_INFO("unknown at 0x%x", get_device_address());
 		}
 	}
 	return result;
@@ -319,10 +333,9 @@ TEMP_LM75::search()
 		if(identify())
 		{
 			found_slave = true;
-			//break;
+			break;
 		}
 		usleep(1);
-
 	}
 
 	if (found_slave == false) {
@@ -374,7 +387,6 @@ TEMP_LM75::try_read_data(debug_key_value_s &new_report, uint64_t now){
 	uint16_t reg;
 	if (read_reg(TEMP_LM75_REG_TEMPERATURE, reg) == OK) {
 		int16_t temp_125c;
-		reg = 0x738<<5;
 		if(0x8000&reg){// sign bit, negative
 			temp_125c = 0xf800 | (reg>>5);
 		} else
@@ -384,9 +396,8 @@ TEMP_LM75::try_read_data(debug_key_value_s &new_report, uint64_t now){
 		_temperature_C = temp_125c*0.125;
 		new_report.timestamp = now;
 		new_report.timestamp_ms = (uint32_t)(now/1000);
-		sprintf(new_report.key,"temp0x%02x",get_device_address());
 		new_report.value = _temperature_C;
-
+		memcpy(new_report.key, _name, sizeof(new_report.key));
 		return true;
 	}
 	return false;
@@ -508,6 +519,7 @@ temp_lm75_usage()
 	PX4_INFO("options:");
 	PX4_INFO("    -b i2cbus (%d)", TEMP_LM75_I2C_BUS);
 	PX4_INFO("    -a addr (0x%x)", TEMP_LM75_ADDR);
+	PX4_INFO("    -n \"name\"");
 }
 
 
@@ -520,9 +532,10 @@ temp_lm75_main(int argc, char *argv[])
 
 	int myoptind = 1;
 	const char *myoptarg = nullptr;
+	const char* name = NULL;
 
 	int ch;
-	while ((ch = px4_getopt(argc, argv, "a:b:r:s:", &myoptind, &myoptarg)) != EOF) {
+	while ((ch = px4_getopt(argc, argv, "a:b:n:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
 		case 'a':
 			temp_lm75adr = strtol(myoptarg, nullptr, 0);
@@ -530,6 +543,10 @@ temp_lm75_main(int argc, char *argv[])
 
 		case 'b':
 			i2cdevice = strtol(myoptarg, nullptr, 0);
+			break;
+
+		case 'n':
+			name = myoptarg;
 			break;
 
 		default:
@@ -552,7 +569,7 @@ temp_lm75_main(int argc, char *argv[])
 
 		} else {
 			// create new global object
-			g_temp_lm75 = new TEMP_LM75(i2cdevice, temp_lm75adr);
+			g_temp_lm75 = new TEMP_LM75(i2cdevice, temp_lm75adr, name);
 
 			if (g_temp_lm75 == nullptr) {
 				PX4_ERR("new failed");

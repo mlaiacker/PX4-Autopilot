@@ -239,7 +239,7 @@ extern "C" __EXPORT int batt_pac17xx_main(int argc, char *argv[]);
 
 
 BATT_PAC17::BATT_PAC17(int bus, uint16_t batt_pac17_addr, float sens_resistor, uint16_t sens_range) :
-	I2C("batt_pac17", "/dev/batt_pac170", bus, batt_pac17_addr, 100000),
+	I2C("batt_pac17", "/dev/batt_pac170", bus, batt_pac17_addr, 400000),
 	_enabled(false),
 	_last_report{},
 	_batt_topic(nullptr),
