@@ -51,6 +51,7 @@
 #include <px4_config.h>
 #include <px4_workqueue.h>
 #include <px4_getopt.h>
+#include <px4_posix.h>
 #include <perf/perf_counter.h>
 #include <uORB/topics/debug_key_value.h>
 #include <uORB/uORB.h>
@@ -167,9 +168,10 @@ private:
 	int 			_startupDelay; ///< prevent publish voltage before filter converged
 };
 
+#define MAX_LM75_INST 4 // max instances
 namespace
 {
-TEMP_LM75 *g_temp_lm75;	///< device handle. For now, we only support one TEMP_LM75 device
+TEMP_LM75* g_temp_lm75[MAX_LM75_INST] = {};	///< device handle
 }
 
 void temp_lm75_usage();
@@ -178,7 +180,7 @@ extern "C" __EXPORT int temp_lm75_main(int argc, char *argv[]);
 
 
 TEMP_LM75::TEMP_LM75(int bus, uint16_t temp_lm75_addr, const char* name) :
-	I2C("temp_lm75", "/dev/temp_lm750", bus, temp_lm75_addr, 400000),
+	I2C("temp_lm75", nullptr, bus, temp_lm75_addr, 400000),
 	_enabled(false),
 	_last_report{},
 	_temp_topic(nullptr),
@@ -530,12 +532,15 @@ temp_lm75_main(int argc, char *argv[])
 	int i2cdevice = TEMP_LM75_I2C_BUS;
 	int temp_lm75adr = TEMP_LM75_ADDR; // 7bit address
 
-	int myoptind = 1;
+	unsigned int instance = 0;
+	int myoptind=1;
 	const char *myoptarg = nullptr;
 	const char* name = NULL;
 
+	for(instance=0;g_temp_lm75[instance]!=nullptr && instance<MAX_LM75_INST;instance++);
+
 	int ch;
-	while ((ch = px4_getopt(argc, argv, "a:b:n:", &myoptind, &myoptarg)) != EOF) {
+	while ((ch = px4_getopt(argc, argv, "a:b:n:i:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
 		case 'a':
 			temp_lm75adr = strtol(myoptarg, nullptr, 0);
@@ -549,10 +554,18 @@ temp_lm75_main(int argc, char *argv[])
 			name = myoptarg;
 			break;
 
+		case 'i':
+			instance = strtol(myoptarg, nullptr, 0);
+			break;
+
 		default:
 			temp_lm75_usage();
 			return 0;
 		}
+	}
+	if(instance>MAX_LM75_INST)
+	{
+		instance = MAX_LM75_INST-1;
 	}
 
 	if (myoptind >= argc) {
@@ -563,55 +576,57 @@ temp_lm75_main(int argc, char *argv[])
 	const char *verb = argv[myoptind];
 
 	if (!strcmp(verb, "start")) {
-		if (g_temp_lm75 != nullptr) {
-			PX4_ERR("already started");
-			return 1;
-
-		} else {
+		TEMP_LM75 *drv = g_temp_lm75[instance];
+		if(drv==nullptr)
+		{
 			// create new global object
-			g_temp_lm75 = new TEMP_LM75(i2cdevice, temp_lm75adr, name);
+			drv = new TEMP_LM75(i2cdevice, temp_lm75adr, name);
 
-			if (g_temp_lm75 == nullptr) {
+			if (drv == nullptr) {
 				PX4_ERR("new failed");
 				return 1;
 			}
 
-			if (OK != g_temp_lm75->init()) {
-				delete g_temp_lm75;
-				g_temp_lm75 = nullptr;
+			if (OK != drv->init()) {
+				delete drv;
 				PX4_ERR("init failed");
 				return 1;
 			}
+			PX4_INFO("%d started",instance);
+			g_temp_lm75[instance] = drv;
+		} else {
+			PX4_ERR("%d already started",instance);
+			return 1;
 		}
-
 		return 0;
 	}
 
 	// need the driver past this point
-	if (g_temp_lm75 == nullptr) {
-		PX4_INFO("not started");
+	if (g_temp_lm75[instance]==nullptr) {
+		PX4_INFO("%d not started", instance);
 		temp_lm75_usage();
 		return 1;
 	}
 
 	if (!strcmp(verb, "test")) {
-		g_temp_lm75->test();
+		g_temp_lm75[instance]->test();
 		return 0;
 	}
 
 	if (!strcmp(verb, "ident")) {
-		g_temp_lm75->identify();
+		g_temp_lm75[instance]->identify();
 		return 0;
 	}
 
 	if (!strcmp(verb, "stop")) {
-		delete g_temp_lm75;
-		g_temp_lm75 = nullptr;
+		TEMP_LM75* drv=g_temp_lm75[instance];
+		delete drv;
+		g_temp_lm75[instance] = nullptr;
 		return 0;
 	}
 
 	if (!strcmp(verb, "search")) {
-		if(g_temp_lm75->search()==OK)
+		if(g_temp_lm75[instance]->search()==OK)
 		{
 			//g_temp_lm75->dumpreg();
 			return 0;
