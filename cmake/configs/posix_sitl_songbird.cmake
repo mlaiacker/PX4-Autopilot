@@ -106,46 +106,10 @@ set(config_module_list
 	modules/landing_target_estimator
 
 	#
-	# OBC challenge
+	# GD apps
 	#
-	#examples/bottle_drop
+	modules/gd_payload
 
-	#
-	# Rover apps
-	#
-	#examples/rover_steering_control
-
-	#
-	# HippoCampus example (AUV from TUHH)
-	#
-	#examples/uuv_example_app
-
-	#
-	# Segway
-	#
-	#examples/segway
-
-	#
-	# Demo apps
-	#
-
-	# Tutorial code from
-	# https://px4.io/dev/px4_simple_app
-	#examples/px4_simple_app
-
-	# Tutorial code from
-	# https://px4.io/dev/debug_values
-	#examples/px4_mavlink_debug
-
-	# Tutorial code from
-	# https://px4.io/dev/example_fixedwing_control
-	#examples/fixedwing_control
-
-	# Template Module
-	#templates/module
-
-	# Hardware test
-	#examples/hwtest
 )
 
 # Default config_sitl_rcS_dir (posix_sitl_default), this is overwritten later

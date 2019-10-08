@@ -70,9 +70,9 @@ public:
 	int print_status() override;
 
 	static 	void writePayloadPower(bool on);
+
 	static  void printTrip2Report();
 private:
-	DriverFramework::DevHandle 	_h_adc;				/**< ADC driver handle */
 	struct {
 		float battery_v_div;
 		float battery_a_per_v;
@@ -81,30 +81,46 @@ private:
 		param_t battery_v_div;
 		param_t battery_a_per_v;
 	} _parameters_handles;
+	int 	_parameter_update_sub{-1};
+
+	DriverFramework::DevHandle 	_h_adc;				/**< ADC driver handle */
 
 	char 	_device[32];
 	px4_adc_msg_t _buf_adc[PX4_MAX_ADC_CHANNELS];
-
 	int 	_px4io_fd = -1;
+
+	orb_advert_t		_pub_battery;
+	orb_advert_t		_vehicle_command_ack_pub;
+
+	battery_status_s	_battery_status;
+	float _voltage_v, _current_a, _used_mAh;
+	bool  readPayloadAdc();
+	void updateBatteryDisconnect();
+	void vehicleCommand(const vehicle_command_s *vcmd);
+	void vehicleCommandAck(const vehicle_command_s *cmd);
+	bool cmdTripCordinate(double lat, double lon, float alt);
+	bool cmdTripRecord(bool on);
+	bool cmdTripSnapshot();
+	bool cmdTripMode(int mode);
+
 	int 	_rate = 0;
 	int		_timeout = 0;
 	bool	_debug_flag = false;
-	orb_advert_t		_pub_battery;
 	int _instance;
-	battery_status_s	_battery_status;
-	float _voltage_v, _current_a, _used_mAh;
-	int		_vcontrol_mode_sub{-1};		/**< vehicle control mode subscription */
-	int		_sub_manual_control{-1};		/**< vehicle control mode subscription */
+	int		_sub_vcontrol_mode{-1};		/**< vehicle control mode subscription */
 	int		_sub_trip2{-1};
-	int _parameter_update_sub{-1};
+	int 	_sub_vehicle_cmd{-1};
+	int		_sub_vehicle_status{-1};
+
 	bool		_armed{false};
 	bool		_auto_mode{false};
+	uint16_t _cmdold{0};
+
+	struct vehicle_status_s _vstatus{};
 
 	bool init();
 
-	bool  readPayloadAdc();
 	void vehicle_control_mode_poll();
-	void updateBatteryDisconnect();
 	/**
 	 * Check for parameter changes and update them if needed.
 	 * @param parameter_update_sub uorb subscription to parameter_update

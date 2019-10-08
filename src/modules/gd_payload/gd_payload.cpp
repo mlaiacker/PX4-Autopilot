@@ -48,11 +48,16 @@
 
 #include <termios.h>
 
+#ifdef __PX4_NUTTX
 #include <nuttx/arch.h>
 #include <nuttx/irq.h>
+#endif
 #include <arch/board/board.h>
 
 #include <uORB/topics/vehicle_control_mode.h>
+#include <uORB/topics/vehicle_command.h>
+#include <uORB/topics/vehicle_status.h>
+#include <uORB/topics/vehicle_command_ack.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/trip2_sys_report.h>
 #include <uORB/topics/trip2_los_report.h>
@@ -97,10 +102,12 @@ int GDPayload::print_status()
 	PX4_INFO("voltage: %.2fV (%f)", (double)_voltage_v, double(_parameters.battery_v_div));
 	PX4_INFO("current: %.3fA (%f)", (double)_current_a, double(_parameters.battery_a_per_v));
 	PX4_INFO("bat used: %.1fmAh", (double)_used_mAh);
+#ifdef __PX4_NUTTX
 	for (unsigned i = 0; i < PX4_MAX_ADC_CHANNELS; i++)
 	{
 		PX4_INFO("ADC:%i, %i=%i",i,_buf_adc[i].am_channel, _buf_adc[i].am_data);
 	}
+#endif
 	return 0;
 }
 
@@ -117,7 +124,6 @@ int GDPayload::custom_command(int argc, char *argv[])
 		writePayloadPower(false);
 		return 0;
 	}
-
 	if (!strcmp(verb, "trip2")) {
 		printTrip2Report();
 		return 0;
@@ -128,6 +134,7 @@ int GDPayload::custom_command(int argc, char *argv[])
 
 void GDPayload::writePayloadPower(bool on)
 {
+#ifdef __PX4_NUTTX
 	int fd = open(PX4IO_DEV, O_RDWR);
 
 	if (fd < 0) {
@@ -148,6 +155,9 @@ void GDPayload::writePayloadPower(bool on)
 		ioctl(fd, DSM_BIND_START,0);
 	}
 	close(fd);
+#else
+	PX4_INFO("power %i", (int)on);
+#endif
 }
 
 void GDPayload::printTrip2Report()
@@ -216,7 +226,6 @@ int GDPayload::task_spawn(int argc, char *argv[])
 GDPayload *GDPayload::instantiate(int argc, char *argv[])
 {
 	bool debug_flag = false;
-	bool error_flag = false;
 	int ch;
 	int myoptind = 1;
 	const char *myoptarg = nullptr;
@@ -233,19 +242,10 @@ GDPayload *GDPayload::instantiate(int argc, char *argv[])
 			debug_flag = true;
 			break;
 
-		case '?':
-			error_flag = true;
-			break;
-
 		default:
 			PX4_WARN("unrecognized flag");
-			error_flag = true;
 			break;
 		}
-	}
-
-	if (error_flag) {
-		return nullptr;
 	}
 
 	GDPayload *instance = new GDPayload(device, debug_flag);
@@ -290,7 +290,9 @@ bool GDPayload::init()
 	parameters_update(_parameter_update_sub, true);
 
 	/* needed to read arming status */
-	_vcontrol_mode_sub = orb_subscribe(ORB_ID(vehicle_control_mode));
+	_sub_vcontrol_mode = orb_subscribe(ORB_ID(vehicle_control_mode));
+	_sub_vehicle_cmd = orb_subscribe(ORB_ID(vehicle_command));
+	_sub_vehicle_status = orb_subscribe(ORB_ID(vehicle_status));
 	return result;
 }
 
@@ -336,15 +338,130 @@ void GDPayload::parameters_update(int parameter_update_sub, bool force)
 	}
 }
 
+void GDPayload::vehicleCommandAck(const vehicle_command_s *cmd)
+{
+	vehicle_command_ack_s vehicle_command_ack = {
+		.timestamp = hrt_absolute_time(),
+		.result_param2 = 0,
+		.command = cmd->command,
+		.result = vehicle_command_s::VEHICLE_CMD_RESULT_ACCEPTED,
+		.from_external = false,
+		.result_param1 = 0,
+		.target_system = cmd->source_system,
+		.target_component = cmd->source_component
+	};
+
+	if (_vehicle_command_ack_pub == nullptr) {
+		_vehicle_command_ack_pub = orb_advertise_queue(ORB_ID(vehicle_command_ack), &vehicle_command_ack,
+					   vehicle_command_ack_s::ORB_QUEUE_LENGTH);
+
+	} else {
+		orb_publish(ORB_ID(vehicle_command_ack), _vehicle_command_ack_pub, &vehicle_command_ack);
+	}
+
+}
+
+bool GDPayload::cmdTripCordinate(double lat, double lon, float alt){
+	PX4_INFO("trip point to %f %f %f", lat, lon, (double)alt);
+	return true;
+}
+
+bool GDPayload::cmdTripRecord(bool on){
+	PX4_INFO("trip record %d", on);
+	return true;
+}
+
+bool GDPayload::cmdTripSnapshot(){
+	PX4_INFO("trip snapshot");
+	return true;
+}
+
+bool GDPayload::cmdTripMode(int mode){
+	PX4_INFO("trip mode %d", mode);
+	return true;
+}
+
+
+void GDPayload::vehicleCommand(const vehicle_command_s *vcmd)
+{
+	PX4_INFO("cmd=%d", vcmd->command);
+	switch(vcmd->command)
+	{
+	case vehicle_command_s::VEHICLE_CMD_CUSTOM_0:
+		writePayloadPower(vcmd->param1>=0.5f);
+		vehicleCommandAck(vcmd);
+		break;
+	case vehicle_command_s::VEHICLE_CMD_DO_SET_ROI:
+	case vehicle_command_s::VEHICLE_CMD_DO_SET_ROI_LOCATION:
+		if(cmdTripCordinate(vcmd->param5,vcmd->param6, vcmd->param7))
+		{
+			vehicleCommandAck(vcmd);
+		}
+		break;
+	case vehicle_command_s::VEHICLE_CMD_SET_CAMERA_MODE:
+	case vehicle_command_s::VEHICLE_CMD_DO_DIGICAM_CONTROL:
+		if((int)vcmd->param1==0) //Set System Mode
+		{
+			cmdTripMode(vcmd->param2);
+		} else if((int)vcmd->param1==1) //Take Snap Shot
+		{
+			cmdTripSnapshot();
+		}  else if((int)vcmd->param1==2) // set rec state
+		{
+			cmdTripRecord(vcmd->param2>0.5f);
+		}
+		break;
+	case vehicle_command_s::VEHICLE_CMD_DO_TRIGGER_CONTROL:
+		cmdTripSnapshot();
+		break;
+
+	default:
+		//print_message(&vcmd);
+		break;
+	}
+}
+
 /* read arming state */
 void GDPayload::vehicle_control_mode_poll()
 {
-	struct vehicle_control_mode_s vcontrol_mode;
-	bool vcontrol_mode_updated;
-	orb_check(_vcontrol_mode_sub, &vcontrol_mode_updated);
-	if (vcontrol_mode_updated) {
-		orb_copy(ORB_ID(vehicle_control_mode), _vcontrol_mode_sub, &vcontrol_mode);
-		_armed = vcontrol_mode.flag_armed;
+	if(_sub_vcontrol_mode!=-1)
+	{
+		struct vehicle_control_mode_s vcontrol_mode;
+		bool vcontrol_mode_updated;
+		orb_check(_sub_vcontrol_mode, &vcontrol_mode_updated);
+		if (vcontrol_mode_updated) {
+			orb_copy(ORB_ID(vehicle_control_mode), _sub_vcontrol_mode, &vcontrol_mode);
+			_armed = vcontrol_mode.flag_armed;
+		}
+	}
+	if(_sub_vehicle_cmd!=-1)
+	{
+		struct vehicle_command_s vcmd;
+		//bool updated;
+		//orb_check(_vcontrol_mode_sub, &updated);
+		//if (updated)
+		{
+			//static uint16_t tcmd = 0;
+			orb_copy(ORB_ID(vehicle_command), _sub_vehicle_cmd, &vcmd);
+			if(vcmd.command != _cmdold)
+			{
+				vehicleCommand(&vcmd);
+			}
+			_cmdold = vcmd.command;
+		}
+	}
+	if(_sub_vehicle_status!=-1)
+	{
+		struct vehicle_status_s vstatus;
+		orb_copy(ORB_ID(vehicle_status), _sub_vehicle_status, &vstatus);
+		if(vstatus.timestamp != _vstatus.timestamp)
+		{
+			if(_vstatus.is_rotary_wing != vstatus.is_rotary_wing)
+			{
+				PX4_INFO("transition detected");
+			}
+		}
+		_vstatus = vstatus;
 	}
 }
 
@@ -367,6 +484,7 @@ void GDPayload::updateBatteryDisconnect()
 
 bool  GDPayload::readPayloadAdc()
 {
+#ifdef __PX4_NUTTX
 	if(!_h_adc.isValid())
 	{
 		DriverFramework::DevMgr::getHandle(ADC0_DEVICE_PATH, _h_adc);
@@ -405,6 +523,11 @@ bool  GDPayload::readPayloadAdc()
 			return true;
 		}
 	return false;
+#else
+	_voltage_v = 30.0f + rand()*0.1f/RAND_MAX;
+	_current_a = 0.83f + rand()*0.01f/RAND_MAX;;
+	return true;
+#endif
 }
 
 
@@ -442,11 +565,11 @@ void GDPayload::run()
 				_battery_status.voltage_filtered_v = _battery_status.voltage_filtered_v*0.8f + _voltage_v*0.2f; /* override filtered value */
 				_battery_status.current_filtered_a = _battery_status.current_filtered_a*0.8f + _current_a*0.2f;
 				_battery_status.discharged_mah = _used_mAh;
-				if(orb_publish_auto(ORB_ID(battery_status), &_pub_battery, &_battery_status, &_instance, ORB_PRIO_DEFAULT))
+				if(orb_publish_auto(ORB_ID(battery_status), &_pub_battery, &_battery_status, &_instance, ORB_PRIO_LOW))
 				{
 					if(_debug_flag)
 					{
-						PX4_INFO("pup failed");
+						PX4_INFO("pup failed %d", _instance);
 					}
 				}
 				_timeout = 0;
@@ -465,8 +588,11 @@ void GDPayload::run()
 		}
 	}
 	updateBatteryDisconnect();
-	orb_unsubscribe(_vcontrol_mode_sub);
+	orb_unsubscribe(_sub_vcontrol_mode);
 	orb_unsubscribe(_parameter_update_sub);
+	orb_unsubscribe(_sub_vehicle_cmd);
+	orb_unsubscribe(_sub_vehicle_status);
+
 	orb_unadvertise(_pub_battery);
 }
 

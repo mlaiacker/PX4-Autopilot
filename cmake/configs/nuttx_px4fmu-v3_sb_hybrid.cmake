@@ -1,7 +1,7 @@
 
 # FMUv3 is FMUv2 with access to the full 2MB flash
 set(BOARD px4fmu-v2 CACHE string "" FORCE)
-set(FW_NAME nuttx_px4fmu-v3_songbird.elf CACHE string "" FORCE)
+set(FW_NAME nuttx_px4fmu-v3_sb_hybrid.elf CACHE string "" FORCE)
 set(FW_PROTOTYPE px4fmu-v3 CACHE string "" FORCE)
 set(LD_SCRIPT ld_full.script CACHE string "" FORCE)
 
@@ -22,6 +22,7 @@ set(config_module_list
 	#drivers/telemetry
 
 	drivers/batt_pac17xx
+	drivers/pwr_isl28022
 	drivers/temp_lm75
 	drivers/blinkm
 	drivers/camera_trigger
