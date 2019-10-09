@@ -330,27 +330,13 @@ BATT_PAC17::init()
 int
 BATT_PAC17::test()
 {
-	int sub = orb_subscribe(ORB_ID(battery_status));
-	bool updated = false;
-	struct battery_status_s status;
 	uint64_t start_time = hrt_absolute_time();
-
 	// loop for 3 seconds
 	while ((hrt_absolute_time() - start_time) < 3000000) {
-
-		// display new info that has arrived from the orb
-		orb_check(sub, &updated);
-
-		if (updated) {
-			if (orb_copy(ORB_ID(battery_status), sub, &status) == OK) {
-				print_message(status);
-			}
-		}
-
+		print_message(_last_report);
 		// sleep for 0.2 seconds
 		usleep(200000);
 	}
-
 	return OK;
 }
 
