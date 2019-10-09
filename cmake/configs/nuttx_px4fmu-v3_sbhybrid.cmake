@@ -1,7 +1,7 @@
 
 # FMUv3 is FMUv2 with access to the full 2MB flash
 set(BOARD px4fmu-v2 CACHE string "" FORCE)
-set(FW_NAME nuttx_px4fmu-v3_sb_hybrid.elf CACHE string "" FORCE)
+set(FW_NAME nuttx_px4fmu-v3_sbhybrid.elf CACHE string "" FORCE)
 set(FW_PROTOTYPE px4fmu-v3 CACHE string "" FORCE)
 set(LD_SCRIPT ld_full.script CACHE string "" FORCE)
 
@@ -21,9 +21,6 @@ set(config_module_list
 	drivers/magnetometer
 	#drivers/telemetry
 
-	drivers/batt_pac17xx
-	drivers/pwr_isl28022
-	drivers/temp_lm75
 	drivers/blinkm
 	drivers/camera_trigger
 	drivers/gps
@@ -48,6 +45,10 @@ set(config_module_list
 	drivers/stm32/tone_alarm
 	#drivers/tap_esc
 	drivers/vmount
+	drivers/pca9536
+	drivers/batt_pac17xx
+	drivers/pwr_isl28022
+	drivers/temp_lm75
 	modules/sensors
 
 	#

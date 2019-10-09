@@ -21,7 +21,9 @@ set(config_module_list
 	drivers/magnetometer
 	#drivers/telemetry
 
+	drivers/pca9536
 	drivers/batt_pac17xx
+	drivers/pwr_isl28022
 	drivers/temp_lm75
 	drivers/blinkm
 	drivers/camera_trigger

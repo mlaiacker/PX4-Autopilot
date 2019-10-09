@@ -61,8 +61,8 @@
 #include <battery/battery.h>
 #include <mathlib/mathlib.h>
 
-#define PWR_ISL28022_ADDR_MIN             0x00	///< lowest possible address
-#define PWR_ISL28022_ADDR_MAX             0x7F	///< highest possible address
+#define PWR_ISL28022_ADDR_MIN             0x40	///< lowest possible address
+#define PWR_ISL28022_ADDR_MAX             0x4F	///< highest possible address
 
 #define PWR_ISL28022_MEASUREMENT_INTERVAL_US	(100000)	///< time in microseconds, measure at 10Hz
 #define PWR_ISL28022_TIMEOUT_US			(10000000)	///< timeout looking for battery 10seconds after startup
@@ -73,7 +73,7 @@
 # error This requires CONFIG_SCHED_WORKQUEUE.
 #endif
 
-#define PWR_ISL28022_ADDR			0x4c //default 0x98 in 8 bit
+#define PWR_ISL28022_ADDR			0x40 //default 0x80 in 8 bit
 #define PWR_ISL28022_I2C_BUS		1
 
 #define PWR_ISL28022_REG_CONFIG		0x00
@@ -190,9 +190,10 @@ private:
 	Battery				_battery;			/**< Helper lib to publish battery_status topic. */
 };
 
+#define	INST_MAX 2
 namespace
 {
-PWR_ISL28022 *g_pwr_isl28022;	///< device handle. For now, we only support one PWR_ISL28022 device
+PWR_ISL28022* g_pwr_isl28022[INST_MAX];	///< device handle. For now, we only support INST_MAX devices
 }
 
 void pwr_isl28022_usage();
@@ -294,22 +295,11 @@ PWR_ISL28022::init()
 int
 PWR_ISL28022::test()
 {
-	int sub = orb_subscribe(ORB_ID(battery_status));
-	bool updated = false;
-	struct battery_status_s status;
 	uint64_t start_time = hrt_absolute_time();
 
 	// loop for 3 seconds
 	while ((hrt_absolute_time() - start_time) < 3000000) {
-
-		// display new info that has arrived from the orb
-		orb_check(sub, &updated);
-
-		if (updated) {
-			if (orb_copy(ORB_ID(battery_status), sub, &status) == OK) {
-				print_message(status);
-			}
-		}
+		print_message(_last_report);
 		// sleep for 0.2 seconds
 		usleep(200000);
 	}
@@ -405,13 +395,9 @@ PWR_ISL28022::cycle_trampoline(void *arg)
 bool
 PWR_ISL28022::try_read_data(battery_status_s &new_report, uint64_t now){
 	// temporary variable for storing SMBUS reads
-	uint16_t shunt;
-	uint16_t bus;
+	uint16_t shunt=0;
+	uint16_t bus=0;
 
-	write_reg(PWR_ISL28022_REG_CONFIG, _sens_sample_reg|
-			PWR_ISL28022_CONFIG_AVG16|
-			PWR_ISL28022_CONFIG_MODE_SB_CONT |
-			PWR_ISL28022_CONFIG_BUS60V);
 
 	if (read_reg(PWR_ISL28022_REG_BUS, bus) == OK) {
 		// read data from sensor
@@ -470,9 +456,9 @@ PWR_ISL28022::cycle()
 
 	battery_status_s new_report = {};
 	if(try_read_data(new_report, now)){
-		if(_startupDelay<=0) {
-			// publish to orb
-			if (_batt_topic != nullptr) {
+		if (_batt_topic != nullptr) {
+				if(_startupDelay<=0) {
+					// publish to orb
 					orb_publish(_batt_orb_id, _batt_topic, &new_report);
 				} else
 				{
@@ -484,6 +470,12 @@ PWR_ISL28022::cycle()
 					}
 				}
 		} else {
+			uint16_t config = _sens_sample_reg|
+					PWR_ISL28022_CONFIG_AVG16|
+					PWR_ISL28022_CONFIG_MODE_SB_CONT |
+					PWR_ISL28022_CONFIG_BUS60V;
+			PX4_INFO("config reg 0x%04x",config);
+			write_reg(PWR_ISL28022_REG_CONFIG, config);
 			new_report.connected=0;
 			_batt_topic = orb_advertise_multi(_batt_orb_id, &new_report, &_instance, ORB_PRIO_DEFAULT);
 			if (_batt_topic == nullptr) {
@@ -515,7 +507,7 @@ PWR_ISL28022::read_reg(uint8_t reg, uint16_t &val)
 {
 	uint8_t buff[2];
 	// read from register
-	int ret = transfer(&reg, 0, buff, 2);
+	int ret = transfer(&reg, 1, buff, 2);
 
 	val = (((uint16_t)buff[0])<<8)|(uint16_t)buff[1];
 	// return success or failure
@@ -528,8 +520,8 @@ PWR_ISL28022::write_reg(uint8_t reg, uint16_t val)
 	uint8_t buff[3];  // reg + 1 bytes of data
 
 	buff[0] = reg;
-	buff[1] = (uint8_t)val>>8;
-	buff[0] = (uint8_t)val&0xff;
+	buff[1] = (uint8_t)(val>>8);
+	buff[2] = (uint8_t)(val&0xff);
 
 	// write bytes to register
 	int ret = transfer(buff, 3, nullptr, 0);
@@ -559,6 +551,7 @@ pwr_isl28022_usage()
 {
 	PX4_INFO("missing command: try 'start', 'test', 'stop', 'search'");
 	PX4_INFO("options:");
+	PX4_INFO("    -i <instance (0..1)>");
 	PX4_INFO("    -b i2cbus (%d)", PWR_ISL28022_I2C_BUS);
 	PX4_INFO("    -a addr (0x%x)", PWR_ISL28022_ADDR);
 	PX4_INFO("    -r sense resistor (%.2fmOhm)",(double)PWR_ISL28022_SENS_R);
@@ -570,6 +563,7 @@ pwr_isl28022_usage()
 int
 pwr_isl28022_main(int argc, char *argv[])
 {
+	unsigned int instance = 0;
 	int i2cdevice = PWR_ISL28022_I2C_BUS;
 	int pwr_isl28022adr = PWR_ISL28022_ADDR; // 7bit address
 	float	resistor = 0;
@@ -578,8 +572,10 @@ pwr_isl28022_main(int argc, char *argv[])
 	int myoptind = 1;
 	const char *myoptarg = nullptr;
 
+	for(instance=0;g_pwr_isl28022[instance]!=nullptr && instance<INST_MAX;instance++);
+
 	int ch;
-	while ((ch = px4_getopt(argc, argv, "a:b:r:s:", &myoptind, &myoptarg)) != EOF) {
+	while ((ch = px4_getopt(argc, argv, "a:b:r:s:i:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
 		case 'a':
 			pwr_isl28022adr = strtol(myoptarg, nullptr, 0);
@@ -599,10 +595,18 @@ pwr_isl28022_main(int argc, char *argv[])
 			PX4_INFO("resistor %.2fmOhm", (double)resistor);
 			break;
 
+		case 'i':
+			instance = strtol(myoptarg, nullptr, 0);
+			break;
+
 		default:
 			pwr_isl28022_usage();
 			return 0;
 		}
+	}
+	if(instance>=INST_MAX)
+	{
+		instance = INST_MAX-1;
 	}
 
 	if (myoptind >= argc) {
@@ -613,50 +617,52 @@ pwr_isl28022_main(int argc, char *argv[])
 	const char *verb = argv[myoptind];
 
 	if (!strcmp(verb, "start")) {
-		if (g_pwr_isl28022 != nullptr) {
+		PWR_ISL28022 *drv = g_pwr_isl28022[instance];
+		if (drv != nullptr) {
 			PX4_ERR("already started");
-			return 1;
-
 		} else {
 			// create new global object
-			g_pwr_isl28022 = new PWR_ISL28022(i2cdevice, pwr_isl28022adr, resistor, range);
+			drv = new PWR_ISL28022(i2cdevice, pwr_isl28022adr, resistor, range);
 
-			if (g_pwr_isl28022 == nullptr) {
+			if (drv == nullptr) {
 				PX4_ERR("new failed");
 				return 1;
 			}
 
-			if (OK != g_pwr_isl28022->init()) {
-				delete g_pwr_isl28022;
-				g_pwr_isl28022 = nullptr;
+			if (OK != drv->init()) {
+				delete drv;
+				drv = nullptr;
 				PX4_ERR("init failed");
 				return 1;
 			}
+			PX4_INFO("%d started",instance);
+			g_pwr_isl28022[instance] = drv;
 		}
 
 		return 0;
 	}
 
 	// need the driver past this point
-	if (g_pwr_isl28022 == nullptr) {
+	if (g_pwr_isl28022[instance] == nullptr) {
 		PX4_INFO("not started");
 		pwr_isl28022_usage();
 		return 1;
 	}
 
 	if (!strcmp(verb, "test")) {
-		g_pwr_isl28022->test();
+		g_pwr_isl28022[instance]->identify();
+		g_pwr_isl28022[instance]->test();
 		return 0;
 	}
 
 	if (!strcmp(verb, "stop")) {
-		delete g_pwr_isl28022;
-		g_pwr_isl28022 = nullptr;
+		delete g_pwr_isl28022[instance];
+		g_pwr_isl28022[instance] = nullptr;
 		return 0;
 	}
 
 	if (!strcmp(verb, "search")) {
-		if(g_pwr_isl28022->search()==OK)
+		if(g_pwr_isl28022[instance]->search()==OK)
 		{
 			//g_pwr_isl28022->dumpreg();
 			return 0;

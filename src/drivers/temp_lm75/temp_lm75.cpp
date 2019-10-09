@@ -244,23 +244,11 @@ TEMP_LM75::init()
 int
 TEMP_LM75::test()
 {
-	int sub = orb_subscribe(ORB_ID(debug_key_value));
-	bool updated = false;
-	struct debug_key_value_s status;
 	uint64_t start_time = hrt_absolute_time();
 
 	// loop for 3 seconds
 	while ((hrt_absolute_time() - start_time) < 3000000) {
-
-		// display new info that has arrived from the orb
-		orb_check(sub, &updated);
-
-		if (updated) {
-			if (orb_copy(ORB_ID(debug_key_value), sub, &status) == OK) {
-				print_message(status);
-			}
-		}
-
+		print_message(_last_report);
 		// sleep for 0.2 seconds
 		usleep(200000);
 	}
@@ -487,8 +475,8 @@ TEMP_LM75::write_reg(uint8_t reg, uint16_t val)
 	uint8_t buff[3];  // reg + 1 bytes of data
 
 	buff[0] = reg;
-	buff[1] = (uint8_t)val>>8;
-	buff[0] = (uint8_t)val&0xff;
+	buff[1] = (uint8_t)(val>>8);
+	buff[2] = (uint8_t)(val&0xff);
 
 	// write bytes to register
 	int ret = transfer(buff, 3, nullptr, 0);
@@ -519,9 +507,10 @@ temp_lm75_usage()
 {
 	PX4_INFO("missing command: try 'start', 'test', 'stop', 'search', 'ident'");
 	PX4_INFO("options:");
-	PX4_INFO("    -b i2cbus (%d)", TEMP_LM75_I2C_BUS);
-	PX4_INFO("    -a addr (0x%x)", TEMP_LM75_ADDR);
-	PX4_INFO("    -n \"name\"");
+	PX4_INFO("    -i <instance (0..3)>");
+	PX4_INFO("    -b <i2cbus (%d)>", TEMP_LM75_I2C_BUS);
+	PX4_INFO("    -a <addr (0x%x)>", TEMP_LM75_ADDR);
+	PX4_INFO("    -n <\"name\">");
 }
 
 
@@ -563,7 +552,7 @@ temp_lm75_main(int argc, char *argv[])
 			return 0;
 		}
 	}
-	if(instance>MAX_LM75_INST)
+	if(instance>=MAX_LM75_INST)
 	{
 		instance = MAX_LM75_INST-1;
 	}
