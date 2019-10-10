@@ -151,7 +151,7 @@ MissionBlock::is_mission_item_reached()
 			/* close to waypoint, but altitude error greater than twice acceptance */
 			if ((dist >= 0.0f)
 			    && (dist_z > 2 * _navigator->get_altitude_acceptance_radius())
-			    && (dist_xy < 2 * _navigator->get_loiter_radius())) {
+			    && (dist_xy < _navigator->get_loiter_radius()*1.2f)) {
 
 				/* SETPOINT_TYPE_POSITION -> SETPOINT_TYPE_LOITER */
 				if (curr_sp->type == position_setpoint_s::SETPOINT_TYPE_POSITION) {
@@ -159,15 +159,20 @@ MissionBlock::is_mission_item_reached()
 					curr_sp->loiter_radius = _navigator->get_loiter_radius();
 					curr_sp->loiter_direction = 1;
 					_navigator->set_position_setpoint_triplet_updated();
+					mavlink_and_console_log_info(_navigator->get_mavlink_log_pub(), "WP loiter to alt.  (%d m AMSL)",
+							(int)ceilf(altitude_amsl));
 				}
 
 			} else {
 				/* restore SETPOINT_TYPE_POSITION */
 				if (curr_sp->type == position_setpoint_s::SETPOINT_TYPE_LOITER) {
 					/* loiter acceptance criteria required to revert back to SETPOINT_TYPE_POSITION */
+/*					PX4_INFO("z %.1f xy %.1f loiter %.1f acc_z:%.1f acc_xy:%.1f", (double)dist_z, (double)dist_xy,
+							(double)_navigator->get_loiter_radius(), (double)_navigator->get_altitude_acceptance_radius(),
+							(double)_navigator->get_acceptance_radius());*/
 					if ((dist >= 0.0f)
-					    && (dist_z < _navigator->get_loiter_radius())
-					    && (dist_xy <= _navigator->get_loiter_radius() * 1.2f)) {
+					    && (dist_z <= _navigator->get_altitude_acceptance_radius())
+					    && (dist_xy <= _navigator->get_loiter_radius() * 2.0f)) {
 
 						curr_sp->type = position_setpoint_s::SETPOINT_TYPE_POSITION;
 						_navigator->set_position_setpoint_triplet_updated();
@@ -294,12 +299,14 @@ MissionBlock::is_mission_item_reached()
 				mission_acceptance_radius = _navigator->get_acceptance_radius();
 			}
 
-			if(_mission_item.acceptance_radius < NAV_EPSILON_POSITION) {
+			if(mission_acceptance_radius < 10.0f && !_navigator->get_vstatus()->is_rotary_wing) {
+				// just to be sure we don't make it too small in fixed wing
+				mission_acceptance_radius = 10.0f;
 			}
 
 			if(mission_acceptance_radius > dist_wp &&
 					!_navigator->get_vstatus()->is_rotary_wing &&
-					dist_wp > _navigator->get_acceptance_radius() &&
+					dist_wp > _navigator->get_acceptance_radius()*0.5f &&
 					dist_wp > NAV_EPSILON_POSITION)
 			{
 				mission_acceptance_radius = dist_wp*0.9f; /* prevents from immediately going to the next WP */
@@ -332,9 +339,11 @@ MissionBlock::is_mission_item_reached()
 						(double) chi,
 						(double)(chi_error*180.0f/M_PI_F));
 			}*/
-			_dist_min = fminf(dist,_dist_min);
+			if(dist>=0.0f) {
+				_dist_min = fminf(dist,_dist_min);
+			}
 			if (dist >= 0.0f && dist <= mission_acceptance_radius
-/*					&& ((dist-_dist_min)>=0.5f // distance is increasing so minimum was reached
+/*					|| (dist-_dist_min)>=5.0f) // distance is increasing so minimum was reached
 							|| (dist <= mission_acceptance_radius*0.2f)
 							|| _navigator->get_vstatus()->is_rotary_wing
 							|| _mission_item.vtol_back_transition // do this only in fixed wing
