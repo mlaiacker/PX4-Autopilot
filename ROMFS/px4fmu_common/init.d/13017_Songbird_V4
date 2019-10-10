@@ -84,6 +84,8 @@ pwr_isl28022 start -a 0x45 -r 0.2 -s 40
 #LION 
 pwr_isl28022 start -a 0x40 -r 0.2 -s 40
 
+temp_lm75 start -n tempPDB
+
 gd_payload start
 usleep 20000
 gd_payload on
