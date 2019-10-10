@@ -88,6 +88,7 @@ $ gd_payload start
 	PRINT_MODULE_USAGE_COMMAND("on");
 	PRINT_MODULE_USAGE_COMMAND("off");
 	PRINT_MODULE_USAGE_COMMAND("trip2");
+	PRINT_MODULE_USAGE_COMMAND("batt");
 	PRINT_MODULE_USAGE_PARAM_FLAG('v', "debug flag", true);
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
@@ -126,6 +127,10 @@ int GDPayload::custom_command(int argc, char *argv[])
 	}
 	if (!strcmp(verb, "trip2")) {
 		printTrip2Report();
+		return 0;
+	}
+	if (!strcmp(verb, "batt")) {
+		printBatteryReport();
 		return 0;
 	}
 
@@ -203,6 +208,49 @@ void GDPayload::printTrip2Report()
 	} else
 	{
 		PX4_ERR("failed to subscribe to trip2 gnd topic");
+	}
+}
+
+void GDPayload::printBatteryReport()
+{
+	int num_inst = orb_group_count(ORB_ID(battery_status));
+	char batt_report[256];
+	const int stdin_fileno = 0;
+
+	struct pollfd fds;
+	fds.fd = stdin_fileno;
+	fds.events = POLLIN;
+	bool quit = false;
+
+	while (!quit) {
+		size_t len = 0;
+		batt_report[0]=0;
+		for(int i=0;i<num_inst;i++)
+		{
+			int sub_battery = orb_subscribe_multi(ORB_ID(battery_status),i);
+			if(sub_battery!=-1)
+			{
+				struct battery_status_s bat;
+				orb_copy(ORB_ID(battery_status), sub_battery, &bat);
+				len += sprintf(&batt_report[len]," %d; %5.2fV; %5.2fA; %5.0fmAh;", bat.serial_number, (double)bat.voltage_v, (double)bat.current_a, (double)bat.discharged_mah);
+				//print_message(bat);
+				orb_unsubscribe(sub_battery);
+			} else
+			{
+				PX4_ERR("failed to subscribe to trip2_sys topic");
+			}
+		}
+		PX4_INFO("%s", batt_report);
+		char c;
+		int ret = ::poll(&fds, 1, 0); //just want to check if there is new data available
+		if (ret > 0) {
+			ret = ::read(stdin_fileno, &c, 1);
+			if (ret) {
+				quit = true;
+				break;
+			}
+		}
+		usleep(200000);
 	}
 }
 
@@ -426,24 +474,24 @@ void GDPayload::vehicle_control_mode_poll()
 {
 	if(_sub_vcontrol_mode!=-1)
 	{
-		struct vehicle_control_mode_s vcontrol_mode;
 		bool vcontrol_mode_updated;
 		orb_check(_sub_vcontrol_mode, &vcontrol_mode_updated);
 		if (vcontrol_mode_updated) {
+			struct vehicle_control_mode_s vcontrol_mode;
 			orb_copy(ORB_ID(vehicle_control_mode), _sub_vcontrol_mode, &vcontrol_mode);
 			_armed = vcontrol_mode.flag_armed;
 		}
 	}
 	if(_sub_vehicle_cmd!=-1)
 	{
-		struct vehicle_command_s vcmd;
-		//bool updated;
-		//orb_check(_vcontrol_mode_sub, &updated);
-		//if (updated)
+		bool updated;
+		orb_check(_sub_vehicle_cmd, &updated);
+		if (updated)
 		{
+			struct vehicle_command_s vcmd;
 			//static uint16_t tcmd = 0;
 			orb_copy(ORB_ID(vehicle_command), _sub_vehicle_cmd, &vcmd);
-			if(vcmd.command != _cmdold)
+			//if(vcmd.command != _cmdold)
 			{
 				vehicleCommand(&vcmd);
 			}
@@ -452,16 +500,18 @@ void GDPayload::vehicle_control_mode_poll()
 	}
 	if(_sub_vehicle_status!=-1)
 	{
-		struct vehicle_status_s vstatus;
-		orb_copy(ORB_ID(vehicle_status), _sub_vehicle_status, &vstatus);
-		if(vstatus.timestamp != _vstatus.timestamp)
+		bool updated;
+		orb_check(_sub_vehicle_status, &updated);
+		if (updated)
 		{
+			struct vehicle_status_s vstatus;
+			orb_copy(ORB_ID(vehicle_status), _sub_vehicle_status, &vstatus);
 			if(_vstatus.is_rotary_wing != vstatus.is_rotary_wing)
 			{
 				PX4_INFO("transition detected");
 			}
+			_vstatus = vstatus;
 		}
-		_vstatus = vstatus;
 	}
 }
 

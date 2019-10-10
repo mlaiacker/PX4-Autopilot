@@ -1,0 +1,103 @@
+#!nsh
+#
+# @name Germandrones Songbird V4
+#
+# @type Standard VTOL
+# @class VTOL
+#
+# @maintainer Germandrones
+#
+# @output MAIN1 motor 1
+# @output MAIN2 motor 2
+# @output MAIN3 motor 3
+# @output MAIN4 motor 4
+# @output MAIN5 Tiltservo Left
+# @output MAIN6 Tiltsrevo Right
+# @output AUX1 Aileron Left
+# @output AUX2 Aileron Right
+# @output AUX3 VTail Left
+# @output AUX4 VTail Right
+# @output AUX5 Camera Trigger
+# @output AUX6 Camera Trigger
+#
+
+
+sh /etc/init.d/rc.vtol_defaults
+
+if [ $AUTOCNF == yes ]
+then
+#TODO: copy default parameter
+	param set VT_TYPE 2
+	param set VT_MOT_COUNT 4
+	param set VT_F_TRANS_THR 0.80
+	param set VT_ARSP_TRANS 14
+	param set VT_ARSP_BLEND 8
+
+	param set MC_ROLL_P 6.0
+	param set MC_ROLLRATE_P 0.17
+	param set MC_ROLLRATE_I 0.002
+	param set MC_ROLLRATE_D 0.004
+	param set MC_ROLLRATE_FF 0.0
+	param set MC_PITCH_P 6.0
+	param set MC_PITCHRATE_P 0.19
+	param set MC_PITCHRATE_I 0.002
+	param set MC_PITCHRATE_D 0.004
+	param set MC_PITCHRATE_FF 0.0
+	param set MC_YAW_P 2.8
+	param set MC_YAW_FF 0.5
+	param set MC_YAWRATE_P 0.22
+	param set MC_YAWRATE_I 0.02
+	param set MC_YAWRATE_D 0.0
+	param set MC_YAWRATE_FF 0.0
+	param set MC_YAWRATE_MAX 40
+	param set MC_YAWRAUTO_MAX 40
+
+	param set FW_PR_FF 0.5
+	param set FW_PR_I 0.02
+	param set FW_PR_IMAX 0.4
+	param set FW_PR_P 0.08
+	param set FW_RR_FF 0.6
+	param set FW_RR_I 0.01
+	param set FW_RR_IMAX 0.2
+	param set FW_RR_P 0.05
+	param set FW_THR_CRUISE 0.50
+
+	param set VT_IDLE_PWM_MC 1170
+	
+	param set MNT_TRIP_MAVLINK 0
+fi
+
+set MIXER SBV3
+set PWM_OUT 1234
+set PWM_RATE 400
+
+set MIXER_AUX SBV3
+set PWM_ACHDIS 5
+set PWM_AUX_DISARMED 950
+
+set MAV_TYPE 22
+
+# batt_pac on I2C bus 1
+#batt_pac17xx start -b 1 -r 0.2 -s 40
+#LIPO
+pwr_isl28022 start -a 0x45 -r 0.2 -s 40
+#LION 
+pwr_isl28022 start -a 0x40 -r 0.2 -s 40
+
+gd_payload start
+usleep 20000
+gd_payload on
+
+#if param compare SENS_EN_TFMINI 0
+#then
+#	gps start -d /dev/ttyS3 -e /dev/ttyS6 -p ubx
+#fi
+
+
+# /dev/ttyS0		IO debug except v4, there ttyS0 is the wifi
+# /dev/ttyS1		TELEM1 flow control serial1, telemetry
+# /dev/ttyS2		TELEM2 flow control serial2, payload
+# /dev/ttyS3		GPS
+# /dev/ttyS4		PX4IO
+# /dev/ttyS5		debug console, serial5
+# /dev/ttyS6		GPS2, ser4 free (was unisens)

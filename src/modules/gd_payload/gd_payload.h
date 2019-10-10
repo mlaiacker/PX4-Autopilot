@@ -72,6 +72,7 @@ public:
 	static 	void writePayloadPower(bool on);
 
 	static  void printTrip2Report();
+	static  void printBatteryReport();
 private:
 	struct {
 		float battery_v_div;

@@ -248,7 +248,8 @@ TEMP_LM75::test()
 
 	// loop for 3 seconds
 	while ((hrt_absolute_time() - start_time) < 3000000) {
-		print_message(_last_report);
+		//print_message(_last_report);
+		PX4_INFO("%5.1fdegC", (double)_last_report.value);
 		// sleep for 0.2 seconds
 		usleep(200000);
 	}
