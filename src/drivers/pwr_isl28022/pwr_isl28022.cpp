@@ -166,7 +166,7 @@ private:
 	work_s			_work{};		///< work queue for scheduling reads
 
 	battery_status_s _last_report;	///< last published report, used for test()
-	float			_discharged_mah;
+	float			_discharged_mah{0};
 	float			_current_a_filtered;
 	float			_voltage_v;
 	float			_voltage_v_filtered;
@@ -249,6 +249,7 @@ PWR_ISL28022::PWR_ISL28022(int bus, uint16_t pwr_isl28022_addr, float sens_resis
 	_current_a_filtered = 0.0f;
 	_voltage_v_filtered = 0.0f;
 	_current_a = 0.0f;
+	_discharged_mah = 0.0f;
 }
 
 PWR_ISL28022::~PWR_ISL28022()
@@ -405,7 +406,7 @@ PWR_ISL28022::try_read_data(battery_status_s &new_report, uint64_t now){
 		new_report.timestamp = now;
 
 		// convert millivolts to volts
-		_voltage_v = ((float)(bus>>2)*60.0f) / 16384.0f;
+		_voltage_v = ((float)(bus>>2)*0.004f);//60.0f) / 16384.0f;
 		_voltage_v_filtered = _voltage_v*0.05f + _voltage_v_filtered*0.95f; /* voltage filter */
 		// read current
 		if (read_reg(PWR_ISL28022_REG_SHUNT, shunt) == OK){
@@ -432,6 +433,7 @@ PWR_ISL28022::try_read_data(battery_status_s &new_report, uint64_t now){
 				ctrl.control[actuator_controls_s::INDEX_THROTTLE],
 				_armed, &new_report);
 		new_report.voltage_filtered_v = _voltage_v_filtered;
+		new_report.discharged_mah = _discharged_mah;
 		if((hrt_absolute_time()-_start_time)>=1000000)
 		{
 			new_report.average_current_a = _discharged_mah*3600.0f/((hrt_absolute_time()-_start_time)*1.0e-6f*1000.0f);
