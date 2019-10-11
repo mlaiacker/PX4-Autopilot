@@ -232,12 +232,12 @@ void GDPayload::printBatteryReport()
 			{
 				struct battery_status_s bat;
 				orb_copy(ORB_ID(battery_status), sub_battery, &bat);
-				len += sprintf(&batt_report[len]," %d; %5.2fV; %5.2fA; %5.0fmAh;", bat.serial_number, (double)bat.voltage_v, (double)bat.current_a, (double)bat.discharged_mah);
+				len += sprintf(&batt_report[len]," %d; %5.2fV; %5.2fA; %6.1fmAh;", bat.serial_number, (double)bat.voltage_v, (double)bat.current_a, (double)bat.discharged_mah);
 				//print_message(bat);
 				orb_unsubscribe(sub_battery);
 			} else
 			{
-				PX4_ERR("failed to subscribe to trip2_sys topic");
+				PX4_ERR("failed to subscribe to batt topic");
 			}
 		}
 		PX4_INFO("%s", batt_report);
