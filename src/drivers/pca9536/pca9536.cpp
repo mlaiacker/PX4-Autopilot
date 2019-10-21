@@ -32,10 +32,10 @@
  ****************************************************************************/
 
 /**
- * @file pca9536xx.cpp
+ * @file pca9536.cpp
  *
- * Driver for a voltage current monitor connected via SMBus (I2C).
- * Designed for pac1710/pac1720
+ * Driver for GPIO connected via SMBus (I2C).
+ *
  *
  * @author Randy Mackay <rmackay9@yahoo.com>
  * @author Alex Klimaj <alexklimaj@gmail.com>
@@ -50,17 +50,16 @@
 #include <drivers/device/i2c.h>
 #include <drivers/device/ringbuffer.h>
 #include <drivers/drv_hrt.h>
+#include <drivers/drv_io_expander.h>
+
 #include <px4_config.h>
 #include <px4_workqueue.h>
 #include <px4_getopt.h>
 #include <perf/perf_counter.h>
-#include <uORB/topics/battery_status.h>
-#include <uORB/topics/actuator_controls.h>
-#include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/uORB.h>
-#include <battery/battery.h>
 #include <mathlib/mathlib.h>
 
+#define PCA9536_DEVICE_PATH "/dev/pca9536"
 
 #define PCA9536_MEASUREMENT_INTERVAL_US	(100000)	///< time in microseconds, measure at 10Hz
 #define PCA9536_TIMEOUT_US			(10000000)	///< timeout looking for battery 10seconds after startup
@@ -92,6 +91,8 @@ public:
 	 * @return 0 on success, error code on failure
 	 */
 	virtual int		init();
+
+	virtual int		ioctl(struct file *filp, int cmd, unsigned long arg);
 
 	/**
 	 * Test device
@@ -147,15 +148,14 @@ private:
 	 */
 	int			write_reg(uint8_t reg, uint8_t val);
 
-
-	void 			vehicle_control_mode_poll();
-
 	// internal variables
 	bool			_enabled;	///< true if we have successfully connected to device
 	work_s			_work{};		///< work queue for scheduling reads
 
-	int				_vcontrol_mode_sub{-1};		/**< vehicle control mode subscription */
-	bool			_armed{false};
+	enum IOX_MODE		_mode;
+	uint8_t			_dir;
+	uint8_t			_port;
+	uint8_t			_input;
 
 	uint64_t		_start_time;	///< system time we first attempt to communicate with device
 };
@@ -171,7 +171,7 @@ extern "C" __EXPORT int pca9536_main(int argc, char *argv[]);
 
 
 PCA9536::PCA9536(int bus) :
-	I2C("pca9536", nullptr, bus, PCA9536_ADDR, 400000),
+	I2C("pca9536", PCA9536_DEVICE_PATH, bus, PCA9536_ADDR, 400000),
 	_enabled(false),
 	_start_time(0)
 {
@@ -183,7 +183,72 @@ PCA9536::~PCA9536()
 {
 	// make sure we are truly inactive
 	stop();
-	orb_unsubscribe(_vcontrol_mode_sub);
+}
+
+PCA9536::ioctl(struct file *filp, int cmd, unsigned long arg)
+{
+	int ret = -EINVAL;
+
+	switch (cmd) {
+
+	case IOX_SET_MODE:
+
+		if (_mode != (IOX_MODE)arg) {
+
+			switch ((IOX_MODE)arg) {
+			case IOX_MODE_OFF:
+				PX4_INFO("shutting down");
+				break;
+
+			case IOX_MODE_ON:
+				PX4_INFO("starting");
+				break;
+
+			case IOX_MODE_TEST_OUT:
+				PX4_INFO("test starting");
+				break;
+
+			default:
+				return -1;
+			}
+
+			_mode = (IOX_MODE)arg;
+		}
+
+		// if not active, kick it
+		if (!_enabled) {
+			_enabled = true;
+			work_queue(HPWORK, &_work, (worker_t)&PCA9536::cycle_trampoline, this, 1);
+		}
+
+
+		return OK;
+
+	case IOX_SET_MASK:
+		_dir = arg;
+		// if not active, kick it
+		if (!_enabled) {
+			_enabled = true;
+			work_queue(HPWORK, &_work, (worker_t)&PCA9536::cycle_trampoline, this, 1);
+		}
+		return OK;
+
+	case IOX_SET_VALUE:
+		_port = arg;
+		// if not active, kick it
+		if (!_enabled) {
+			_enabled = true;
+			work_queue(HPWORK, &_work, (worker_t)&PCA9536::cycle_trampoline, this, 1);
+		}
+		return OK;
+
+	default:
+		// see if the parent class can make any use of it
+		ret = CDev::ioctl(filp, cmd, arg);
+		break;
+	}
+
+	return ret;
 }
 
 int
@@ -205,8 +270,6 @@ PCA9536::init()
 		start();
 	}
 
-	/* needed to read arming status */
-	_vcontrol_mode_sub = orb_subscribe(ORB_ID(vehicle_control_mode));
 	return ret;
 }
 
