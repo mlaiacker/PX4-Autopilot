@@ -506,9 +506,29 @@ void GDPayload::vehicle_control_mode_poll()
 		{
 			struct vehicle_status_s vstatus;
 			orb_copy(ORB_ID(vehicle_status), _sub_vehicle_status, &vstatus);
-			if(_vstatus.is_rotary_wing != vstatus.is_rotary_wing)
+			if(_vstatus.in_transition_mode != vstatus.in_transition_mode && vstatus.in_transition_mode)
 			{
-				PX4_INFO("transition detected");
+				PX4_INFO("in transition start");
+			}
+			if(_vstatus.in_transition_mode != vstatus.in_transition_mode && !vstatus.in_transition_mode)
+			{
+				PX4_INFO("in transition end");
+			}
+			if(_vstatus.in_transition_to_fw != vstatus.in_transition_to_fw && vstatus.in_transition_to_fw)
+			{
+				PX4_INFO("transition to fw start");
+			}
+			if(_vstatus.in_transition_to_fw != vstatus.in_transition_to_fw && !vstatus.in_transition_to_fw)
+			{
+				PX4_INFO("transition to fw finished");
+			}
+			if(_vstatus.is_rotary_wing != vstatus.is_rotary_wing && vstatus.is_rotary_wing)
+			{
+				PX4_INFO("transition copter");
+			}
+			if(_vstatus.is_rotary_wing != vstatus.is_rotary_wing && !vstatus.is_rotary_wing)
+			{
+				PX4_INFO("transition fw");
 			}
 			_vstatus = vstatus;
 		}
