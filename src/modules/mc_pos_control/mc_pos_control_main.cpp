@@ -1461,6 +1461,7 @@ MulticopterPositionControl::control_non_manual()
 	    && _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LAND) {
 		_vel_sp(2) = _land_speed.get();
 		_run_alt_control = false;
+		_in_landing = true; /* actually use this flag */
 	}
 
 	if (_pos_sp_triplet.current.valid
@@ -3025,7 +3026,8 @@ MulticopterPositionControl::task_main()
 		}
 
 		/* reset flags when landed */
-		if (_vehicle_land_detected.landed) {
+		if (_vehicle_land_detected.landed
+				&& (_pos_sp_triplet.current.type != position_setpoint_s::SETPOINT_TYPE_LAND || !_control_mode.flag_armed)){
 			_reset_pos_sp = true;
 			_reset_alt_sp = true;
 			_do_reset_alt_pos_flag = true;
@@ -3080,7 +3082,7 @@ MulticopterPositionControl::task_main()
 		}
 
 		/* set triplets to invalid if we just landed */
-		if (_vehicle_land_detected.landed && !was_landed) {
+		if (_vehicle_land_detected.landed && !was_landed && !_in_landing) {
 			_pos_sp_triplet.current.valid = false;
 		}
 
@@ -3197,7 +3199,6 @@ MulticopterPositionControl::task_main()
 				_att_sp.yaw_sp_move_rate = _control.getYawspeedSetpoint();
 
 			}
-
 			publish_local_pos_sp();
 			publish_attitude();
 
