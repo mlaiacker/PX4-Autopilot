@@ -163,7 +163,7 @@ static bool imuConsistencyCheck(orb_advert_t *mavlink_log_pub, vehicle_status_s 
 
 	if (sensors.accel_inconsistency_m_s_s > test_limit) {
 		if (report_status) {
-			mavlink_log_critical(mavlink_log_pub, "Preflight Fail: Accels inconsistent - Check Cal");
+			mavlink_log_critical(mavlink_log_pub, "Preflight Fail: Accels inconsistent %f", (double)sensors.accel_inconsistency_m_s_s);
 			set_health_flags_healthy(subsystem_info_s::SUBSYSTEM_TYPE_ACC, false, status);
 			set_health_flags_healthy(subsystem_info_s::SUBSYSTEM_TYPE_ACC2, false, status);
 		}
@@ -172,7 +172,7 @@ static bool imuConsistencyCheck(orb_advert_t *mavlink_log_pub, vehicle_status_s 
 
 	} else if (sensors.accel_inconsistency_m_s_s > test_limit * 0.8f) {
 		if (report_status) {
-			mavlink_log_info(mavlink_log_pub, "Preflight Advice: Accels inconsistent - Check Cal");
+			mavlink_log_info(mavlink_log_pub, "Preflight Advice: Accels inconsistent %f", (double)sensors.accel_inconsistency_m_s_s);
 		}
 	}
 
@@ -181,7 +181,7 @@ static bool imuConsistencyCheck(orb_advert_t *mavlink_log_pub, vehicle_status_s 
 
 	if (sensors.gyro_inconsistency_rad_s > test_limit) {
 		if (report_status) {
-			mavlink_log_critical(mavlink_log_pub, "Preflight Fail: Gyros inconsistent - Check Cal");
+			mavlink_log_critical(mavlink_log_pub, "Preflight Fail: Gyros inconsistent %f", (double)sensors.gyro_inconsistency_rad_s);
 			set_health_flags_healthy(subsystem_info_s::SUBSYSTEM_TYPE_GYRO, false, status);
 			set_health_flags_healthy(subsystem_info_s::SUBSYSTEM_TYPE_GYRO2, false, status);
 		}
@@ -190,7 +190,7 @@ static bool imuConsistencyCheck(orb_advert_t *mavlink_log_pub, vehicle_status_s 
 
 	} else if (sensors.gyro_inconsistency_rad_s > test_limit * 0.5f) {
 		if (report_status) {
-			mavlink_log_info(mavlink_log_pub, "Preflight Advice: Gyros inconsistent - Check Cal");
+			mavlink_log_info(mavlink_log_pub, "Preflight Advice: Gyros inconsistent %f", (double)sensors.gyro_inconsistency_rad_s);
 		}
 	}
 
