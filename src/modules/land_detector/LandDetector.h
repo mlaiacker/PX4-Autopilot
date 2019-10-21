@@ -173,7 +173,9 @@ private:
 
 	param_t _p_total_flight_time_high{PARAM_INVALID};
 	param_t _p_total_flight_time_low{PARAM_INVALID};
+	param_t _p_total_flights{PARAM_INVALID};
 	uint64_t _total_flight_time{0}; ///< in microseconds
+	uint32_t _total_flights{0};
 	hrt_abstime _takeoff_time{0};
 
 	struct work_s	_work {};

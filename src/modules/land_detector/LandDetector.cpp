@@ -90,6 +90,7 @@ void LandDetector::_cycle()
 
 		_p_total_flight_time_high = param_find("LND_FLIGHT_T_HI");
 		_p_total_flight_time_low = param_find("LND_FLIGHT_T_LO");
+		_p_total_flights = param_find("LND_FLIGHT_COUNT");
 
 		// Initialize uORB topics.
 		_armingSub = orb_subscribe(ORB_ID(actuator_armed));
@@ -122,7 +123,7 @@ void LandDetector::_cycle()
 	    (_landDetected.ground_contact != ground_contactDetected) ||
 	    (fabsf(_landDetected.alt_max - alt_max) > FLT_EPSILON)) {
 
-		if (!landDetected && _landDetected.landed && _takeoff_time == 0) { /* only set takeoff time once until disarming */
+		if (!landDetected && _landDetected.landed && _takeoff_time == 0) { /* only set take off time once until disarming */
 			// We did take off
 			_takeoff_time = now;
 		}
@@ -142,12 +143,19 @@ void LandDetector::_cycle()
 	// set the flight time when disarming (not necessarily when landed, because all param changes should
 	// happen on the same event and it's better to set/save params while not in armed state)
 	if (_takeoff_time != 0 && !_arming.armed && _previous_arming_state) {
-		_total_flight_time += now - _takeoff_time;
+		uint64_t flight_time_to_add = now - _takeoff_time;
+		_total_flight_time += flight_time_to_add;
 		_takeoff_time = 0;
 		uint32_t flight_time = (_total_flight_time >> 32) & 0xffffffff;
 		param_set_no_notification(_p_total_flight_time_high, &flight_time);
 		flight_time = _total_flight_time & 0xffffffff;
 		param_set_no_notification(_p_total_flight_time_low, &flight_time);
+		if(flight_time_to_add>20000000) // 20 seconds
+		{
+			_total_flights++;
+			param_set_no_notification(_p_total_flights, &_total_flights);
+		}
+
 	}
 
 	_previous_arming_state = _arming.armed;
@@ -182,6 +190,7 @@ void LandDetector::_check_params(const bool force)
 		_total_flight_time = ((uint64_t)flight_time) << 32;
 		param_get(_p_total_flight_time_low, (int32_t *)&flight_time);
 		_total_flight_time |= flight_time;
+		param_get(_p_total_flights, (int32_t *)&_total_flights);
 	}
 }
 
