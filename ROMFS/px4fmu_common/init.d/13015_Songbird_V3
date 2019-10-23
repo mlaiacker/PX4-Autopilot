@@ -84,10 +84,10 @@ gd_payload start
 usleep 20000
 gd_payload on
 
-if param compare SENS_EN_TFMINI 0
-then
-	gps start -d /dev/ttyS3 -e /dev/ttyS6 -p ubx
-fi
+#if param compare SENS_EN_TFMINI 0
+#then
+#	gps start -d /dev/ttyS3 -e /dev/ttyS6 -p ubx
+#fi
 
 
 # /dev/ttyS0		IO debug except v4, there ttyS0 is the wifi

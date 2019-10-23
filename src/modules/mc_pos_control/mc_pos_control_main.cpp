@@ -1460,7 +1460,23 @@ MulticopterPositionControl::control_non_manual()
 	if (_pos_sp_triplet.current.valid
 	    && _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LAND) {
 		_vel_sp(2) = _land_speed.get();
+
+		float altitude_above_home = -_pos(2) + _home_pos.z;
+		if(_local_pos.dist_bottom_valid)
+		{
+			altitude_above_home = _local_pos.dist_bottom;
+		}
+
+		float vel_limit = math::gradual(altitude_above_home,
+						_slow_land_alt2.get(), _slow_land_alt1.get(),
+						_land_speed.get(), _vel_max_down.get()*0.9f);
+
+		if(PX4_ISFINITE(vel_limit) && vel_limit>0.0f){
+			_vel_sp(2) = vel_limit;
+		}
+
 		_run_alt_control = false;
+		_in_landing = true; /* actually use this flag */
 	}
 
 	if (_pos_sp_triplet.current.valid
@@ -2429,6 +2445,7 @@ MulticopterPositionControl::calculate_velocity_setpoint()
 		_vel_sp(2) = math::max(_vel_sp(2), -vel_limit);
 	}
 
+
 	/* encourage pilot to respect estimator height limitations when in manually controlled modes and not landing */
 	if (PX4_ISFINITE(_local_pos.hagl_min)					// We need height limiting
 	    && _control_mode.flag_control_manual_enabled		// Vehicle is under manual control
@@ -3025,7 +3042,8 @@ MulticopterPositionControl::task_main()
 		}
 
 		/* reset flags when landed */
-		if (_vehicle_land_detected.landed) {
+		if (_vehicle_land_detected.landed
+				&& (_pos_sp_triplet.current.type != position_setpoint_s::SETPOINT_TYPE_LAND || !_control_mode.flag_armed)){
 			_reset_pos_sp = true;
 			_reset_alt_sp = true;
 			_do_reset_alt_pos_flag = true;
@@ -3080,7 +3098,7 @@ MulticopterPositionControl::task_main()
 		}
 
 		/* set triplets to invalid if we just landed */
-		if (_vehicle_land_detected.landed && !was_landed) {
+		if (_vehicle_land_detected.landed && !was_landed && !_in_landing) {
 			_pos_sp_triplet.current.valid = false;
 		}
 
@@ -3197,7 +3215,6 @@ MulticopterPositionControl::task_main()
 				_att_sp.yaw_sp_move_rate = _control.getYawspeedSetpoint();
 
 			}
-
 			publish_local_pos_sp();
 			publish_attitude();
 

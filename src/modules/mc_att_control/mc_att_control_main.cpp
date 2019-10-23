@@ -478,13 +478,6 @@ MulticopterAttitudeControl::control_attitude(float dt)
 			{
 				_rates_sp(2) += roll_lp * _vtol_wv_yaw_rate_scale.get();
 			}
-/*			static int print_counter = 0;
-			if(print_counter==0)
-			{
-				print_counter=250;
-				PX4_INFO("vw roll=%f yawrate_sp=%f yawrate=%f", (double)roll_lp, (double)_rates_sp(2), (double)_v_att.yawspeed);
-			}
-			print_counter--;*/
 			const float wv_yaw_rate_max = _auto_rate_max(2) *0.15f;
 			_rates_sp(2) = math::constrain(_rates_sp(2), -wv_yaw_rate_max, wv_yaw_rate_max);
 
