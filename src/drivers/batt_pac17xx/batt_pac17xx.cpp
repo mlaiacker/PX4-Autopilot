@@ -64,8 +64,8 @@
 #define BATT_PAC17_ADDR_MIN             0x00	///< lowest possible address
 #define BATT_PAC17_ADDR_MAX             0x7F	///< highest possible address
 
-#define BATT_PAC17_MEASUREMENT_INTERVAL_US	(100000)	///< time in microseconds, measure at 10Hz
-#define BATT_PAC17_TIMEOUT_US			(10000000)	///< timeout looking for battery 10seconds after startup
+#define BATT_PAC17_MEASUREMENT_INTERVAL_US	(50000)	///< time in microseconds, measure at xHz
+#define BATT_PAC17_TIMEOUT_US			(5000000)	///< timeout looking for battery xseconds after startup
 #define BATT_PAC17_SENS_RANGE			(80)   // mV
 #define BATT_PAC17_SENS_R				(0.1f) // mOhm
 
@@ -471,7 +471,7 @@ BATT_PAC17::try_read_data(battery_status_s &new_report, uint64_t now){
 		uint16_t voltage = (((uint16_t)regval_H)<<3) | ((uint16_t)regval_L>>5);
 		// convert millivolts to volts
 		_voltage_v = ((float)voltage*19.53125f) / 1000.0f;
-		_voltage_v_filtered = _voltage_v*0.05f + _voltage_v_filtered*0.95f; /* voltage filter */
+		_voltage_v_filtered = _voltage_v*0.06f + _voltage_v_filtered*0.94f; /* voltage filter */
 		// read current
 		if ((read_reg(BATT_PAC17_REG_SENS_CH1_H, regval_H) == OK) &&
 			(read_reg(BATT_PAC17_REG_SENS_CH1_L, regval_L) == OK) ){
@@ -484,7 +484,7 @@ BATT_PAC17::try_read_data(battery_status_s &new_report, uint64_t now){
 				current = (((int16_t)regval_H)<<4) | ((int16_t)regval_L>>4);
 			}
 			_current_a = ((float)_sens_full_scale/_sens_resistor)*((float)current)/2047.0f;
-			_current_a_filtered = _current_a*0.05f + _current_a_filtered*0.95f; /* current filter */
+			_current_a_filtered = _current_a*0.06f + _current_a_filtered*0.94f; /* current filter */
 		}
 
 		// calculate total discharged amount
