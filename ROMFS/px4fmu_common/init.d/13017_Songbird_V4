@@ -91,7 +91,7 @@ temp_lm75 start -n tempPDB
 gd_payload start
 usleep 20000
 # 1=lipo(bottom) 2=lion(top) 3=both
-pca9536 write -v 2 -d 12 
+pca9536 write -v 2 -d 12
 gd_payload on
 
 #if param compare SENS_EN_TFMINI 0

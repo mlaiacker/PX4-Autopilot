@@ -80,6 +80,8 @@ set MAV_TYPE 22
 # batt_pac on I2C bus 1
 batt_pac17xx start -b 1 -r 0.2 -s 40
 
+temp_lm75 start -n tempPDB
+
 gd_payload start
 usleep 20000
 gd_payload on

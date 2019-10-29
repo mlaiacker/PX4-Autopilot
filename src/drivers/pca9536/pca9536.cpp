@@ -108,6 +108,7 @@ public:
 
 	bool		setPort(uint8_t value);
 	bool		setDirection(uint8_t value);
+	bool		getDirection(uint8_t &value);
 	bool		getPort(uint8_t &value);
 
 protected:
@@ -185,7 +186,7 @@ PCA9536::~PCA9536()
 	stop();
 }
 
-PCA9536::ioctl(struct file *filp, int cmd, unsigned long arg)
+int PCA9536::ioctl(struct file *filp, int cmd, unsigned long arg)
 {
 	int ret = -EINVAL;
 
@@ -221,7 +222,6 @@ PCA9536::ioctl(struct file *filp, int cmd, unsigned long arg)
 			work_queue(HPWORK, &_work, (worker_t)&PCA9536::cycle_trampoline, this, 1);
 		}
 
-
 		return OK;
 
 	case IOX_SET_MASK:
@@ -232,6 +232,11 @@ PCA9536::ioctl(struct file *filp, int cmd, unsigned long arg)
 			work_queue(HPWORK, &_work, (worker_t)&PCA9536::cycle_trampoline, this, 1);
 		}
 		return OK;
+
+	case IOX_GET_MASK:
+		uint8_t dir;
+		getPort(dir);
+		return dir;
 
 	case IOX_SET_VALUE:
 		_port = arg;
@@ -277,7 +282,10 @@ int
 PCA9536::test()
 {
 	uint64_t start_time = hrt_absolute_time();
-
+	uint8_t ddr=0;
+	if (getDirection(ddr)) {
+		PX4_INFO("DIR  %d %d %d %d",(ddr>>3)&1,(ddr>>2)&1,(ddr>>1)&1,ddr&1);
+	}
 	PX4_INFO("GPIO 3 2 1 0");
 	// loop for 3 seconds
 	while ((hrt_absolute_time() - start_time) < 3000000) {
@@ -302,12 +310,14 @@ PCA9536::identify()
 			PX4_INFO("input=0x%02x", reg);
 			if (read_reg(PCA9536_REG_OUTPUT, reg) == OK) {
 				PX4_INFO("output=0x%02x", reg);
+				_port = reg;
 			}
 			if (read_reg(PCA9536_REG_INVERSION, reg) == OK) {
 				PX4_INFO("inversion=0x%02x", reg);
 			}
 			if (read_reg(PCA9536_REG_DDR, reg) == OK) {
 				PX4_INFO("ddr=0x%02x", reg);
+				_dir = reg;
 			}
 			PX4_INFO("PCA9536 found at 0x%x", get_device_address());
 			return true;
@@ -352,14 +362,33 @@ PCA9536::cycle()
 	// get current time
 	//uint64_t now = hrt_absolute_time();
 
-	// schedule a fresh cycle call when the measurement is done
-	work_queue(HPWORK, &_work, (worker_t)&PCA9536::cycle_trampoline, this,
-		   USEC2TICK(PCA9536_MEASUREMENT_INTERVAL_US));
+	if(_enabled)
+	{
+		bool result = true;
+		PX4_INFO("ddr=0x%x port=0x%x",_dir, _port);
+		result &= setDirection(_dir);
+		result &= setPort(_port);
+		if(result)
+		{
+			_enabled = false;
+		} else
+		{
+			// schedule a fresh cycle call when the measurement is done
+			work_queue(HPWORK, &_work, (worker_t)&PCA9536::cycle_trampoline, this,
+				   USEC2TICK(PCA9536_MEASUREMENT_INTERVAL_US));
+		}
+	}
+
 }
 
 bool PCA9536::setDirection(uint8_t value)
 {
 	return write_reg(PCA9536_REG_DDR, value)==OK;
+}
+
+bool PCA9536::getDirection(uint8_t &value)
+{
+	return read_reg(PCA9536_REG_DDR, value)==OK;
 }
 
 bool PCA9536::setPort(uint8_t value)
