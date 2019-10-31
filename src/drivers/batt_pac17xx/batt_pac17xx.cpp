@@ -497,9 +497,9 @@ BATT_PAC17::try_read_data(battery_status_s &new_report, uint64_t now){
 				ctrl.control[actuator_controls_s::INDEX_THROTTLE],
 				_armed, &new_report);
 		new_report.voltage_filtered_v = _voltage_v_filtered;
-		if((now-_time_arm)>0 && _armed && _discharged_mah_armed<_discharged_mah)
+		if((now-_time_arm)>0 && _armed && _discharged_mah>_discharged_mah_armed)
 		{
-			new_report.average_current_a = (_discharged_mah_armed-_discharged_mah)*3600.0f/((now-_time_arm)*1.0e-6f*1000.0f);
+			new_report.average_current_a = (_discharged_mah-_discharged_mah_armed)*3600.0f/((now-_time_arm)*1.0e-6f*1000.0f);
 		}
 		new_report.current_filtered_a = _current_a_filtered;
 		if(_startRemaining>=0.0f && _startRemaining<=1.0f)
