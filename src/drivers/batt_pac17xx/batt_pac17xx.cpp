@@ -502,7 +502,11 @@ BATT_PAC17::try_read_data(battery_status_s &new_report, uint64_t now){
 			new_report.average_current_a = (_discharged_mah-_discharged_mah_armed)*3600.0f/((now-_time_arm)*1.0e-6f*1000.0f);
 			if(new_report.average_current_a>0.0f)
 			{
-				new_report.average_time_to_empty = (uint16_t)(3600.0f*_battery.getCapacity()/(new_report.average_current_a*1000.0f));
+				float tte = (3600.0f*_battery.getCapacity()/(new_report.average_current_a*1000.0f));
+				if(tte<UINT16_MAX)
+				{
+					new_report.average_time_to_empty = (uint16_t)tte;
+				}
 			}
 		}
 		new_report.current_filtered_a = _current_a_filtered;
