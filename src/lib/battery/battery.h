@@ -90,6 +90,11 @@ public:
 	 * get remaining estimate based on voltage
 	 */
 	float getRemainingVoltage() {return _remaining_voltage; }
+
+	/**
+	 * get capacity param value
+	 */
+	float getCapacity();
 private:
 	void filterVoltage(float voltage_v);
 	void filterThrottle(float throttle);
@@ -117,9 +122,12 @@ private:
 	float _current_filtered_a = -1.f;
 	float _discharged_mah = 0.f;
 	float _discharged_mah_loop = 0.f;
+	float _discharged_mah_armed = 0.f;
 	float _remaining_voltage = -1.f;		///< normalized battery charge level remaining based on voltage
 	float _remaining = -1.f;			///< normalized battery charge level, selected based on config param
 	float _scale = 1.f;
 	uint8_t _warning;
+	bool	_armed=false;
 	hrt_abstime _last_timestamp;
+	hrt_abstime _time_armed=0;
 };

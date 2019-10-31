@@ -82,6 +82,24 @@ Battery::updateBatteryStatus(hrt_abstime timestamp, float voltage_v, float curre
 		determineWarning(connected);
 	}
 
+	if(_armed!= armed)
+	{
+		if(armed)
+		{
+			_time_armed = timestamp;
+			_discharged_mah_armed = _discharged_mah;
+		}
+		_armed = armed;
+	}
+	if((timestamp-_time_armed)>0 && armed && _discharged_mah>_discharged_mah_armed)
+	{
+		battery_status->average_current_a = (_discharged_mah-_discharged_mah_armed)*3600.0f/((timestamp-_time_armed)*1.0e-6f*1000.0f);
+		if(battery_status->average_current_a>0.0f)
+		{
+			battery_status->average_time_to_empty = (uint16_t)(3600.0f*_capacity.get()/(battery_status->average_current_a*1000.0f));
+		}
+	}
+
 	if (_voltage_filtered_v > 2.1f) {
 		_battery_initialized = true;
 		battery_status->voltage_v = voltage_v;
@@ -145,12 +163,12 @@ void
 Battery::sumDischarged(hrt_abstime timestamp, float current_a)
 {
 	// Not a valid measurement
-	if (current_a < 0.f) {
+/*	if (current_a < 0.f) {
 		// Because the measurement was invalid we need to stop integration
 		// and re-initialize with the next valid measurement
 		_last_timestamp = 0;
 		return;
-	}
+	} current can be negative ...*/
 
 	// Ignore first update because we don't know dt.
 	if (_last_timestamp != 0) {
@@ -235,4 +253,9 @@ Battery::computeScale()
 	} else if (!PX4_ISFINITE(_scale) || _scale < 1.f) { // Shouldn't ever be more than the power at full battery
 		_scale = 1.f;
 	}
+}
+
+float Battery::getCapacity()
+{
+	return _capacity.get();
 }
