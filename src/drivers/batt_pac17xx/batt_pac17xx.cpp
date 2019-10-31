@@ -196,7 +196,8 @@ private:
 	work_s			_work{};		///< work queue for scheduling reads
 
 	battery_status_s _last_report;	///< last published report, used for test()
-	float			_discharged_mah;
+	float			_discharged_mah=0;
+	float			_discharged_mah_armed=0; ///< value when we last armed to calc avg current
 	float			_current_a_filtered;
 	float			_voltage_v;
 	float			_voltage_v_filtered;
@@ -211,7 +212,7 @@ private:
 	int				_vcontrol_mode_sub{-1};		/**< vehicle control mode subscription */
 	bool			_armed{false};
 
-	uint64_t		_start_time;	///< system time we first attempt to communicate with battery
+	uint64_t		_time_arm=0;	///< system time we last armed
 	uint16_t		_sens_full_scale; ///< current sense full range voltage 10,20,40,80 mV
 	uint8_t			_sens_sample_reg; ///< sample scale register value
 	float			_sens_resistor;	///< current sense resistor value in mOhm
@@ -244,7 +245,6 @@ BATT_PAC17::BATT_PAC17(int bus, uint16_t batt_pac17_addr, float sens_resistor, u
 	_last_report{},
 	_batt_topic(nullptr),
 	_batt_orb_id(nullptr),
-	_start_time(0),
 	_sens_full_scale(BATT_PAC17_SENS_RANGE),
 	_sens_sample_reg(0x53),
 	_sens_resistor(BATT_PAC17_SENS_R),
@@ -252,8 +252,7 @@ BATT_PAC17::BATT_PAC17(int bus, uint16_t batt_pac17_addr, float sens_resistor, u
 	_battery()
 {
 	// capture startup time
-	_start_time = hrt_absolute_time();
-	_startupDelay = 100;
+	_startupDelay = 10;
 
 	if(sens_resistor>0){
 		_sens_resistor=sens_resistor;
@@ -488,7 +487,7 @@ BATT_PAC17::try_read_data(battery_status_s &new_report, uint64_t now){
 		}
 
 		// calculate total discharged amount
-		_discharged_mah = _discharged_mah + _current_a*1000.0f/3600.0f*BATT_PAC17_MEASUREMENT_INTERVAL_US/1000000.0f;
+		_discharged_mah += _current_a*1000.0f/3600.0f*BATT_PAC17_MEASUREMENT_INTERVAL_US/1000000.0f;
 		vehicle_control_mode_poll();
 		actuator_controls_s ctrl;
 		orb_copy(ORB_ID(actuator_controls_0), _actuator_ctrl_0_sub, &ctrl);
@@ -498,9 +497,9 @@ BATT_PAC17::try_read_data(battery_status_s &new_report, uint64_t now){
 				ctrl.control[actuator_controls_s::INDEX_THROTTLE],
 				_armed, &new_report);
 		new_report.voltage_filtered_v = _voltage_v_filtered;
-		if((hrt_absolute_time()-_start_time)>=1000000)
+		if((now-_time_arm)>0 && _armed && _discharged_mah_armed<_discharged_mah)
 		{
-			new_report.average_current_a = _discharged_mah*3600.0f/((hrt_absolute_time()-_start_time)*1.0e-6f*1000.0f);
+			new_report.average_current_a = (_discharged_mah_armed-_discharged_mah)*3600.0f/((now-_time_arm)*1.0e-6f*1000.0f);
 		}
 		new_report.current_filtered_a = _current_a_filtered;
 		if(_startRemaining>=0.0f && _startRemaining<=1.0f)
@@ -626,72 +625,7 @@ BATT_PAC17::convert_twos_comp(uint16_t val)
 
 	return val;
 }
-/*
-uint8_t
-BATT_PAC17::read_block(uint8_t reg, uint8_t *data, uint8_t max_len, bool append_zero)
-{
-	uint8_t buff[max_len + 2];  // buffer to hold results
 
-	// read bytes including PEC
-	int ret = transfer(&reg, 1, buff, max_len + 2);
-
-	// return zero on failure
-	if (ret != OK) {
-		return 0;
-	}
-
-	// get length
-	uint8_t bufflen = buff[0];
-
-	// sanity check length returned by smbus
-	if (bufflen == 0 || bufflen > max_len) {
-		return 0;
-	}
-
-	// check PEC
-	uint8_t pec = get_PEC(reg, true, buff, bufflen + 1);
-
-	if (pec != buff[bufflen + 1]) {
-		return 0;
-	}
-
-	// copy data
-	memcpy(data, &buff[1], bufflen);
-
-	// optionally add zero to end
-	if (append_zero) {
-		data[bufflen] = '\0';
-	}
-
-	// return success
-	return bufflen;
-}
-
-uint8_t
-BATT_PAC17::write_block(uint8_t reg, uint8_t *data, uint8_t len)
-{
-	uint8_t buff[len + 3];  // buffer to hold results
-
-	usleep(1);
-
-	buff[0] = reg;
-	buff[1] = len;
-	memcpy(&buff[2], data, len);
-	buff[len + 2] = get_PEC(reg, false, &buff[1],  len + 1); // Append PEC
-
-	// send bytes
-	int ret = transfer(buff, len + 3, nullptr, 0);
-
-	// return zero on failure
-	if (ret != OK) {
-		PX4_DEBUG("Block write error");
-		return 0;
-	}
-
-	// return success
-	return len;
-}
-*/
 
 /* read arming state */
 void BATT_PAC17::vehicle_control_mode_poll()
@@ -701,7 +635,16 @@ void BATT_PAC17::vehicle_control_mode_poll()
 	orb_check(_vcontrol_mode_sub, &vcontrol_mode_updated);
 	if (vcontrol_mode_updated) {
 		orb_copy(ORB_ID(vehicle_control_mode), _vcontrol_mode_sub, &vcontrol_mode);
+		if(_armed != vcontrol_mode.flag_armed)
+		{
+			if(vcontrol_mode.flag_armed)
+			{
+				_time_arm = hrt_absolute_time();
+				_discharged_mah_armed = _discharged_mah;
+			}
+		}
 		_armed = vcontrol_mode.flag_armed;
+
 	}
 }
 
