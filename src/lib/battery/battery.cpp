@@ -96,7 +96,12 @@ Battery::updateBatteryStatus(hrt_abstime timestamp, float voltage_v, float curre
 		battery_status->average_current_a = (_discharged_mah-_discharged_mah_armed)*3600.0f/((timestamp-_time_armed)*1.0e-6f*1000.0f);
 		if(battery_status->average_current_a>0.0f)
 		{
-			float tte = 3600.0f*_capacity.get()/(battery_status->average_current_a*1000.0f);
+			float capacity = _capacity.get();
+			if(_capacity_vt_landig.get()>0)
+			{
+				capacity -= _capacity_vt_landig.get();
+			}
+			float tte = 3600.0f*capacity/(battery_status->average_current_a*1000.0f); // time to empty
 			if(tte<UINT16_MAX)
 			{
 				battery_status->average_time_to_empty = (uint16_t)(tte);

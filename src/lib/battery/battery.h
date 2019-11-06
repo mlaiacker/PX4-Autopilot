@@ -113,7 +113,8 @@ private:
 		(ParamFloat<px4::params::BAT_R_INTERNAL>) _r_internal,
 		(ParamFloat<px4::params::BAT_LOW_THR>) _low_thr,
 		(ParamFloat<px4::params::BAT_CRIT_THR>) _crit_thr,
-		(ParamFloat<px4::params::BAT_EMERGEN_THR>) _emergency_thr
+		(ParamFloat<px4::params::BAT_EMERGEN_THR>) _emergency_thr,
+		(ParamFloat<px4::params::BAT_CAP_VT_LAND>) _capacity_vt_landig // vtol reserved capaciy for landing
 	)
 
 	bool _battery_initialized = false;
