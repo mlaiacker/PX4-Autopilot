@@ -264,7 +264,3 @@ Battery::computeScale()
 	}
 }
 
-float Battery::getCapacity()
-{
-	return _capacity.get();
-}
