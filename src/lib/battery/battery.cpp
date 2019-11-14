@@ -82,6 +82,10 @@ Battery::updateBatteryStatus(hrt_abstime timestamp, float voltage_v, float curre
 
 	if (_battery_initialized) {
 		determineWarning(connected);
+	} else
+	{
+		_time_armed = timestamp;
+		_discharged_mah_armed = _discharged_mah;
 	}
 
 	if(_armed!= armed)
@@ -115,6 +119,16 @@ Battery::updateBatteryStatus(hrt_abstime timestamp, float voltage_v, float curre
 				battery_status->average_time_to_empty = (uint16_t)tte;
 			}
 			battery_status->cycle_count = (uint16_t)duration_flight_s;
+		}
+		if(_startRemaining<0.0f){
+			_startRemaining = _remaining_voltage;
+			_capacity_mah = _capacity.get()*_startRemaining;
+			if(_capacity_vt_landig.get()>0)	{
+				_capacity_mah -= _capacity_vt_landig.get();
+				if(_capacity_mah<0.0f){
+					_capacity_mah=0.0f;
+				}
+			}
 		}
 	}
 
@@ -223,15 +237,6 @@ Battery::estimateRemaining(float voltage_v, float current_a, float throttle, boo
 		if (!_battery_initialized) {
 			// initialization of the estimation state
 			_remaining = _remaining_voltage;
-			_startRemaining = _remaining_voltage;
-			_capacity_mah = _capacity.get()*_startRemaining;
-			if(_capacity_vt_landig.get()>0)
-			{
-				_capacity_mah -= _capacity_vt_landig.get();
-				if(_capacity_mah<0.0f){
-					_capacity_mah=0.0f;
-				}
-			}
 
 		} else {
 			// The lower the voltage the more adjust the estimate with it to avoid deep discharge
