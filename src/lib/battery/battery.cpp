@@ -48,6 +48,8 @@ Battery::Battery() :
 	_warning(battery_status_s::BATTERY_WARNING_NONE),
 	_last_timestamp(0)
 {
+	_time_armed = 0;
+	_discharged_mah_armed = 0;
 }
 
 void
@@ -91,21 +93,32 @@ Battery::updateBatteryStatus(hrt_abstime timestamp, float voltage_v, float curre
 		}
 		_armed = armed;
 	}
-	if((timestamp-_time_armed)>0 && armed && _discharged_mah>_discharged_mah_armed)
+	float duration_flight_s = (timestamp-_time_armed)*1.0e-6f;
+
+	if(duration_flight_s>0 && armed && _discharged_mah>_discharged_mah_armed)
 	{
-		battery_status->average_current_a = (_discharged_mah-_discharged_mah_armed)*3600.0f/((timestamp-_time_armed)*1.0e-6f*1000.0f);
+		battery_status->average_current_a = (_discharged_mah-_discharged_mah_armed)*3600.0f/(duration_flight_s*1000.0f);
 		if(battery_status->average_current_a>0.0f)
 		{
-			float capacity = _capacity.get();
+			float capacity_mah = _capacity.get();
 			if(_capacity_vt_landig.get()>0)
 			{
-				capacity -= _capacity_vt_landig.get();
+				capacity_mah -= _capacity_vt_landig.get();
 			}
-			float tte = 3600.0f*capacity/(battery_status->average_current_a*1000.0f); // time to empty
-			if(tte<UINT16_MAX)
+			float max_flight_time = 3600.0f*capacity_mah/(battery_status->average_current_a*1000.0f);// in seconds
+			if(max_flight_time<UINT16_MAX && max_flight_time>0.0f)
 			{
-				battery_status->average_time_to_empty = (uint16_t)(tte);
+				battery_status->run_time_to_empty = (uint16_t)(max_flight_time);
 			}
+			float capacity_left_mAs = (capacity_mah - _discharged_mah)*3600.0f;
+			float capacity_used_mAs = _discharged_mah*3600.0f;
+			float tte = capacity_left_mAs/(capacity_used_mAs/duration_flight_s);
+
+			if(tte<UINT16_MAX && tte>0.0f)
+			{
+				battery_status->average_time_to_empty = (uint16_t)tte;
+			}
+			battery_status->cycle_count = (uint16_t)duration_flight_s;
 		}
 	}
 
@@ -122,6 +135,7 @@ Battery::updateBatteryStatus(hrt_abstime timestamp, float voltage_v, float curre
 		battery_status->connected = connected;
 		battery_status->system_source = selected_source;
 		battery_status->priority = priority;
+		battery_status->capacity = _capacity.get();
 	}
 }
 
@@ -133,7 +147,7 @@ Battery::filterVoltage(float voltage_v)
 	}
 
 	// TODO: inspect that filter performance
-	const float filtered_next = _voltage_filtered_v * 0.99f + voltage_v * 0.01f;
+	const float filtered_next = _voltage_filtered_v * 0.98f + voltage_v * 0.02f;
 
 	if (PX4_ISFINITE(filtered_next)) {
 		_voltage_filtered_v = filtered_next;

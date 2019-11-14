@@ -196,8 +196,8 @@ private:
 	work_s			_work{};		///< work queue for scheduling reads
 
 	battery_status_s _last_report;	///< last published report, used for test()
-	float			_discharged_mah=0;
-	float			_discharged_mah_armed=0; ///< value when we last armed to calc avg current
+	//float			_discharged_mah;
+	float			_discharged_mah_armed; ///< value when we last armed to calc avg current
 	float			_current_a_filtered;
 	float			_voltage_v;
 	float			_voltage_v_filtered;
@@ -208,11 +208,11 @@ private:
 	orb_advert_t	_batt_topic;	///< uORB battery topic
 	orb_id_t		_batt_orb_id;	///< uORB battery topic ID
 
-	int				_actuator_ctrl_0_sub{-1};		/**< attitude controls sub */
-	int				_vcontrol_mode_sub{-1};		/**< vehicle control mode subscription */
-	bool			_armed{false};
+//	int				_actuator_ctrl_0_sub{-1};		/**< attitude controls sub */
+	int				_sub_status{-1};		/**< vehicle status*/
+	bool			_armed;
 
-	uint64_t		_time_arm=0;	///< system time we last armed
+	uint64_t		_time_arm;	///< system time we last armed
 	uint16_t		_sens_full_scale; ///< current sense full range voltage 10,20,40,80 mV
 	uint8_t			_sens_sample_reg; ///< sample scale register value
 	float			_sens_resistor;	///< current sense resistor value in mOhm
@@ -240,7 +240,7 @@ extern "C" __EXPORT int batt_pac17xx_main(int argc, char *argv[]);
 
 
 BATT_PAC17::BATT_PAC17(int bus, uint16_t batt_pac17_addr, float sens_resistor, uint16_t sens_range) :
-	I2C("batt_pac17", "/dev/batt_pac170", bus, batt_pac17_addr, 400000),
+	I2C("batt_pac17", 0, bus, batt_pac17_addr, 400000),
 	_enabled(false),
 	_last_report{},
 	_batt_topic(nullptr),
@@ -281,6 +281,7 @@ BATT_PAC17::BATT_PAC17(int bus, uint16_t batt_pac17_addr, float sens_resistor, u
 	_current_a_filtered = 0.0f;
 	_voltage_v_filtered = 0.0f;
 	_current_a = 0.0f;
+	_armed = false;
 	_dev_id = SMBUS_BATT_DEV_E::NONE;
 }
 
@@ -288,8 +289,8 @@ BATT_PAC17::~BATT_PAC17()
 {
 	// make sure we are truly inactive
 	stop();
-	orb_unsubscribe(_actuator_ctrl_0_sub);
-	orb_unsubscribe(_vcontrol_mode_sub);
+	//orb_unsubscribe(_actuator_ctrl_0_sub);
+	orb_unsubscribe(_sub_status);
 	if(_batt_topic!=nullptr)
 	{
 		orb_unadvertise(_batt_topic);
@@ -304,6 +305,7 @@ BATT_PAC17::init()
 	// attempt to initialise I2C bus
 	ret = I2C::init();
 
+
 	if (ret != OK) {
 		PX4_ERR("failed to init I2C");
 		return ret;
@@ -312,37 +314,46 @@ BATT_PAC17::init()
 		//Find the battery on the bus
 		//search();
 		identify();
+		// init orb id
+		_batt_orb_id = ORB_ID(battery_status);
+
+		/* needed for the Battery class */
+		//_actuator_ctrl_0_sub = orb_subscribe(ORB_ID(actuator_controls_0));
+		/* needed to read arming status */
+		_sub_status = orb_subscribe(ORB_ID(vehicle_control_mode));
+		if(_sub_status<0)
+		{
+			PX4_ERR("status sub failed");
+		}
+		_time_arm = hrt_absolute_time();
+		_discharged_mah_armed = 0;
 		// start work queue
 		start();
 	}
 
-	// init orb id
-	_batt_orb_id = ORB_ID(battery_status);
-
-	/* needed for the Battery class */
-	_actuator_ctrl_0_sub = orb_subscribe(ORB_ID(actuator_controls_0));
-	/* needed to read arming status */
-	_vcontrol_mode_sub = orb_subscribe(ORB_ID(vehicle_control_mode));
 	return ret;
 }
 
 int
 BATT_PAC17::test()
 {
-	uint64_t start_time = hrt_absolute_time();
-	// loop for 3 seconds
+//	uint64_t start_time = hrt_absolute_time();
+	PX4_INFO("armed=%i",_armed);
+	PX4_INFO("armed_t=%f",(double)_time_arm*1e-6);
+	PX4_INFO("armed_mAh=%f",(double)_discharged_mah_armed);
+	print_message(_last_report);
+/*	// loop for 3 seconds
 	while ((hrt_absolute_time() - start_time) < 3000000) {
 		print_message(_last_report);
 		// sleep for 0.2 seconds
 		usleep(200000);
-	}
+	}*/
 	return OK;
 }
 
 int
 BATT_PAC17::dumpreg()
 {
-
 	for(uint8_t addr = 0;addr<0xff;addr++)
 	{
 		uint8_t reg=0;
@@ -379,7 +390,7 @@ BATT_PAC17::identify()
 		} else
 		{
 			PX4_INFO("dev found at 0x%x PID=0x%x", get_device_address(), reg);
-			dumpreg();
+			//dumpreg();
 		}
 	}
 	return false;
@@ -429,7 +440,7 @@ BATT_PAC17::probe()
 void
 BATT_PAC17::start()
 {
-	_startupDelay = 100;
+	_startupDelay = 10;
 	// schedule a cycle to start things
 	work_queue(HPWORK, &_work, (worker_t)&BATT_PAC17::cycle_trampoline, this, 1);
 }
@@ -456,9 +467,6 @@ BATT_PAC17::try_read_data(battery_status_s &new_report, uint64_t now){
 
 //#define BATT_PAC17_CONVERSION_RATE 0x
 //	write_reg(BATT_PAC17_REG_CONVERSION_RATE, BATT_PAC17_CONVERSION_RATE);
-	write_reg(BATT_PAC17_REG_VOLT_SAMPLE_CONF, 0x88);
-	write_reg(BATT_PAC17_REG_SENS1_SAMPLE_CONF, _sens_sample_reg); // first channel range (10-80mV)
-	if(_dev_id == SMBUS_BATT_DEV_E::PAC1720) write_reg(BATT_PAC17_REG_SENS2_SAMPLE_CONF, _sens_sample_reg); // second channel range
 
 	if (read_reg(BATT_PAC17_REG_VOLT_CH1_H, regval_H) == OK) {
 		// read data from sensor
@@ -486,34 +494,39 @@ BATT_PAC17::try_read_data(battery_status_s &new_report, uint64_t now){
 			_current_a_filtered = _current_a*0.06f + _current_a_filtered*0.94f; /* current filter */
 		}
 
-		// calculate total discharged amount
-		_discharged_mah += _current_a*1000.0f/3600.0f*BATT_PAC17_MEASUREMENT_INTERVAL_US/1000000.0f;
-		vehicle_control_mode_poll();
-		actuator_controls_s ctrl;
-		orb_copy(ORB_ID(actuator_controls_0), _actuator_ctrl_0_sub, &ctrl);
+//		actuator_controls_s ctrl;
+//		orb_copy(ORB_ID(actuator_controls_0), _actuator_ctrl_0_sub, &ctrl);
 
 		_battery.updateBatteryStatus(now, _voltage_v, _current_a,
 				_voltage_v>2.0f, true , 0,
-				ctrl.control[actuator_controls_s::INDEX_THROTTLE],
+//				ctrl.control[actuator_controls_s::INDEX_THROTTLE],
+				0,
 				_armed, &new_report);
 		new_report.voltage_filtered_v = _voltage_v_filtered;
-		if((now-_time_arm)>0 && _armed && _discharged_mah>_discharged_mah_armed)
+/*		if((now-_time_arm)>0 && new_report.discharged_mah>_discharged_mah_armed)
 		{
-			new_report.average_current_a = (_discharged_mah-_discharged_mah_armed)*3600.0f/((now-_time_arm)*1.0e-6f*1000.0f);
+			float duration_flight_s = (now-_time_arm)*1.0e-6f;
+			new_report.average_current_a = (new_report.discharged_mah-_discharged_mah_armed)*3.6f/duration_flight_s;
 			if(new_report.average_current_a>0.0f)
 			{
-				float capacity = _battery.getCapacity();
+				float capacity_mah = _battery.getCapacity();
 				if(_battery.getCapacityReserve()>0)
 				{
-					capacity -= _battery.getCapacityReserve();
+					capacity_mah -= _battery.getCapacityReserve();
 				}
-				float tte = (3600.0f*capacity/(new_report.average_current_a*1000.0f));
-				if(tte<UINT16_MAX)
+				float capacity_left_mAs = (capacity_mah - new_report.discharged_mah)*3600.0f;
+				float capacity_used_mAs = new_report.discharged_mah*3600.0f;
+				//float tte = (3600.0f*capacity_mah/(new_report.average_current_a*1000.0f));
+				float tte = capacity_left_mAs/(capacity_used_mAs/duration_flight_s);
+
+				if(tte<UINT16_MAX && tte>0.0f)
 				{
 					new_report.average_time_to_empty = (uint16_t)tte;
 				}
+				new_report.serial_number = (uint16_t)duration_flight_s;
 			}
-		}
+			new_report.scale = _discharged_mah_armed;
+		}*/
 		new_report.current_filtered_a = _current_a_filtered;
 		if(_startRemaining>=0.0f && _startRemaining<=1.0f)
 		{
@@ -544,6 +557,7 @@ BATT_PAC17::cycle()
 {
 	// get current time
 	uint64_t now = hrt_absolute_time();
+	vehicle_control_mode_poll();
 
 	if(_dev_id==SMBUS_BATT_DEV_E::NONE)
 	{
@@ -552,6 +566,12 @@ BATT_PAC17::cycle()
 
 	if(_dev_id!=SMBUS_BATT_DEV_E::NONE)
 	{
+		if(!_enabled)
+		{
+			write_reg(BATT_PAC17_REG_VOLT_SAMPLE_CONF, 0x88);
+			write_reg(BATT_PAC17_REG_SENS1_SAMPLE_CONF, _sens_sample_reg); // first channel range (10-80mV)
+			if(_dev_id == SMBUS_BATT_DEV_E::PAC1720) write_reg(BATT_PAC17_REG_SENS2_SAMPLE_CONF, _sens_sample_reg); // second channel range
+		}
 		battery_status_s new_report = {};
 		if(try_read_data(new_report, now)){
 			// publish to orb
@@ -563,10 +583,6 @@ BATT_PAC17::cycle()
 				{
 					_startupDelay--;
 					_startRemaining = _battery.getRemainingVoltage();
-					if(_startupDelay==0)
-					{
-						PX4_INFO("remaining at start=%i", (int)_startRemaining*100);
-					}
 				}
 			} else {
 				_batt_topic = orb_advertise(_batt_orb_id, &new_report);
@@ -587,6 +603,7 @@ BATT_PAC17::cycle()
 					orb_publish(_batt_orb_id, _batt_topic, &_last_report); // report lost connection to battery
 				}
 			}
+			_enabled = false;
 		}
 	}
 
@@ -619,9 +636,6 @@ BATT_PAC17::write_reg(uint8_t reg, uint8_t val)
 
 	// write bytes to register
 	int ret = transfer(buff, 2, nullptr, 0);
-	if (ret != OK) {
-		PX4_ERR("Reg 0x%x write error", reg);
-	}
 	// return success or failure
 	return ret;
 }
@@ -643,21 +657,21 @@ BATT_PAC17::convert_twos_comp(uint16_t val)
 /* read arming state */
 void BATT_PAC17::vehicle_control_mode_poll()
 {
-	struct vehicle_control_mode_s vcontrol_mode;
+	vehicle_control_mode_s vstatus;
 	bool vcontrol_mode_updated;
-	orb_check(_vcontrol_mode_sub, &vcontrol_mode_updated);
-	if (vcontrol_mode_updated) {
-		orb_copy(ORB_ID(vehicle_control_mode), _vcontrol_mode_sub, &vcontrol_mode);
-		if(_armed != vcontrol_mode.flag_armed)
+	orb_check(_sub_status, &vcontrol_mode_updated);
+	if (vcontrol_mode_updated)
+	{
+		orb_copy(ORB_ID(vehicle_control_mode), _sub_status, &vstatus);
+		if(_armed != (vstatus.flag_armed>0))
 		{
-			if(vcontrol_mode.flag_armed)
+			if(vstatus.flag_armed>0)
 			{
 				_time_arm = hrt_absolute_time();
-				_discharged_mah_armed = _discharged_mah;
+				_discharged_mah_armed = _last_report.discharged_mah;
 			}
 		}
-		_armed = vcontrol_mode.flag_armed;
-
+		_armed = vstatus.flag_armed>0;
 	}
 }
 
@@ -722,6 +736,10 @@ batt_pac17xx_main(int argc, char *argv[])
 	const char *verb = argv[myoptind];
 
 	if (!strcmp(verb, "start")) {
+		if(resistor>0.0f && range>0)
+		{
+			PX4_INFO("max. %.1fA", (double)(range/resistor));
+		}
 		if (g_batt_pac17 != nullptr) {
 			PX4_ERR("already started");
 			return 1;

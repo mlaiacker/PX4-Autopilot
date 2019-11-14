@@ -506,7 +506,7 @@ void GDPayload::vehicle_control_mode_poll()
 		{
 			struct vehicle_status_s vstatus;
 			orb_copy(ORB_ID(vehicle_status), _sub_vehicle_status, &vstatus);
-			if(_vstatus.in_transition_mode != vstatus.in_transition_mode && vstatus.in_transition_mode)
+/*			if(_vstatus.in_transition_mode != vstatus.in_transition_mode && vstatus.in_transition_mode)
 			{
 				PX4_INFO("in transition start");
 			}
@@ -529,7 +529,7 @@ void GDPayload::vehicle_control_mode_poll()
 			if(_vstatus.is_rotary_wing != vstatus.is_rotary_wing && !vstatus.is_rotary_wing)
 			{
 				PX4_INFO("transition fw");
-			}
+			}*/
 			_vstatus = vstatus;
 		}
 	}
@@ -617,16 +617,17 @@ void GDPayload::run()
 		if(readPayloadAdc())
 		{
 				n++;
+				uint64_t now = hrt_absolute_time();
 				vehicle_control_mode_poll();
 
 				bool connected = _voltage_v > 5.0f;
 
 				if(_battery_status.timestamp>0)
 				{
-					float dt =  (hrt_absolute_time() -_battery_status.timestamp)*1.0e-6f;
+					float dt =  (now -_battery_status.timestamp)*1.0e-6f;
 					_used_mAh += _current_a*dt*1000.0f/3600.0f; /* convert to mAh */
 				}
-				_battery_status.timestamp = hrt_absolute_time();
+				_battery_status.timestamp = now;
 				_battery_status.connected = connected;
 				_battery_status.temperature = INT16_MAX;
 				_battery_status.voltage_v = _voltage_v;

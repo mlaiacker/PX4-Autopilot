@@ -64,7 +64,7 @@
 #define PWR_ISL28022_ADDR_MIN             0x40	///< lowest possible address
 #define PWR_ISL28022_ADDR_MAX             0x4F	///< highest possible address
 
-#define PWR_ISL28022_MEASUREMENT_INTERVAL_US	(100000)	///< time in microseconds, measure at 10Hz
+#define PWR_ISL28022_MEASUREMENT_INTERVAL_US	(50000)	///< time in microseconds, measure at
 #define PWR_ISL28022_TIMEOUT_US			(10000000)	///< timeout looking for battery 10seconds after startup
 #define PWR_ISL28022_SENS_RANGE			(320)   // mV
 #define PWR_ISL28022_SENS_R				(0.1f) // mOhm
@@ -166,7 +166,6 @@ private:
 	work_s			_work{};		///< work queue for scheduling reads
 
 	battery_status_s _last_report;	///< last published report, used for test()
-	float			_discharged_mah{0};
 	float			_current_a_filtered;
 	float			_voltage_v;
 	float			_voltage_v_filtered;
@@ -249,7 +248,6 @@ PWR_ISL28022::PWR_ISL28022(int bus, uint16_t pwr_isl28022_addr, float sens_resis
 	_current_a_filtered = 0.0f;
 	_voltage_v_filtered = 0.0f;
 	_current_a = 0.0f;
-	_discharged_mah = 0.0f;
 }
 
 PWR_ISL28022::~PWR_ISL28022()
@@ -296,14 +294,15 @@ PWR_ISL28022::init()
 int
 PWR_ISL28022::test()
 {
-	uint64_t start_time = hrt_absolute_time();
+//	uint64_t start_time = hrt_absolute_time();
+	PX4_INFO("armed=%i",_armed);
 
 	// loop for 3 seconds
-	while ((hrt_absolute_time() - start_time) < 3000000) {
+//	while ((hrt_absolute_time() - start_time) < 3000000) {
 		print_message(_last_report);
 		// sleep for 0.2 seconds
-		usleep(200000);
-	}
+//		usleep(200000);
+//	}
 
 	return OK;
 }
@@ -422,8 +421,6 @@ PWR_ISL28022::try_read_data(battery_status_s &new_report, uint64_t now){
 			_current_a_filtered = _current_a*0.05f + _current_a_filtered*0.95f; /* current filter */
 		}
 
-		// calculate total discharged amount
-		_discharged_mah = _discharged_mah + _current_a*1000.0f/3600.0f*PWR_ISL28022_MEASUREMENT_INTERVAL_US/1000000.0f;
 		vehicle_control_mode_poll();
 		actuator_controls_s ctrl;
 		orb_copy(ORB_ID(actuator_controls_0), _actuator_ctrl_0_sub, &ctrl);
@@ -433,11 +430,6 @@ PWR_ISL28022::try_read_data(battery_status_s &new_report, uint64_t now){
 				ctrl.control[actuator_controls_s::INDEX_THROTTLE],
 				_armed, &new_report);
 		new_report.voltage_filtered_v = _voltage_v_filtered;
-		new_report.discharged_mah = _discharged_mah;
-		if((hrt_absolute_time()-_start_time)>=1000000)
-		{
-			new_report.average_current_a = _discharged_mah*3600.0f/((hrt_absolute_time()-_start_time)*1.0e-6f*1000.0f);
-		}
 		new_report.current_filtered_a = _current_a_filtered;
 		if(_startRemaining>=0.0f && _startRemaining<=1.0f)
 		{

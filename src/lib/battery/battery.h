@@ -96,6 +96,7 @@ public:
 	 */
 	float getCapacity() {	return _capacity.get();};
 	float getCapacityReserve() {	return _capacity_vt_landig.get();};
+
 private:
 	void filterVoltage(float voltage_v);
 	void filterThrottle(float throttle);
