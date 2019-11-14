@@ -528,12 +528,12 @@ BATT_PAC17::try_read_data(battery_status_s &new_report, uint64_t now){
 			new_report.scale = _discharged_mah_armed;
 		}*/
 		new_report.current_filtered_a = _current_a_filtered;
-		if(_startRemaining>=0.0f && _startRemaining<=1.0f)
+/*		if(_startRemaining>=0.0f && _startRemaining<=1.0f)
 		{
 			// subtract start remaining from remaining based on used mAh to deal with a startup with not fully charged battery
 			new_report.remaining = math::max(new_report.remaining-(1.0f-_startRemaining), 0.0f);
 		}
-
+*/
 		if(_dev_id == SMBUS_BATT_DEV_E::PAC1720)
 		{
 			result  = read_reg(BATT_PAC17_REG_VOLT_CH2_H, regval_H) == OK;

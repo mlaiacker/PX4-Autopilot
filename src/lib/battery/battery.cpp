@@ -99,7 +99,7 @@ Battery::updateBatteryStatus(hrt_abstime timestamp, float voltage_v, float curre
 	}
 	float duration_flight_s = (timestamp-_time_armed)*1.0e-6f;
 
-	if(duration_flight_s>10.0f && _discharged_mah>_discharged_mah_armed)
+	if(duration_flight_s>10.0f && _discharged_mah>_discharged_mah_armed && _battery_initialized)
 	{
 		// average current since last arming
 		battery_status->average_current_a = (_discharged_mah-_discharged_mah_armed)*3600.0f/(duration_flight_s*1000.0f);
