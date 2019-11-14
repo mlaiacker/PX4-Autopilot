@@ -128,6 +128,8 @@ private:
 	float _discharged_mah_armed = 0.f;
 	float _remaining_voltage = -1.f;		///< normalized battery charge level remaining based on voltage
 	float _remaining = -1.f;			///< normalized battery charge level, selected based on config param
+	float _startRemaining = 1;
+	float _capacity_mah=0; ///< estimated capacity left in battery at first boot
 	float _scale = 1.f;
 	uint8_t _warning;
 	bool	_armed=false;

@@ -95,23 +95,19 @@ Battery::updateBatteryStatus(hrt_abstime timestamp, float voltage_v, float curre
 	}
 	float duration_flight_s = (timestamp-_time_armed)*1.0e-6f;
 
-	if(duration_flight_s>0 && armed && _discharged_mah>_discharged_mah_armed)
+	if(duration_flight_s>10.0f && _discharged_mah>_discharged_mah_armed)
 	{
+		// average current since last arming
 		battery_status->average_current_a = (_discharged_mah-_discharged_mah_armed)*3600.0f/(duration_flight_s*1000.0f);
 		if(battery_status->average_current_a>0.0f)
 		{
-			float capacity_mah = _capacity.get();
-			if(_capacity_vt_landig.get()>0)
-			{
-				capacity_mah -= _capacity_vt_landig.get();
-			}
-			float max_flight_time = 3600.0f*capacity_mah/(battery_status->average_current_a*1000.0f);// in seconds
+			float max_flight_time = 3600.0f*_capacity_mah/(battery_status->average_current_a*1000.0f);// in seconds
 			if(max_flight_time<UINT16_MAX && max_flight_time>0.0f)
 			{
 				battery_status->run_time_to_empty = (uint16_t)(max_flight_time);
 			}
-			float capacity_left_mAs = (capacity_mah - _discharged_mah)*3600.0f;
-			float capacity_used_mAs = _discharged_mah*3600.0f;
+			float capacity_left_mAs = (_capacity_mah - _discharged_mah)*3600.0f;
+			float capacity_used_mAs = (_discharged_mah-_discharged_mah_armed)*3600.0f; // used since last arming
 			float tte = capacity_left_mAs/(capacity_used_mAs/duration_flight_s);
 
 			if(tte<UINT16_MAX && tte>0.0f)
@@ -135,7 +131,7 @@ Battery::updateBatteryStatus(hrt_abstime timestamp, float voltage_v, float curre
 		battery_status->connected = connected;
 		battery_status->system_source = selected_source;
 		battery_status->priority = priority;
-		battery_status->capacity = _capacity.get();
+		battery_status->capacity = _capacity_mah;
 	}
 }
 
@@ -227,6 +223,15 @@ Battery::estimateRemaining(float voltage_v, float current_a, float throttle, boo
 		if (!_battery_initialized) {
 			// initialization of the estimation state
 			_remaining = _remaining_voltage;
+			_startRemaining = _remaining_voltage;
+			_capacity_mah = _capacity.get()*_startRemaining;
+			if(_capacity_vt_landig.get()>0)
+			{
+				_capacity_mah -= _capacity_vt_landig.get();
+				if(_capacity_mah<0.0f){
+					_capacity_mah=0.0f;
+				}
+			}
 
 		} else {
 			// The lower the voltage the more adjust the estimate with it to avoid deep discharge
@@ -235,6 +240,11 @@ Battery::estimateRemaining(float voltage_v, float current_a, float throttle, boo
 			// directly apply current capacity slope calculated using current
 			_remaining = 1.0f - (_discharged_mah / _capacity.get());
 			_remaining = math::max(_remaining, 0.f);
+			if(_startRemaining>=0.0f && _startRemaining<=1.0f)
+			{
+				// subtract start remaining from remaining based on used mAh to deal with a startup with not fully charged battery
+				_remaining = math::max(_remaining-(1.0f-_startRemaining), 0.0f);
+			}
 		}
 
 	} else {
