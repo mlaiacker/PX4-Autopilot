@@ -38,6 +38,7 @@
 #include <battery/battery.h>
 #include <uORB/topics/battery_status.h>
 #include <DevMgr.hpp>
+#include <battery/battery.h>
 
 
 extern "C" __EXPORT int gd_payload_main(int argc, char *argv[]);
@@ -84,11 +85,19 @@ private:
 	} _parameters_handles;
 	int 	_parameter_update_sub{-1};
 
+#ifdef __PX4_NUTTX
 	DriverFramework::DevHandle 	_h_adc;				/**< ADC driver handle */
 
 	char 	_device[32];
 	px4_adc_msg_t _buf_adc[PX4_MAX_ADC_CHANNELS];
 	int 	_px4io_fd = -1;
+#else
+	orb_advert_t		_pub_battery_sim;
+	Battery				_battery_sim;
+	int					_sub_actuator_ctrl_0{-1};		/**< attitude controls sub */
+	int 				_instance_sim;
+	battery_status_s 	_batt_sim;
+#endif
 
 	orb_advert_t		_pub_battery;
 	orb_advert_t		_vehicle_command_ack_pub;
@@ -104,8 +113,6 @@ private:
 	bool cmdTripSnapshot();
 	bool cmdTripMode(int mode);
 
-	int 	_rate = 0;
-	int		_timeout = 0;
 	bool	_debug_flag = false;
 	int _instance;
 	int		_sub_vcontrol_mode{-1};		/**< vehicle control mode subscription */

@@ -62,12 +62,17 @@
 #include <uORB/topics/trip2_sys_report.h>
 #include <uORB/topics/trip2_los_report.h>
 #include <uORB/topics/trip2_gnd_report.h>
+#include <uORB/topics/actuator_controls.h>
 
 #include <drivers/drv_hrt.h>
 #include <drivers/drv_pwm_output.h>
 #include <drivers/drv_adc.h>
 #include "gd_payload.h"
 
+
+#ifndef __PX4_NUTTX
+int g_gd_payload_on = 1;
+#endif
 int GDPayload::print_usage(const char *reason)
 {
 	if (reason) {
@@ -147,7 +152,7 @@ void GDPayload::writePayloadPower(bool on)
 		return;
 	}
 
-//	if(_debug_flag)
+	if(_debug_flag)
 	{
 		PX4_INFO("power %i", (int)on);
 	}
@@ -162,6 +167,7 @@ void GDPayload::writePayloadPower(bool on)
 	close(fd);
 #else
 	PX4_INFO("power %i", (int)on);
+	if(on) g_gd_payload_on=0; else g_gd_payload_on=1;
 #endif
 }
 
@@ -309,16 +315,18 @@ GDPayload::GDPayload(char const *const device, bool debug_flag):
 ModuleParams(nullptr),
 _pub_battery(nullptr)
 {
+
+#ifdef __PX4_NUTTX
 	if(device)
 	{
 		memcpy(_device, device,sizeof(_device));
 	} else{
 		memcpy(_device, PX4IO_DEV,sizeof(PX4IO_DEV));
 	}
-
+	memset(&_buf_adc,0,sizeof(_buf_adc));
+#endif
 	_debug_flag = debug_flag;
 	memset(&_battery_status,0,sizeof(_battery_status));
-	memset(&_buf_adc,0,sizeof(_buf_adc));
 	_used_mAh = 0.0f;
 	_voltage_v = 0.0f;
 	_current_a = 0.0f;
@@ -327,9 +335,9 @@ _pub_battery(nullptr)
 bool GDPayload::init()
 {
 	bool result = true;
-
+#ifdef __PX4_NUTTX
 	DriverFramework::DevMgr::getHandle(ADC0_DEVICE_PATH, _h_adc);
-
+#endif
 	_parameters_handles.battery_v_div = param_find("BAT_V_DIV");
 	_parameters_handles.battery_a_per_v = param_find("BAT_A_PER_V");
 
@@ -410,29 +418,40 @@ void GDPayload::vehicleCommandAck(const vehicle_command_s *cmd)
 }
 
 bool GDPayload::cmdTripCordinate(double lat, double lon, float alt){
-	PX4_INFO("trip point to %f %f %f", lat, lon, (double)alt);
+	if(_debug_flag)	{
+		PX4_INFO("trip point to %f %f %f", lat, lon, (double)alt);
+	}
 	return true;
 }
 
 bool GDPayload::cmdTripRecord(bool on){
-	PX4_INFO("trip record %d", on);
+	if(_debug_flag)	{
+		PX4_INFO("trip record %d", on);
+	}
 	return true;
 }
 
 bool GDPayload::cmdTripSnapshot(){
-	PX4_INFO("trip snapshot");
+	if(_debug_flag)	{
+		PX4_INFO("trip snapshot");
+	}
 	return true;
 }
 
 bool GDPayload::cmdTripMode(int mode){
-	PX4_INFO("trip mode %d", mode);
+	if(_debug_flag)	{
+		PX4_INFO("trip mode %d", mode);
+	}
 	return true;
 }
 
 
 void GDPayload::vehicleCommand(const vehicle_command_s *vcmd)
 {
-	PX4_INFO("cmd=%d", vcmd->command);
+	if(_debug_flag)
+	{
+		PX4_INFO("cmd=%d", vcmd->command);
+	}
 	switch(vcmd->command)
 	{
 	case vehicle_command_s::VEHICLE_CMD_CUSTOM_0:
@@ -489,12 +508,8 @@ void GDPayload::vehicle_control_mode_poll()
 		if (updated)
 		{
 			struct vehicle_command_s vcmd;
-			//static uint16_t tcmd = 0;
 			orb_copy(ORB_ID(vehicle_command), _sub_vehicle_cmd, &vcmd);
-			//if(vcmd.command != _cmdold)
-			{
-				vehicleCommand(&vcmd);
-			}
+			vehicleCommand(&vcmd);
 			_cmdold = vcmd.command;
 		}
 	}
@@ -541,10 +556,9 @@ void GDPayload::vehicle_control_mode_poll()
 void GDPayload::updateBatteryDisconnect()
 {
 	_battery_status.warning = battery_status_s::BATTERY_WARNING_FAILED;
-	int instance;
 	_battery_status.temperature = -1;
 	_battery_status.timestamp = hrt_absolute_time();
-	orb_publish_auto(ORB_ID(battery_status), &_pub_battery, &_battery_status, &instance, ORB_PRIO_DEFAULT);
+	orb_publish_auto(ORB_ID(battery_status), &_pub_battery, &_battery_status, &_instance, ORB_PRIO_LOW);
 	if(_debug_flag)
 	{
 		PX4_INFO("disconnect");
@@ -594,10 +608,40 @@ bool  GDPayload::readPayloadAdc()
 		}
 	return false;
 #else
-	_voltage_v = 30.0f + rand()*0.1f/RAND_MAX;
-	_current_a = 0.83f + rand()*0.01f/RAND_MAX;;
+	_voltage_v = _battery_sim.cell_count()*_battery_sim.full_cell_voltage() + rand()*0.1f/RAND_MAX;
+	_current_a = (0.83f + rand()*0.01f/RAND_MAX)*g_gd_payload_on;
+	//if(_vstatus.hil_state == _vstatus.HIL_STATE_ON)
+	{
+		float sim_current_a=_current_a, sim_voltage_v= _voltage_v;
+		/* needed for the Battery class */
+		if(_sub_actuator_ctrl_0<0){
+			_sub_actuator_ctrl_0 = orb_subscribe(ORB_ID(actuator_controls_0));
+		}
+		actuator_controls_s ctrl;
+		orb_copy(ORB_ID(actuator_controls_0), _sub_actuator_ctrl_0, &ctrl);
+
+		if (_vstatus.arming_state == _vstatus.ARMING_STATE_ARMED){
+			if(_vstatus.is_rotary_wing){
+				sim_current_a += 5.0f + 180.0f*ctrl.control[actuator_controls_s::INDEX_THROTTLE]*ctrl.control[actuator_controls_s::INDEX_THROTTLE];
+			} else{
+				sim_current_a += 5.0f + 80.0f*ctrl.control[actuator_controls_s::INDEX_THROTTLE]*ctrl.control[actuator_controls_s::INDEX_THROTTLE];
+			}
+			if(_batt_sim.connected)
+			{
+				sim_voltage_v -= _battery_sim.cell_count()*1.3f*(1.0f-_batt_sim.remaining);
+			}
+			sim_voltage_v -= sim_current_a*0.007f;
+		}
+		_battery_sim.updateBatteryStatus(hrt_absolute_time(),
+				sim_voltage_v, sim_current_a,
+				true, true, 1, ctrl.control[actuator_controls_s::INDEX_THROTTLE],
+				_vstatus.arming_state == _vstatus.ARMING_STATE_ARMED,
+				&_batt_sim);
+		orb_publish_auto(ORB_ID(battery_status), &_pub_battery_sim, &_batt_sim, &_instance_sim, ORB_PRIO_DEFAULT);
+	}
 	return true;
 #endif
+
 }
 
 
@@ -606,7 +650,6 @@ void GDPayload::run()
 {
 	if(!init())
 		return;
-	hrt_abstime second_timer = hrt_absolute_time();
 	int n = 0;
 	if(_debug_flag)
 	{
@@ -643,20 +686,8 @@ void GDPayload::run()
 						PX4_INFO("pup failed %d", _instance);
 					}
 				}
-				_timeout = 0;
 		}
 		usleep(100000);
-		if(hrt_elapsed_time(&second_timer)>=10e6) /* every 10 seconds*/
-		{
-			_rate = n/10; /* update rate in Hz */
-			second_timer += 10e6;
-			if(n==0 && _timeout==0)
-			{
-				updateBatteryDisconnect(); /* lost connection */
-				_timeout = 1;
-			}
-			n=0;
-		}
 	}
 	updateBatteryDisconnect();
 	orb_unsubscribe(_sub_vcontrol_mode);
@@ -665,6 +696,12 @@ void GDPayload::run()
 	orb_unsubscribe(_sub_vehicle_status);
 
 	orb_unadvertise(_pub_battery);
+
+#ifndef __PX4_NUTTX
+	/* needed for the Battery class */
+	orb_unsubscribe(_sub_actuator_ctrl_0);
+	orb_unadvertise(_pub_battery_sim);
+#endif
 }
 
 int gd_payload_main(int argc, char *argv[])

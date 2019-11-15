@@ -2022,7 +2022,7 @@ MavlinkReceiver::handle_message_hil_sensor(mavlink_message_t *msg)
 	}
 
 	/* battery status */
-	{
+/*	{
 		struct battery_status_s hil_battery_status = {};
 
 		hil_battery_status.timestamp = timestamp;
@@ -2038,7 +2038,7 @@ MavlinkReceiver::handle_message_hil_sensor(mavlink_message_t *msg)
 			orb_publish(ORB_ID(battery_status), _battery_pub, &hil_battery_status);
 		}
 	}
-
+*/
 	/* increment counters */
 	_hil_frames++;
 
@@ -2381,7 +2381,7 @@ MavlinkReceiver::handle_message_hil_state_quaternion(mavlink_message_t *msg)
 	}
 
 	/* battery status */
-	{
+/*	{
 		struct battery_status_s	hil_battery_status = {};
 
 		hil_battery_status.timestamp = timestamp;
@@ -2396,7 +2396,7 @@ MavlinkReceiver::handle_message_hil_state_quaternion(mavlink_message_t *msg)
 		} else {
 			orb_publish(ORB_ID(battery_status), _battery_pub, &hil_battery_status);
 		}
-	}
+	}*/
 }
 
 void MavlinkReceiver::handle_message_named_value_float(mavlink_message_t *msg)
