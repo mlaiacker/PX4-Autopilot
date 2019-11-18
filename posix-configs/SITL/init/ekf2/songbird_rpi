@@ -52,7 +52,7 @@ param set CAL_MAG0_YSCALE		1
 param set CAL_MAG0_ZOFF		0
 param set CAL_MAG0_ZSCALE		1
 
-param set COM_DISARM_LAND 5
+#param set COM_DISARM_LAND 5
 param set COM_RC_IN_MODE 1
 
 param set EKF2_AID_MASK 1
@@ -73,7 +73,7 @@ set MIXER_AUX SBV3
 set PWM_ACHDIS 5
 set PWM_AUX_DISARMED 950
 
-set MAV_TYPE 22
+#set MAV_TYPE 22
 
 param set MAV_TYPE 22
 
@@ -145,7 +145,7 @@ param set SYS_RESTART_TYPE 2
 #param set VT_F_TRANS_THR	1.0
 #param set VT_F_TR_OL_TM		6.0
 #param set VT_IDLE_PWM_MC	1070
-#param set VT_MOT_COUNT		4
+param set VT_MOT_COUNT		4
 #param set VT_TILT_FW		1.0
 #param set VT_TILT_MC		0.0
 #param set VT_TILT_TRANS		0.3
@@ -157,6 +157,13 @@ param set SYS_RESTART_TYPE 2
 #param set VT_WV_LTR_EN		1
 #param set VT_WV_TKO_EN		1
 #param set VT_WV_YAWR_SCL	0.15
+
+param set TRIG_INTERFACE 1
+param set TRIG_POLARITY  1
+param set TRIG_ACT_TIME  200
+param set TRIG_MODE 	 4
+param set TRIG_INTERVAL  100
+param set TRIG_DISTANCE  40
 
 replay tryapplyparams
 
@@ -180,9 +187,10 @@ fw_pos_control_l1 start
 fw_att_control start
 wind_estimator start
 
-mavlink start -x -d /dev/ttyUSB0
-mavlink start -x -u 14556 -r 2000000 -f
-mavlink start -x -u 14557 -r 2000000 -m onboard -o 14540 -f
+gd_payload start -v
+
+mavlink start -x -u 14556 -r 2000000 
+mavlink start -x -u 14557 -r 2000000 -m onboard -o 14540
 mavlink stream -r 20 -s EXTENDED_SYS_STATE -u 14557
 
 mavlink stream -r 80 -s POSITION_TARGET_LOCAL_NED -u 14556
@@ -197,11 +205,15 @@ mavlink stream -r 20 -s RC_CHANNELS -u 14556
 mavlink stream -r 10 -s HIL_ACTUATOR_CONTROLS -u 14556
 mavlink stream -r 100 -s HIL_ACTUATOR_CONTROLS -u 14557
 
+mavlink start -d /dev/serial0 -f
+
 logger start -e -t
-mavlink boot_complete
+
 #replay trystart
 mavlink stream -r 200 -s HIL_ACTUATOR_CONTROLS -u 14557
 
-linux_sbus start -d /dev/serial0
+linux_sbus start -d /dev/ttyUSB0
 
-gd_payload start -v
+camera_trigger start
+
+mavlink boot_complete

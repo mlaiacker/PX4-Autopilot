@@ -97,6 +97,11 @@ public:
 	float getCapacity() {	return _capacity.get();};
 	float getCapacityReserve() {	return _capacity_vt_landig.get();};
 
+	/*
+	 * for hil
+	 */
+
+	void rechargeBattery(){ _discharged_mah=0.f; _battery_initialized = false; _discharged_mah_armed = 0.f;};
 private:
 	void filterVoltage(float voltage_v);
 	void filterThrottle(float throttle);

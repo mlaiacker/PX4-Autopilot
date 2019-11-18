@@ -8,18 +8,18 @@ param set  SYS_HITL		1
 
 param set BAT_N_CELLS 	8
 param set BAT_A_PER_V	1.0
-param set BAT_CAPACITY		10000.0
+#param set BAT_CAPACITY		10000.0
 param set BAT_CNT_V_CURR		8.0566405E-4
 param set BAT_CNT_V_VOLT		8.0566405E-4
 param set BAT_CRIT_THR		0.07
 param set BAT_EMERGEN_THR		0.05
 param set BAT_LOW_THR		0.15
-param set BAT_R_INTERNAL	1	-1.0
+param set BAT_R_INTERNAL	1
 param set BAT_SOURCE		1
-param set BAT_V_CHARGED		4.05
+param set BAT_V_CHARGED		4.10
 param set BAT_V_DIV		15.468
-param set BAT_V_EMPTY		3.25
-param set BAT_V_LOAD_DROP		0.3
+param set BAT_V_EMPTY		3.30
+param set BAT_V_LOAD_DROP		0.0
 param set BAT_V_OFFS_CURR		0.0
 
 param set CAL_ACC0_EN		1
@@ -182,8 +182,10 @@ fw_pos_control_l1 start
 fw_att_control start
 wind_estimator start
 
-mavlink start -x -u 14556 -r 2000000 -f
-mavlink start -x -u 14557 -r 2000000 -m onboard -o 14540 -f
+gd_payload start -v
+
+mavlink start -x -u 14556 -r 2000000 
+mavlink start -x -u 14557 -r 2000000 -m onboard -o 14540
 mavlink stream -r 20 -s EXTENDED_SYS_STATE -u 14557
 
 mavlink stream -r 80 -s POSITION_TARGET_LOCAL_NED -u 14556
@@ -198,12 +200,15 @@ mavlink stream -r 20 -s RC_CHANNELS -u 14556
 mavlink stream -r 10 -s HIL_ACTUATOR_CONTROLS -u 14556
 mavlink stream -r 100 -s HIL_ACTUATOR_CONTROLS -u 14557
 
+mavlink start -d /dev/serial0 -f
+
 logger start -e -t
+
 #replay trystart
 mavlink stream -r 200 -s HIL_ACTUATOR_CONTROLS -u 14557
 
 linux_sbus start -d /dev/ttyUSB0
 
-gd_payload start -v
+camera_trigger start
 
 mavlink boot_complete

@@ -152,11 +152,6 @@ void GDPayload::writePayloadPower(bool on)
 		return;
 	}
 
-	if(_debug_flag)
-	{
-		PX4_INFO("power %i", (int)on);
-	}
-
 	if(on)
 	{
 		ioctl(fd, DSM_BIND_POWER_UP, 0);
@@ -610,7 +605,7 @@ bool  GDPayload::readPayloadAdc()
 #else
 	_voltage_v = _battery_sim.cell_count()*_battery_sim.full_cell_voltage() + rand()*0.1f/RAND_MAX;
 	_current_a = (0.83f + rand()*0.01f/RAND_MAX)*g_gd_payload_on;
-	//if(_vstatus.hil_state == _vstatus.HIL_STATE_ON)
+	if(_vstatus.hil_state == _vstatus.HIL_STATE_ON)
 	{
 		float sim_current_a=_current_a, sim_voltage_v= _voltage_v;
 		/* needed for the Battery class */
@@ -624,13 +619,15 @@ bool  GDPayload::readPayloadAdc()
 			if(_vstatus.is_rotary_wing){
 				sim_current_a += 5.0f + 180.0f*ctrl.control[actuator_controls_s::INDEX_THROTTLE]*ctrl.control[actuator_controls_s::INDEX_THROTTLE];
 			} else{
-				sim_current_a += 5.0f + 80.0f*ctrl.control[actuator_controls_s::INDEX_THROTTLE]*ctrl.control[actuator_controls_s::INDEX_THROTTLE];
+				sim_current_a += 1.0f + 75.0f*ctrl.control[actuator_controls_s::INDEX_THROTTLE]*ctrl.control[actuator_controls_s::INDEX_THROTTLE];
 			}
 			if(_batt_sim.connected)
 			{
 				sim_voltage_v -= _battery_sim.cell_count()*1.3f*(1.0f-_batt_sim.remaining);
 			}
 			sim_voltage_v -= sim_current_a*0.007f;
+		} else {
+			_battery_sim.rechargeBattery();
 		}
 		_battery_sim.updateBatteryStatus(hrt_absolute_time(),
 				sim_voltage_v, sim_current_a,
