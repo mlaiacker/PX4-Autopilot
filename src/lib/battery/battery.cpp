@@ -90,7 +90,7 @@ Battery::updateBatteryStatus(hrt_abstime timestamp, float voltage_v, float curre
 
 	if(_armed!= armed)
 	{
-		if(armed)
+		if(_armed==0 && armed>0)
 		{
 			_time_armed = timestamp;
 			_discharged_mah_armed = _discharged_mah;
