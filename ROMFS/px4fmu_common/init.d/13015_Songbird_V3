@@ -60,11 +60,12 @@ then
 	param set FW_RR_I 0.01
 	param set FW_RR_IMAX 0.2
 	param set FW_RR_P 0.05
-	param set FW_THR_CRUISE 0.50
+	param set FW_THR_CRUISE 0.30
 
 	param set VT_IDLE_PWM_MC 1170
 	
 	param set MNT_TRIP_MAVLINK 0
+	param set GPS2_ENABLE 	   0
 fi
 
 set MIXER SBV3
@@ -86,9 +87,11 @@ gd_payload start
 usleep 20000
 gd_payload on
 
-if param compare SENS_EN_TFMINI 0
+if param compare SENS_EN_TFMINI 0 
 then
-	gps start -d /dev/ttyS3 -e /dev/ttyS6 -p ubx
+	if param compare GPS2_ENABLE 1
+		gps start -d /dev/ttyS3 -e /dev/ttyS6 -p ubx
+	fi
 fi
 
 

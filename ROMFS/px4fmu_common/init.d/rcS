@@ -722,6 +722,7 @@ fi
 		# mavlink stream -d /dev/ttyS2 -s RC_CHANNELS -r 10		
 		mavlink stream -d ${MAVLINK_COMPANION_DEVICE} -s GLOBAL_POSITION_INT -r 25
 		mavlink stream -d ${MAVLINK_COMPANION_DEVICE} -s ATTITUDE -r 25
+		mavlink stream -d ${MAVLINK_COMPANION_DEVICE} -s VFR_HUD -r 25
 		mavlink stream -d ${MAVLINK_COMPANION_DEVICE} -s GPS_RAW_INT -r 2
 		mavlink stream -d ${MAVLINK_COMPANION_DEVICE} -s HEARTBEAT -r 2
 		mavlink stream -d ${MAVLINK_COMPANION_DEVICE} -s SYS_STATUS -r 1

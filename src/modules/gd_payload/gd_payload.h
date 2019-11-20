@@ -114,7 +114,7 @@ private:
 	bool cmdTripMode(int mode);
 
 	bool	_debug_flag = false;
-	int _instance;
+	int 	_instance;
 	int		_sub_vcontrol_mode{-1};		/**< vehicle control mode subscription */
 	int		_sub_trip2{-1};
 	int 	_sub_vehicle_cmd{-1};
