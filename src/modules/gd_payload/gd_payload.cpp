@@ -620,7 +620,7 @@ bool  GDPayload::readPayloadAdc()
 				sim_current_a += 5.0f + 180.0f*ctrl.control[actuator_controls_s::INDEX_THROTTLE]*ctrl.control[actuator_controls_s::INDEX_THROTTLE];
 			} else{
 				sim_current_a += 1.0f + 75.0f*ctrl.control[actuator_controls_s::INDEX_THROTTLE]*ctrl.control[actuator_controls_s::INDEX_THROTTLE]
-							     + rand()*10f/RAND_MAX;
+							     + rand()*10.0f/RAND_MAX;
 			}
 			if(_batt_sim.connected)
 			{
