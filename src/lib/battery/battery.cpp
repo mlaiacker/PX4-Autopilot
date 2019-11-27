@@ -90,13 +90,13 @@ Battery::updateBatteryStatus(hrt_abstime timestamp, float voltage_v, float curre
 
 	if(_armed!= armed)
 	{
-		if(_armed==0 && armed>0)
+		if(((int)_armed)==0 && ((int)armed)>0)
 		{
 			_time_armed = timestamp;
 			_discharged_mah_armed = _discharged_mah;
 		}
-		_armed = armed;
 	}
+	_armed = armed;
 	float duration_flight_s = (timestamp-_time_armed)*1.0e-6f;
 	if(duration_flight_s>10.0f && _battery_initialized){
 
@@ -111,10 +111,11 @@ Battery::updateBatteryStatus(hrt_abstime timestamp, float voltage_v, float curre
 			}
 		}
 		/* calculate remaining time based on average current */
-		if(_discharged_mah>_discharged_mah_armed)
+		//if(_discharged_mah>_discharged_mah_armed)
 		{
 			/* average current since last arming */
-			battery_status->average_current_a = (_discharged_mah-_discharged_mah_armed)*3600.0f/(duration_flight_s*1000.0f);
+			battery_status->average_current_a = _current_average_a;
+					//(_discharged_mah-_discharged_mah_armed)*3600.0f/(duration_flight_s*1000.0f);
 			if(battery_status->average_current_a>0.0f)
 			{
 				float max_flight_time = 3600.0f*_capacity_mah/(battery_status->average_current_a*1000.0f);// in seconds
@@ -123,8 +124,8 @@ Battery::updateBatteryStatus(hrt_abstime timestamp, float voltage_v, float curre
 					battery_status->run_time_to_empty = (uint16_t)(max_flight_time);
 				}
 				float capacity_left_mAs = (_capacity_mah - _discharged_mah)*3600.0f;
-				float capacity_used_mAs = (_discharged_mah-_discharged_mah_armed)*3600.0f; // used since last arming
-				float tte = capacity_left_mAs/(capacity_used_mAs/duration_flight_s);
+				//float capacity_used_mAs = (_discharged_mah-_discharged_mah_armed)*3600.0f; // used since last arming
+				float tte = capacity_left_mAs/(battery_status->average_current_a);
 
 				if(tte<UINT16_MAX && tte>0.0f)
 				{
@@ -172,6 +173,8 @@ Battery::filterCurrent(float current_a)
 {
 	if (!_battery_initialized) {
 		_current_filtered_a = current_a;
+		_current_average_a = current_a;
+
 	}
 
 	// ADC poll is at 100Hz, this will perform a low pass over approx 500ms
@@ -180,6 +183,8 @@ Battery::filterCurrent(float current_a)
 	if (PX4_ISFINITE(filtered_next)) {
 		_current_filtered_a = filtered_next;
 	}
+
+	_current_average_a = _current_average_a * 0.99f + _current_average_a * 0.01f;
 }
 
 void Battery::filterThrottle(float throttle)

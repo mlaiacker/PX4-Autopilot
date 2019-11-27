@@ -128,6 +128,7 @@ private:
 	float _voltage_filtered_v = -1.f;
 	float _throttle_filtered = -1.f;
 	float _current_filtered_a = -1.f;
+	float _current_average_a = -1.f;
 	float _discharged_mah = 0.f;
 	float _discharged_mah_loop = 0.f;
 	float _discharged_mah_armed = 0.f;
