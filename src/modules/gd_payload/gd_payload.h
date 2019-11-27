@@ -95,7 +95,7 @@ private:
 	orb_advert_t		_pub_battery_sim;
 	Battery				_battery_sim;
 	int					_sub_actuator_ctrl_0{-1};		/**< attitude controls sub */
-	int 				_instance_sim;
+	int 				_instance_sim={-1};
 	battery_status_s 	_batt_sim;
 #endif
 

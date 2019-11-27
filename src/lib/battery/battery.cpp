@@ -184,7 +184,7 @@ Battery::filterCurrent(float current_a)
 		_current_filtered_a = filtered_next;
 	}
 
-	_current_average_a = _current_average_a * 0.99f + _current_average_a * 0.01f;
+	_current_average_a = _current_average_a * 0.99f + _current_filtered_a * 0.01f;
 }
 
 void Battery::filterThrottle(float throttle)
