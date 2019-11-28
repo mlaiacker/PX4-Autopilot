@@ -125,7 +125,7 @@ Battery::updateBatteryStatus(hrt_abstime timestamp, float voltage_v, float curre
 				}
 				float capacity_left_mAs = (_capacity_mah - _discharged_mah)*3600.0f;
 				//float capacity_used_mAs = (_discharged_mah-_discharged_mah_armed)*3600.0f; // used since last arming
-				float tte = capacity_left_mAs/(battery_status->average_current_a);
+				float tte = capacity_left_mAs/(battery_status->average_current_a*1000.0f);
 
 				if(tte<UINT16_MAX && tte>0.0f)
 				{
