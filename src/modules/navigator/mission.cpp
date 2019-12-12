@@ -292,6 +292,7 @@ Mission::set_current_offboard_mission_index(uint16_t index)
 			_navigator->get_position_setpoint_triplet()->previous.valid = false;
 			_navigator->get_position_setpoint_triplet()->current.valid = false;
 			_navigator->get_position_setpoint_triplet()->next.valid = false;
+
 			set_mission_items();
 		}
 
@@ -442,6 +443,17 @@ Mission::update_offboard_mission()
 
 	/* reset triplets */
 	_navigator->reset_triplets();
+	if(PX4_ISFINITE(_navigator->get_global_position()->lat) &&
+			PX4_ISFINITE(_navigator->get_global_position()->lon) &&
+			PX4_ISFINITE(_navigator->get_global_position()->alt)){
+		// use current position so we go along a line to next waypoint
+		_navigator->get_position_setpoint_triplet()->current.lat = _navigator->get_global_position()->lat;
+		_navigator->get_position_setpoint_triplet()->current.lon = _navigator->get_global_position()->lon;
+		_navigator->get_position_setpoint_triplet()->current.alt = _navigator->get_global_position()->alt;
+		_navigator->get_position_setpoint_triplet()->current.alt_valid  =true;
+		_navigator->get_position_setpoint_triplet()->current.position_valid = true;
+		_navigator->get_position_setpoint_triplet()->current.valid = true;
+	}
 
 	struct mission_s old_offboard_mission = _offboard_mission;
 
@@ -1297,7 +1309,6 @@ Mission::altitude_sp_foh_update()
 	    || !(pos_sp_triplet->previous.type == position_setpoint_s::SETPOINT_TYPE_POSITION ||
 		 pos_sp_triplet->previous.type == position_setpoint_s::SETPOINT_TYPE_LOITER) ||
 	    _navigator->get_vstatus()->is_rotary_wing) {
-
 		return;
 	}
 
@@ -1338,7 +1349,7 @@ Mission::altitude_sp_foh_update()
 
 	/* if the minimal distance is smaller then the acceptance radius, we should be at waypoint alt
 	 * navigator will soon switch to the next waypoint item (if there is one) as soon as we reach this altitude */
-	if (_min_current_sp_distance_xy < acc_rad) {
+	if (_min_current_sp_distance_xy < acc_rad || (_distance_current_previous < acc_rad)) {
 		pos_sp_triplet->current.alt = get_absolute_altitude_for_item(_mission_item);
 
 	} else {
@@ -1349,8 +1360,9 @@ Mission::altitude_sp_foh_update()
 		 **/
 		float delta_alt = (get_absolute_altitude_for_item(_mission_item) - pos_sp_triplet->previous.alt);
 		float grad = -delta_alt / (_distance_current_previous - acc_rad);
-		float a = pos_sp_triplet->previous.alt - grad * _distance_current_previous;
-		pos_sp_triplet->current.alt = a + grad * _min_current_sp_distance_xy;
+		float a = pos_sp_triplet->previous.alt - grad * (_distance_current_previous - acc_rad);
+		float dist = math::max(0.0f, _min_current_sp_distance_xy-acc_rad); // look ahead
+		pos_sp_triplet->current.alt = a + grad * dist;
 	}
 
 	// we set altitude directly so we can run this in parallel to the heading update
