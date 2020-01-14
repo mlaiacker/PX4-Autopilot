@@ -147,7 +147,11 @@ private:
 
 	int				_serial_fd;					///< serial interface to GPS
 	unsigned			_baudrate;					///< current baudrate
+#ifdef __PX4_POSIX
+	char				_port[256];					///< device / serial port path
+#else
 	char				_port[20];					///< device / serial port path
+#endif
 	bool				_healthy;					///< flag to signal if the GPS is ok
 	bool				_baudrate_changed;				///< flag to signal that the baudrate with the GPS has changed
 	bool				_mode_changed;					///< flag that the GPS mode has changed

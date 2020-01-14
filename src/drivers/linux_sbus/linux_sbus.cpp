@@ -169,7 +169,10 @@ void RcInput::_measure(void)
 			if(!_firstFrame)
 			{
 				PX4_INFO("first frame fs:%i drop:%i channels: %i", sbus_failsafe, sbus_frame_drop, _channels);
-				PX4_INFO("ch0=%i",_channels_data[0]);
+				for(int i=0;i<_channels;i++)
+				{
+					PX4_INFO("ch%i=%i",i,_channels_data[i]);
+				}
 				_firstFrame = true;
 			}
 			break;
