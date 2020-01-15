@@ -81,10 +81,10 @@ protected:
 private:
 
 	/** Time in us that landing conditions have to hold before triggering a land. */
-	static constexpr hrt_abstime LAND_DETECTOR_TRIGGER_TIME_US = 300_ms;
+	static constexpr hrt_abstime LAND_DETECTOR_TRIGGER_TIME_US = 600_ms;
 
 	/** Time in us that almost landing conditions have to hold before triggering almost landed . */
-	static constexpr hrt_abstime MAYBE_LAND_DETECTOR_TRIGGER_TIME_US = 250_ms;
+	static constexpr hrt_abstime MAYBE_LAND_DETECTOR_TRIGGER_TIME_US = 350_ms;
 
 	/** Time in us that ground contact condition have to hold before triggering contact ground */
 	static constexpr hrt_abstime GROUND_CONTACT_TRIGGER_TIME_US = 350_ms;
