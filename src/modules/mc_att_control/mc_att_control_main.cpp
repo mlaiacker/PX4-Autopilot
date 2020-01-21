@@ -255,9 +255,102 @@ MulticopterAttitudeControl::vehicle_attitude_setpoint_poll()
 		orb_copy(ORB_ID(vehicle_attitude_setpoint), _v_att_sp_sub, &_v_att_sp);
 	}
 	/* do pitch control with tilt */
+	if(_vehicle_status.is_vtol && _vehicle_status.system_type == 22) /* VTOL tiltrotor */
+	{
+		Quatf qd(_v_att_sp.q_d);
+	 	Quatf q(_v_att.q);
+		/* ensure input quaternions are exactly normalized because acosf(1.00001) == NaN */
+		q.normalize();
+		qd.normalize();
+		Eulerf eulerSP(qd);
+		Eulerf euler(q);
+
+		// construct attitude setpoint rotation matrix. modify the setpoints for roll
+		// and pitch such that they reflect the user's intention even if a yaw error
+		// (yaw_sp - yaw) is present. In the presence of a yaw error constructing a rotation matrix
+		// from the pure euler angle setpoints will lead to unexpected attitude behaviour from
+		// the user's view as the euler angle sequence uses the  yaw setpoint and not the current
+		// heading of the vehicle.
+		// The effect of that can be seen with:
+		// - roll/pitch into one direction, keep it fixed (at high angle)
+		// - apply a fast yaw rotation
+		// - look at the roll and pitch angles: they should stay pretty much the same as when not yawing
+
+		// calculate our current yaw error
+		float yaw_error = wrap_pi(_v_att_sp.yaw_body - euler.psi());
+
+		// compute the vector obtained by rotating a z unit vector by the rotation
+		// given by the roll and pitch commands of the user
+		matrix::Vector3f zB = {0.0f, 0.0f, 1.0f};
+		matrix::Dcmf R_sp_roll_pitch = matrix::Eulerf(eulerSP.phi(), eulerSP.theta(), 0.0f);
+		matrix::Vector3f z_roll_pitch_sp = R_sp_roll_pitch * zB;
+
+		// transform the vector into a new frame which is rotated around the z axis
+		// by the current yaw error. this vector defines the desired tilt when we look
+		// into the direction of the desired heading
+		matrix::Dcmf R_yaw_correction = matrix::Eulerf(0.0f, 0.0f, -yaw_error);
+		z_roll_pitch_sp = R_yaw_correction * z_roll_pitch_sp;
+
+		// use the formula z_roll_pitch_sp = R_tilt * [0;0;1]
+		// R_tilt is computed from_euler; only true if cos(roll) not equal zero
+		// -> valid if roll is not +-pi/2;
+		float roll_body = -asinf(z_roll_pitch_sp(1));
+		float pitch_body = atan2f(z_roll_pitch_sp(0), z_roll_pitch_sp(2));
+
+		float tilt_angle = _tilt_lp_pitch.apply(pitch_body); /* filter pitch angle value */
+		_tilt_cmd = 0;
+			if(tilt_angle<0)
+			{
+				if(tilt_angle < -30.0f*M_PI_F/180.0f)
+				{
+					tilt_angle = -30.0f*M_PI_F/180.0f; /* limit tilt angle */
+				}
+				pitch_body -= tilt_angle; /* remove tilt angle from pitch setpoint */
+				_tilt_cmd = acosf(1.0f-(-tilt_angle)*4/M_PI_F)/M_PI_F; /* nonlinear map from tilt angle to servo angle*/
+			}else
+			{
+				_tilt_cmd = 0;
+			}
+
+			// compute the vector obtained by rotating a z unit vector by the rotation
+			// given by the roll and pitch commands of the user
+			matrix::Dcmf R_sp_roll_pitch_back = matrix::Eulerf(roll_body, pitch_body, 0.0f);
+			matrix::Vector3f z_roll_pitch_sp_back = R_sp_roll_pitch_back * zB;
+
+			// transform the vector into a new frame which is rotated around the z axis
+			// by the current yaw error. this vector defines the desired tilt when we look
+			// into the direction of the desired heading
+			matrix::Dcmf R_yaw_correction_back = matrix::Eulerf(0.0f, 0.0f, yaw_error);
+			z_roll_pitch_sp_back = R_yaw_correction_back * z_roll_pitch_sp_back;
+
+			// use the formula z_roll_pitch_sp = R_tilt * [0;0;1]
+			// R_tilt is computed from_euler; only true if cos(roll) not equal zero
+			// -> valid if roll is not +-pi/2;
+			float roll_body_back = -asinf(z_roll_pitch_sp_back(1));
+			float pitch_body_back = atan2f(z_roll_pitch_sp_back(0), z_roll_pitch_sp_back(2));
+/*
+		if(fabsf(yaw_error)>0.1f && _vehicle_status.is_rotary_wing)
+		{
+			PX4_INFO("rp (%f, %f) (%f, %f) %f diff(%f, %f)",
+					(double)eulerSP.phi(), (double)eulerSP.theta(),
+					(double)roll_body, (double)pitch_body,
+					(double)tilt_angle,
+					(double)(roll_body_back-eulerSP.phi()), (double)(pitch_body_back-eulerSP.theta()));
+		}
+		*/
+		qd = matrix::Eulerf(roll_body_back, pitch_body_back, eulerSP.psi());
+		qd.copyTo(_v_att_sp.q_d); /* copy to setpoint to use in control attitude */
+	}
+
+	#if 0
 	Quatf qd(_v_att_sp.q_d);
+
+	/* ensure input quaternions are exactly normalized because acosf(1.00001) == NaN */
 	qd.normalize();
+
 	Eulerf eulerSP(qd); /* TODO: do that in quaternion space */
+
+
 	float tilt_angle = _tilt_lp_pitch.apply(eulerSP.theta()); /* filter pitch angle value */
 	_tilt_cmd = 0;
 	if(_vehicle_status.is_vtol && _vehicle_status.system_type == 22) /* VTOL tiltrotor */
@@ -277,6 +370,7 @@ MulticopterAttitudeControl::vehicle_attitude_setpoint_poll()
 			_tilt_cmd = 0;
 		}
 	}
+#endif
 }
 
 void
@@ -478,7 +572,7 @@ MulticopterAttitudeControl::control_attitude(float dt)
 			{
 				_rates_sp(2) += roll_lp * _vtol_wv_yaw_rate_scale.get();
 			}
-			const float wv_yaw_rate_max = _auto_rate_max(2) *0.15f;
+			const float wv_yaw_rate_max = _auto_rate_max(2) *0.2f;
 			_rates_sp(2) = math::constrain(_rates_sp(2), -wv_yaw_rate_max, wv_yaw_rate_max);
 
 			// prevent integrator winding up in weathervane mode
