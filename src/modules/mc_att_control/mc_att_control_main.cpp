@@ -561,7 +561,6 @@ MulticopterAttitudeControl::control_attitude(float dt)
 		}
 	}
 
-	_rates_sp(2) *= 0.01f;
 	/* VTOL weather-vane mode, dampen yaw rate */
 	if (_vehicle_status.is_vtol && _v_att_sp.disable_mc_yaw_control) {
 		if (_v_control_mode.flag_control_velocity_enabled || _v_control_mode.flag_control_auto_enabled) {
