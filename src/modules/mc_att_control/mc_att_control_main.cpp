@@ -286,9 +286,9 @@ MulticopterAttitudeControl::vehicle_attitude_setpoint_poll()
 		matrix::Vector3f z_roll_pitch_sp = R_sp_roll_pitch * zB;
 
 		// transform the vector into a new frame which is rotated around the z axis
-		// by the current yaw error. this vector defines the desired tilt when we look
-		// into the direction of the desired heading
-		matrix::Dcmf R_yaw_correction = matrix::Eulerf(0.0f, 0.0f, -yaw_error);
+		// by the current -yaw error. this vector defines the desired tilt when we look
+		// into the direction of the current body yaw
+		matrix::Dcmf R_yaw_correction = matrix::Eulerf(0.0f, 0.0f, yaw_error);
 		z_roll_pitch_sp = R_yaw_correction * z_roll_pitch_sp;
 
 		// use the formula z_roll_pitch_sp = R_tilt * [0;0;1]
@@ -320,7 +320,7 @@ MulticopterAttitudeControl::vehicle_attitude_setpoint_poll()
 			// transform the vector into a new frame which is rotated around the z axis
 			// by the current yaw error. this vector defines the desired tilt when we look
 			// into the direction of the desired heading
-			matrix::Dcmf R_yaw_correction_back = matrix::Eulerf(0.0f, 0.0f, yaw_error);
+			matrix::Dcmf R_yaw_correction_back = matrix::Eulerf(0.0f, 0.0f, -yaw_error);
 			z_roll_pitch_sp_back = R_yaw_correction_back * z_roll_pitch_sp_back;
 
 			// use the formula z_roll_pitch_sp = R_tilt * [0;0;1]
@@ -561,6 +561,7 @@ MulticopterAttitudeControl::control_attitude(float dt)
 		}
 	}
 
+	_rates_sp(2) *= 0.01f;
 	/* VTOL weather-vane mode, dampen yaw rate */
 	if (_vehicle_status.is_vtol && _v_att_sp.disable_mc_yaw_control) {
 		if (_v_control_mode.flag_control_velocity_enabled || _v_control_mode.flag_control_auto_enabled) {
