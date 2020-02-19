@@ -526,21 +526,20 @@ MissionFeasibilityChecker::checkDistanceToFirstWaypoint(const mission_s &mission
 	}
 
 	size_t current_mission_index = 0;
-		mission_s mission_state = {};
-		dm_lock(DM_KEY_MISSION_STATE);
-		/* read current state */
-		int read_res = dm_read(DM_KEY_MISSION_STATE, 0, &mission_state, sizeof(mission_s));
+	mission_s mission_state = {};
+	dm_lock(DM_KEY_MISSION_STATE);
+	/* read current state */
+	int read_res = dm_read(DM_KEY_MISSION_STATE, 0, &mission_state, sizeof(mission_s));
 
-		dm_unlock(DM_KEY_MISSION_STATE);
+	dm_unlock(DM_KEY_MISSION_STATE);
 
-		if (read_res == sizeof(mission_s)) {
-			current_mission_index = mission_state.current_seq;
-		}
+	if (read_res == sizeof(mission_s)) {
+		current_mission_index = mission_state.current_seq;
+	}
 
-		if((current_mission_index+1)>=mission_state.count)
-		{
-				current_mission_index=0; // go back to start
-		}
+	if((current_mission_index+1)>=mission_state.count) {
+			current_mission_index=0; // go back to start
+	}
 
 	/* find first waypoint (with lat/lon) item in datamanager */
 	for (size_t i = current_mission_index; i < mission.count; i++) {
