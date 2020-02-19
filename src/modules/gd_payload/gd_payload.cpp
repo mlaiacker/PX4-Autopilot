@@ -599,6 +599,9 @@ void GDPayload::vehicle_control_mode_poll()
 				if(_vstatus.in_transition_mode != vstatus.in_transition_mode && vstatus.in_transition_mode)
 				{
 					PX4_INFO("in transition start");
+					float lion_v, lion_a, lipo_v, lipo_a;
+					batGetAll(lion_v, lion_a, lipo_v, lipo_a);
+					PX4_INFO("LION(%.1fV,%fA) LIPO(%.1fV,%fA)", (double)lion_v, (double)lion_a, (double)lipo_v, (double)lipo_a);
 					switchSet(SW_BOTH);
 				}
 				if(_vstatus.in_transition_mode != vstatus.in_transition_mode && !vstatus.in_transition_mode)
@@ -622,7 +625,7 @@ void GDPayload::vehicle_control_mode_poll()
 					PX4_INFO("transition copter");
 					float lion_v, lion_a, lipo_v, lipo_a;
 					batGetAll(lion_v, lion_a, lipo_v, lipo_a);
-					if((lipo_v > lion_v || lipo_a > 2.0f) && lipo_v > 0.0f){
+					if((lipo_v > lion_v || fabsf(lipo_a) > 2.0f) && lipo_v > 0.0f){
 						switchSet(SW_LIPO);
 					} else	{
 						switchSet(SW_BOTH);
@@ -782,6 +785,7 @@ void GDPayload::run()
 				_battery_status.voltage_filtered_v = _battery_status.voltage_filtered_v*0.8f + _voltage_v*0.2f; /* override filtered value */
 				_battery_status.current_filtered_a = _battery_status.current_filtered_a*0.8f + _current_a*0.2f;
 				_battery_status.discharged_mah = _used_mAh;
+				_battery_status.priority = (uint8_t)switchStatus();
 				if(orb_publish_auto(ORB_ID(battery_status), &_pub_battery, &_battery_status, &_instance, ORB_PRIO_LOW))
 				{
 					if(_debug_flag)
