@@ -74,6 +74,9 @@ public:
 
 	static  void printTrip2Report();
 	static  void printBatteryReport();
+	static  int  switchStatus();
+	static  int  switchSet(int);
+	static  void batGetAll(float &lion_v, float &lion_a, float &lipo_v, float &lipo_a);
 private:
 	struct {
 		float battery_v_div;
