@@ -280,34 +280,30 @@ void GDPayload::printBatteryReport()
 	}
 }
 
-void GDPayload::batGetAll(float &lion_v, float &lion_a, float &lipo_v, float &lipo_a)
+void GDPayload::batGetAll(battery_status_s* lion, battery_status_s* lipo)
 {
-	int num_inst = orb_group_count(ORB_ID(battery_status));
-	lion_v = -1.0f;
-	lion_a =  0.0f;
-
-	lipo_v = -1.0f;
-	lipo_a =  0.0f;
-	for(int i=0;i<num_inst;i++)
+	if(lion!= NULL && lipo != NULL)
 	{
-			int sub_battery = orb_subscribe_multi(ORB_ID(battery_status),i);
-			if(sub_battery!=-1)
-			{
-				struct battery_status_s bat;
-				orb_copy(ORB_ID(battery_status), sub_battery, &bat);
-				if(bat.serial_number==64){
-					lion_v = bat.voltage_filtered_v;
-					lion_a = bat.current_filtered_a;
+		int num_inst = orb_group_count(ORB_ID(battery_status));
+		for(int i=0;i<num_inst;i++)
+		{
+				int sub_battery = orb_subscribe_multi(ORB_ID(battery_status),i);
+				if(sub_battery!=-1)
+				{
+					struct battery_status_s bat;
+					orb_copy(ORB_ID(battery_status), sub_battery, &bat);
+					if(bat.serial_number==64){
+						*lion = bat;
+					}
+					if(bat.serial_number==69){
+						*lipo = bat;
+					}
+					orb_unsubscribe(sub_battery);
+				} else
+				{
+					PX4_ERR("failed to subscribe to batt topic");
 				}
-				if(bat.serial_number==69){
-					lipo_v = bat.voltage_filtered_v;
-					lipo_a = bat.current_filtered_a;
-				}
-				orb_unsubscribe(sub_battery);
-			} else
-			{
-				PX4_ERR("failed to subscribe to batt topic");
-			}
+		}
 	}
 }
 
@@ -590,61 +586,66 @@ void GDPayload::vehicle_control_mode_poll()
 	{
 		bool updated;
 		orb_check(_sub_vehicle_status, &updated);
-		if (updated)
+		int switch_status = switchStatus();
+		if(switch_status>=0)
 		{
-			if(switchStatus()>=0)
+			struct battery_status_s lion={0}, lipo={0};
+			batGetAll(&lion, &lipo);
+			if(!_vstatus.in_transition_mode && !_vstatus.in_transition_to_fw)
+			{
+				if(!_vstatus.is_rotary_wing )/* we are fixed wing */
+				{
+					if((lion.voltage_filtered_v > lipo.voltage_filtered_v || fabsf(lion.current_filtered_a) > 2.0f)
+							&& lion.voltage_filtered_v > lion.cell_count*3.0f
+							)
+					{
+						switchSet(SW_LION);
+						PX4_INFO("LION Activated");
+					}/* else	{
+						switchSet(SW_BOTH);
+						PX4_ERR("LION fail LION(%.1fV,%fA) LIPO(%.1fV,%fA)", (double)lion_v, (double)lion_a, (double)lipo_v, (double)lipo_a);
+					}*/
+				} else /* we are copter */
+				{
+					if((lipo.voltage_filtered_v > lion.voltage_filtered_v || fabsf(lipo.current_filtered_a) > 2.0f)
+							&& lipo.voltage_filtered_v > lipo.cell_count*3.0f
+							){
+						switchSet(SW_LIPO);
+						PX4_INFO("LIPO Activated");
+					}
+				}
+			}
+			if (updated)
 			{
 				struct vehicle_status_s vstatus;
 				orb_copy(ORB_ID(vehicle_status), _sub_vehicle_status, &vstatus);
+				PX4_INFO("LION(%.1fV,%fA) LIPO(%.1fV,%fA) 0x%x", (double)lion.voltage_filtered_v, (double)lion.current_filtered_a, (double)lipo.voltage_filtered_v, (double)lipo.current_filtered_a, switch_status&0x03);
 				if(_vstatus.in_transition_mode != vstatus.in_transition_mode && vstatus.in_transition_mode)
 				{
 					PX4_INFO("in transition start");
-					float lion_v, lion_a, lipo_v, lipo_a;
-					batGetAll(lion_v, lion_a, lipo_v, lipo_a);
-					PX4_INFO("LION(%.1fV,%fA) LIPO(%.1fV,%fA)", (double)lion_v, (double)lion_a, (double)lipo_v, (double)lipo_a);
 					switchSet(SW_BOTH);
 				}
-				if(_vstatus.in_transition_mode != vstatus.in_transition_mode && !vstatus.in_transition_mode)
+/*				if(_vstatus.in_transition_mode != vstatus.in_transition_mode && !vstatus.in_transition_mode)
 				{
 					PX4_INFO("in transition end");
-					float lion_v, lion_a, lipo_v, lipo_a;
-					batGetAll(lion_v, lion_a, lipo_v, lipo_a);
-					PX4_INFO("LION(%.1fV,%fA) LIPO(%.1fV,%fA)", (double)lion_v, (double)lion_a, (double)lipo_v, (double)lipo_a);
-				}
+				}*/
 				if(_vstatus.in_transition_to_fw != vstatus.in_transition_to_fw && vstatus.in_transition_to_fw)
 				{
 					PX4_INFO("transition to fw start");
 					switchSet(SW_BOTH);
 				}
-				if(_vstatus.in_transition_to_fw != vstatus.in_transition_to_fw && !vstatus.in_transition_to_fw)
+/*				if(_vstatus.in_transition_to_fw != vstatus.in_transition_to_fw && !vstatus.in_transition_to_fw)
 				{
 					PX4_INFO("transition to fw finished");
 				}
 				if(_vstatus.is_rotary_wing != vstatus.is_rotary_wing && vstatus.is_rotary_wing)
 				{
 					PX4_INFO("transition copter");
-					float lion_v, lion_a, lipo_v, lipo_a;
-					batGetAll(lion_v, lion_a, lipo_v, lipo_a);
-					if((lipo_v > lion_v || fabsf(lipo_a) > 2.0f) && lipo_v > 0.0f){
-						switchSet(SW_LIPO);
-					} else	{
-						switchSet(SW_BOTH);
-						PX4_ERR("LIPO fail LION(%.1fV,%fA) LIPO(%.1fV,%fA)", (double)lion_v, (double)lion_a, (double)lipo_v, (double)lipo_a);
-					}
 				}
 				if(_vstatus.is_rotary_wing != vstatus.is_rotary_wing && !vstatus.is_rotary_wing)
 				{
 					PX4_INFO("transition fw");
-					float lion_v, lion_a, lipo_v, lipo_a;
-					batGetAll(lion_v, lion_a, lipo_v, lipo_a);
-					if((lion_v > lipo_v || lion_a > 2.0f) && lion_v > 0.0f)
-					{
-						switchSet(SW_LION);
-					} else	{
-						switchSet(SW_BOTH);
-						PX4_ERR("LION fail LION(%.1fV,%fA) LIPO(%.1fV,%fA)", (double)lion_v, (double)lion_a, (double)lipo_v, (double)lipo_a);
-					}
-				}
+				}*/
 				_vstatus = vstatus;
 			}
 		}
@@ -785,7 +786,7 @@ void GDPayload::run()
 				_battery_status.voltage_filtered_v = _battery_status.voltage_filtered_v*0.8f + _voltage_v*0.2f; /* override filtered value */
 				_battery_status.current_filtered_a = _battery_status.current_filtered_a*0.8f + _current_a*0.2f;
 				_battery_status.discharged_mah = _used_mAh;
-				_battery_status.priority = (uint8_t)switchStatus();
+				_battery_status.priority = (uint8_t)switchStatus()&0x03;
 				if(orb_publish_auto(ORB_ID(battery_status), &_pub_battery, &_battery_status, &_instance, ORB_PRIO_LOW))
 				{
 					if(_debug_flag)
