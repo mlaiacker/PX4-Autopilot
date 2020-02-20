@@ -603,19 +603,16 @@ void GDPayload::vehicle_control_mode_poll()
 			{
 				if(!_vstatus.is_rotary_wing )/* we are fixed wing */
 				{
-					if((lion.voltage_filtered_v > lipo.voltage_filtered_v || fabsf(lion.current_filtered_a) > 2.0f)
+					if((lion.voltage_filtered_v > lipo.voltage_filtered_v || fabsf(lion.current_filtered_a) > 3.0f)
 							&& lion.voltage_filtered_v > lion.cell_count*3.0f
 							)
 					{
 						switchSet(SW_LION);
 						PX4_INFO("LION Activated");
-					}/* else	{
-						switchSet(SW_BOTH);
-						PX4_ERR("LION fail LION(%.1fV,%fA) LIPO(%.1fV,%fA)", (double)lion_v, (double)lion_a, (double)lipo_v, (double)lipo_a);
-					}*/
+					}
 				} else /* we are copter */
 				{
-					if((lipo.voltage_filtered_v > lion.voltage_filtered_v || fabsf(lipo.current_filtered_a) > 2.0f)
+					if((lipo.voltage_filtered_v > lion.voltage_filtered_v || fabsf(lipo.current_filtered_a) > 3.0f)
 							&& lipo.voltage_filtered_v > lipo.cell_count*3.0f
 							){
 						switchSet(SW_LIPO);
@@ -627,10 +624,11 @@ void GDPayload::vehicle_control_mode_poll()
 			{
 				struct vehicle_status_s vstatus;
 				orb_copy(ORB_ID(vehicle_status), _sub_vehicle_status, &vstatus);
-				PX4_INFO("LION(%.1fV,%fA) LIPO(%.1fV,%fA) 0x%x", (double)lion.voltage_filtered_v, (double)lion.current_filtered_a, (double)lipo.voltage_filtered_v, (double)lipo.current_filtered_a, switch_status&0x03);
+				if(_debug_flag) {
+					PX4_INFO("LION(%.1fV,%fA) LIPO(%.1fV,%fA) 0x%x", (double)lion.voltage_filtered_v, (double)lion.current_filtered_a, (double)lipo.voltage_filtered_v, (double)lipo.current_filtered_a, switch_status&0x03);
+				}
 				if(_vstatus.in_transition_mode != vstatus.in_transition_mode && vstatus.in_transition_mode)
 				{
-					PX4_INFO("in transition start");
 					switchSet(SW_BOTH);
 				}
 /*				if(_vstatus.in_transition_mode != vstatus.in_transition_mode && !vstatus.in_transition_mode)
@@ -639,7 +637,6 @@ void GDPayload::vehicle_control_mode_poll()
 				}*/
 				if(_vstatus.in_transition_to_fw != vstatus.in_transition_to_fw && vstatus.in_transition_to_fw)
 				{
-					PX4_INFO("transition to fw start");
 					switchSet(SW_BOTH);
 				}
 /*				if(_vstatus.in_transition_to_fw != vstatus.in_transition_to_fw && !vstatus.in_transition_to_fw)
