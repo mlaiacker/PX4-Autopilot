@@ -309,23 +309,27 @@ void GDPayload::batGetAll(battery_status_s* lion, battery_status_s* lipo)
 
 int GDPayload::switchStatus()
 {
-	int fd= open("/dev/pca9536", O_RDWR);
 	int port = -1;
+#ifdef __PX4_NUTTX
+	int fd= open("/dev/pca9536", O_RDWR);
 	if(fd>0){
 		port = px4_ioctl(fd, IOX_GET_MASK, 0);
 		close(fd);
 	}
+#endif
 	return port;
 }
 
 int GDPayload::switchSet(int val)
 {
-	int fd= open("/dev/pca9536", O_RDWR);
 	int port = -1;
+#ifdef __PX4_NUTTX
+	int fd= open("/dev/pca9536", O_RDWR);
 	if(fd>0){
 		port = px4_ioctl(fd, IOX_SET_VALUE, val);
 		close(fd);
 	}
+#endif
 	return port;
 }
 
