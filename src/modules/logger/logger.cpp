@@ -605,7 +605,7 @@ void Logger::add_default_topics()
 	add_topic("actuator_controls_1", 100);
 	add_topic("actuator_outputs", 100);
 	add_topic("airspeed", 200);
-	add_topic("att_pos_mocap", 50);
+//	add_topic("att_pos_mocap", 50);
 	add_topic("battery_status", 500);
 	add_topic("camera_capture");
 	add_topic("camera_trigger");
@@ -621,7 +621,7 @@ void Logger::add_default_topics()
 	add_topic("manual_control_setpoint", 200);
 	add_topic("mission");
 	add_topic("mission_result");
-	add_topic("optical_flow", 50);
+//	add_topic("optical_flow", 50);
 //	add_topic("ping");
 	add_topic("position_setpoint_triplet", 200);
 	add_topic("rate_ctrl_status", 30);
@@ -646,10 +646,10 @@ void Logger::add_default_topics()
 //	add_topic("vehicle_vision_position");
 	add_topic("vtol_vehicle_status", 200);
 	add_topic("wind_estimate", 200);
-	add_topic("timesync_status");
+//	add_topic("timesync_status");
 
 	add_topic("trip2_sys_report",200);
-	add_topic("trip2_los_report",200);
+//	add_topic("trip2_los_report",200);
 	add_topic("trip2_gnd_report",200);
 
 #ifdef CONFIG_ARCH_BOARD_SITL
