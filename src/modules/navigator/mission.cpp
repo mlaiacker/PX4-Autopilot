@@ -445,7 +445,8 @@ Mission::update_offboard_mission()
 	_navigator->reset_triplets();
 	if(PX4_ISFINITE(_navigator->get_global_position()->lat) &&
 			PX4_ISFINITE(_navigator->get_global_position()->lon) &&
-			PX4_ISFINITE(_navigator->get_global_position()->alt)){
+			PX4_ISFINITE(_navigator->get_global_position()->alt) &&
+			_navigator->is_planned_mission()){
 		// use current position so we go along a line to next waypoint
 		_navigator->get_position_setpoint_triplet()->current.lat = _navigator->get_global_position()->lat;
 		_navigator->get_position_setpoint_triplet()->current.lon = _navigator->get_global_position()->lon;
