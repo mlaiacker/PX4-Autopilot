@@ -168,6 +168,19 @@ Mission::on_activation()
 
 	set_mission_items();
 
+	if(PX4_ISFINITE(_navigator->get_global_position()->lat) &&
+			PX4_ISFINITE(_navigator->get_global_position()->lon) &&
+			PX4_ISFINITE(_navigator->get_global_position()->alt) &&
+			!_navigator->get_vstatus()->is_rotary_wing){
+		// use current position so we go along a line to next waypoint
+		_navigator->get_position_setpoint_triplet()->previous.lat = _navigator->get_global_position()->lat;
+		_navigator->get_position_setpoint_triplet()->previous.lon = _navigator->get_global_position()->lon;
+		_navigator->get_position_setpoint_triplet()->previous.alt = _navigator->get_global_position()->alt;
+		_navigator->get_position_setpoint_triplet()->previous.alt_valid  =true;
+		_navigator->get_position_setpoint_triplet()->previous.position_valid = true;
+		_navigator->get_position_setpoint_triplet()->previous.valid = true;
+	}
+
 	// unpause triggering if it was paused
 	vehicle_command_s cmd = {};
 	cmd.command = vehicle_command_s::VEHICLE_CMD_DO_TRIGGER_CONTROL;
