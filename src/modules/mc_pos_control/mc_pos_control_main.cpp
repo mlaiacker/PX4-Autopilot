@@ -2661,7 +2661,7 @@ MulticopterPositionControl::calculate_thrust_setpoint()
 				saturation_z = vel_err(2) < 0.0f ? true : saturation_z;
 			} else {
 				float l = matrix::Vector3f(thrust_sp(0), thrust_sp(1), thrust_sp(2)).length();
-				if(l>0.0f)
+				if(l>0.001f)
 				{
 					float k = thr_max*0.99f / l;
 					thrust_sp(2) *= k;
