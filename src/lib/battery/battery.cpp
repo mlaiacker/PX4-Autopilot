@@ -81,6 +81,58 @@ Battery::updateBatteryStatus(hrt_abstime timestamp, float voltage_v, float curre
 
 	if (_battery_initialized) {
 		determineWarning(connected);
+	} else
+	{
+		_time_armed = timestamp;
+		_discharged_mah_armed = _discharged_mah;
+	}
+
+	if(_armed!= armed)
+	{
+		if(((int)_armed)==0 && ((int)armed)>0)
+		{
+			_time_armed = timestamp;
+			_discharged_mah_armed = _discharged_mah;
+		}
+	}
+	_armed = armed;
+	float duration_flight_s = (timestamp-_time_armed)*1.0e-6f;
+	if(duration_flight_s>10.0f && _battery_initialized){
+
+		if(_startRemaining<0.0f){
+			_startRemaining = _remaining_voltage;
+			_capacity_mah = _param_bat_capacity.get()*_startRemaining;
+			if(_param_capacity_vt_landig.get()>0)	{
+				_capacity_mah -= _param_capacity_vt_landig.get();
+				if(_capacity_mah<0.0f){
+					_capacity_mah=0.0f;
+				}
+			}
+		}
+		/* calculate remaining time based on average current */
+		//if(_discharged_mah>_discharged_mah_armed)
+		{
+			/* average current since last arming */
+			battery_status->average_current_a = _current_average_a;
+					//(_discharged_mah-_discharged_mah_armed)*3600.0f/(duration_flight_s*1000.0f);
+			if(battery_status->average_current_a>0.0f)
+			{
+				float max_flight_time = 3600.0f*_capacity_mah/(battery_status->average_current_a*1000.0f);// in seconds
+				if(max_flight_time<UINT16_MAX && max_flight_time>0.0f)
+				{
+					battery_status->run_time_to_empty = (uint16_t)(max_flight_time);
+				}
+				float capacity_left_mAs = (_capacity_mah - _discharged_mah)*3600.0f;
+				//float capacity_used_mAs = (_discharged_mah-_discharged_mah_armed)*3600.0f; // used since last arming
+				float tte = capacity_left_mAs/(battery_status->average_current_a*1000.0f);
+
+				if(tte<UINT16_MAX && tte>0.0f)
+				{
+					battery_status->average_time_to_empty = (uint16_t)tte;
+				}
+				battery_status->cycle_count = (uint16_t)duration_flight_s;
+			}
+		}
 	}
 
 	if (_voltage_filtered_v > 2.1f) {
@@ -96,6 +148,7 @@ Battery::updateBatteryStatus(hrt_abstime timestamp, float voltage_v, float curre
 		battery_status->connected = connected;
 		battery_status->system_source = selected_source;
 		battery_status->priority = priority;
+		battery_status->capacity = _capacity_mah;
 	}
 
 	battery_status->temperature = NAN;
@@ -109,7 +162,7 @@ Battery::filterVoltage(float voltage_v)
 	}
 
 	// TODO: inspect that filter performance
-	const float filtered_next = _voltage_filtered_v * 0.99f + voltage_v * 0.01f;
+	const float filtered_next = _voltage_filtered_v * 0.98f + voltage_v * 0.02f;
 
 	if (PX4_ISFINITE(filtered_next)) {
 		_voltage_filtered_v = filtered_next;
@@ -121,6 +174,8 @@ Battery::filterCurrent(float current_a)
 {
 	if (!_battery_initialized) {
 		_current_filtered_a = current_a;
+		_current_average_a = current_a;
+
 	}
 
 	// ADC poll is at 100Hz, this will perform a low pass over approx 500ms
@@ -129,6 +184,8 @@ Battery::filterCurrent(float current_a)
 	if (PX4_ISFINITE(filtered_next)) {
 		_current_filtered_a = filtered_next;
 	}
+
+	_current_average_a = _current_average_a * 0.999f + _current_filtered_a * 0.001f;
 }
 
 void Battery::filterThrottle(float throttle)
@@ -147,14 +204,6 @@ void Battery::filterThrottle(float throttle)
 void
 Battery::sumDischarged(hrt_abstime timestamp, float current_a)
 {
-	// Not a valid measurement
-	if (current_a < 0.f) {
-		// Because the measurement was invalid we need to stop integration
-		// and re-initialize with the next valid measurement
-		_last_timestamp = 0;
-		return;
-	}
-
 	// Ignore first update because we don't know dt.
 	if (_last_timestamp != 0) {
 		const float dt = (timestamp - _last_timestamp) / 1e6;
@@ -191,12 +240,13 @@ Battery::estimateRemaining(float voltage_v, float current_a, float throttle, boo
 			_remaining = _remaining_voltage;
 
 		} else {
-			// The lower the voltage the more adjust the estimate with it to avoid deep discharge
-			const float weight_v = 3e-4f * (1 - _remaining_voltage);
-			_remaining = (1 - weight_v) * _remaining + weight_v * _remaining_voltage;
-			// directly apply current capacity slope calculated using current
-			_remaining -= _discharged_mah_loop / _param_bat_capacity.get();
+			_remaining = 1.0f - (_discharged_mah / _param_bat_capacity.get());
 			_remaining = math::max(_remaining, 0.f);
+			if(_startRemaining>=0.0f && _startRemaining<=1.0f)
+			{
+				// subtract start remaining from remaining based on used mAh to deal with a startup with not fully charged battery
+				_remaining = math::max(_remaining-(1.0f-_startRemaining), 0.0f);
+			}
 		}
 
 	} else {

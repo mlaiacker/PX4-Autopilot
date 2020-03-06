@@ -72,6 +72,23 @@ public:
 	float full_cell_voltage() { return _param_bat_v_charged.get(); }
 
 	/**
+	 * get remaining estimate based on voltage
+	 */
+	float getRemainingVoltage() {return _remaining_voltage; }
+
+	/**
+	 * get capacity param value
+	 */
+	float getCapacity() {	return _param_bat_capacity.get();};
+	float getCapacityReserve() {	return _param_capacity_vt_landig.get();};
+
+	/*
+	 * for hil
+	 */
+
+	void rechargeBattery(){ _discharged_mah=0.f; _battery_initialized = false; _discharged_mah_armed = 0.f;};
+
+	/**
 	 * Update current battery status message.
 	 *
 	 * @param voltage_v: current voltage in V
@@ -104,7 +121,8 @@ private:
 		(ParamFloat<px4::params::BAT_R_INTERNAL>) _param_bat_r_internal,
 		(ParamFloat<px4::params::BAT_LOW_THR>) _param_bat_low_thr,
 		(ParamFloat<px4::params::BAT_CRIT_THR>) _param_bat_crit_thr,
-		(ParamFloat<px4::params::BAT_EMERGEN_THR>) _param_bat_emergen_thr
+		(ParamFloat<px4::params::BAT_EMERGEN_THR>) _param_bat_emergen_thr,
+		(ParamFloat<px4::params::BAT_CAP_VT_LAND>) _param_capacity_vt_landig // vtol reserved capaciy for landing
 	)
 
 	bool _battery_initialized = false;
@@ -118,4 +136,11 @@ private:
 	float _scale = 1.f;
 	uint8_t _warning;
 	hrt_abstime _last_timestamp;
+
+	bool	_armed=false;
+	hrt_abstime _time_armed=0;
+	float _discharged_mah_armed = 0.f;
+	float _startRemaining = -1.f; ///< estimated percent remaining based on voltage at start
+	float _capacity_mah=0.0f; ///< estimated capacity left in battery at first boot
+	float _current_average_a = -1.f;
 };
