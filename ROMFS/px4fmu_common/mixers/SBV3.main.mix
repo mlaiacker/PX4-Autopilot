@@ -1,0 +1,17 @@
+#The mixer definition is a single line of the form:
+#R: <geometry> <roll scale> <pitch scale> <yaw scale> <idlespeed>
+
+R: 4x 10000 10000 10000 0
+
+
+Tilt mechanism servo mixer
+---------------------------
+#LEFT FW:900 MC:2100
+M: 2
+S: 1 4      0 -22000  11000 -11000  12000
+S: 0 6  -8000  -8000      0 -11000  11000
+
+#RIGHT 
+M: 2
+S: 1 4      0 -22000  11000 -11000  12000
+S: 0 6   8000   8000      0 -11000  11000
