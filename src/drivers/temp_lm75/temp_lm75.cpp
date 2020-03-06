@@ -386,7 +386,6 @@ TEMP_LM75::try_read_data(debug_key_value_s &new_report, uint64_t now){
 		}
 		_temperature_C = temp_125c*0.125;
 		new_report.timestamp = now;
-		new_report.timestamp_ms = (uint32_t)(now/1000);
 		new_report.value = _temperature_C;
 		memcpy(new_report.key, _name, sizeof(new_report.key));
 		return true;
