@@ -148,7 +148,10 @@ set(msg_files
 	vtol_vehicle_status.msg
 	wheel_encoders.msg
 	wind_estimate.msg
-	)
+	trip2_sys_report.msg
+	trip2_los_report.msg
+	trip2_gnd_report.msg
+)
 
 if(NOT EXTERNAL_MODULES_LOCATION STREQUAL "")
 	# Check that the msg directory and the CMakeLists.txt file exists
