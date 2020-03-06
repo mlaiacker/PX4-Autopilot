@@ -42,6 +42,7 @@
 #include <px4_getopt.h>
 #include <px4_log.h>
 #include <px4_posix.h>
+#include <math.h>
 
 #include <sys/types.h>
 #include <sys/ioctl.h>
@@ -57,6 +58,7 @@
 #include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/topics/vehicle_command.h>
 #include <uORB/topics/vehicle_status.h>
+#include <uORB/topics/vtol_vehicle_status.h>
 #include <uORB/topics/vehicle_command_ack.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/trip2_sys_report.h>
@@ -426,6 +428,7 @@ bool GDPayload::init()
 	_sub_vcontrol_mode = orb_subscribe(ORB_ID(vehicle_control_mode));
 	_sub_vehicle_cmd = orb_subscribe(ORB_ID(vehicle_command));
 	_sub_vehicle_status = orb_subscribe(ORB_ID(vehicle_status));
+	_sub_vtol_status = orb_subscribe(ORB_ID(vtol_vehicle_status));
 	return result;
 }
 
@@ -597,11 +600,13 @@ void GDPayload::vehicle_control_mode_poll()
 		int switch_status = switchStatus();
 		if(switch_status>=0)
 		{
+			struct vtol_vehicle_status_s vtol_status;
+			orb_copy(ORB_ID(vtol_vehicle_status), _sub_vtol_status, &vtol_status);
 			struct battery_status_s lion={0}, lipo={0};
 			batGetAll(&lion, &lipo);
 			if(!_vstatus.in_transition_mode && !_vstatus.in_transition_to_fw)
 			{
-				if(!_vstatus.is_rotary_wing )/* we are fixed wing */
+				if(!vtol_status.vtol_in_rw_mode )/* we are fixed wing */
 				{
 					if((lion.voltage_filtered_v > lipo.voltage_filtered_v || fabsf(lion.current_filtered_a) > 3.0f)
 							&& lion.voltage_filtered_v > lion.cell_count*3.0f

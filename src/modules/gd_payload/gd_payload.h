@@ -122,6 +122,7 @@ private:
 	int		_sub_trip2{-1};
 	int 	_sub_vehicle_cmd{-1};
 	int		_sub_vehicle_status{-1};
+	int 	_sub_vtol_status{-1};
 
 	bool		_armed{false};
 	bool		_auto_mode{false};
