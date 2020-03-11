@@ -733,8 +733,11 @@ bool  GDPayload::readPayloadAdc()
 		actuator_controls_s ctrl;
 		orb_copy(ORB_ID(actuator_controls_0), _sub_actuator_ctrl_0, &ctrl);
 
+		struct vtol_vehicle_status_s vtol_status;
+		orb_copy(ORB_ID(vtol_vehicle_status), _sub_vtol_status, &vtol_status);
+
 		if (_vstatus.arming_state == _vstatus.ARMING_STATE_ARMED){
-			if(_vstatus.is_rotary_wing){
+			if(!vtol_status.vtol_in_rw_mode){
 				sim_current_a += 5.0f + 180.0f*ctrl.control[actuator_controls_s::INDEX_THROTTLE]*ctrl.control[actuator_controls_s::INDEX_THROTTLE];
 			} else{
 				sim_current_a += 1.0f + 75.0f*ctrl.control[actuator_controls_s::INDEX_THROTTLE]*ctrl.control[actuator_controls_s::INDEX_THROTTLE]
