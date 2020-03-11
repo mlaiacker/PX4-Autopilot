@@ -2009,6 +2009,7 @@ MavlinkReceiver::handle_message_hil_sensor(mavlink_message_t *msg)
 		airspeed.timestamp = timestamp;
 		airspeed.indicated_airspeed_m_s = ias;
 		airspeed.true_airspeed_m_s = tas;
+		airspeed.air_temperature_celsius = imu.temperature;
 
 		_airspeed_pub.publish(airspeed);
 	}
