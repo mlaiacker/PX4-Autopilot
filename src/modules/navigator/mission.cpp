@@ -74,6 +74,8 @@ Mission::on_inactive()
 		return;
 	}
 
+
+	_mission_changed |= checkMissionWhenArming();
 	if (_inited) {
 		if (_mission_sub.updated()) {
 			update_mission();
@@ -276,6 +278,8 @@ Mission::on_active()
 
 		do_abort_landing();
 	}
+
+	_mission_changed |= checkMissionWhenArming();
 }
 
 bool
@@ -1806,3 +1810,77 @@ bool Mission::position_setpoint_equal(const position_setpoint_s *p1, const posit
 		(fabsf(p1->cruising_throttle - p2->cruising_throttle) < FLT_EPSILON));
 
 }
+
+bool
+Mission::checkMissionWhenArming()
+{
+	if(_navigator->get_vstatus()->arming_state==vehicle_status_s::ARMING_STATE_ARMED && !_armed)
+	{
+		_armed  = true;
+		PX4_INFO("armed");
+	} else if(_navigator->get_vstatus()->arming_state!=vehicle_status_s::ARMING_STATE_ARMED && _armed)
+	{
+		_armed  = false;
+		return false;
+	} else {
+		return false;
+	}
+
+	double lat = _navigator->get_global_position()->lat;
+	double lon = _navigator->get_global_position()->lon;
+
+	if(!PX4_ISFINITE(lat) || !PX4_ISFINITE(lon)) {
+		return false;
+	}
+
+	struct mission_item_s land_missionitem = {};
+	uint16_t land_index = 0;
+	uint16_t rtl_index = 0;
+	bool land_found = false;
+	bool rtl_found = false;
+	const ssize_t len = sizeof(struct mission_item_s);
+
+	for (uint16_t i = 0; i<_mission.count ; i++) {
+		struct mission_item_s missionitem = {};
+
+		if (dm_read((dm_item_t)_mission.dataman_id, i, &missionitem, len) != len) {
+			/* not supposed to happen unless the datamanager can't access the SD card, etc. */
+			return false;
+		}
+
+		// look for a RTL command
+		if (missionitem.nav_cmd == NAV_CMD_RETURN_TO_LAUNCH && land_found) {
+			if(fabsf(land_index-i)<3)
+			{
+				PX4_INFO("found land(%i) and RTL(%i)",land_index, i);
+				rtl_found = true;
+				rtl_index = i;
+			}
+		}
+		if((missionitem.nav_cmd == NAV_CMD_VTOL_LAND || missionitem.nav_cmd == NAV_CMD_LAND) && !rtl_found)
+		{
+			land_index = i;
+			land_missionitem = missionitem;
+			land_found = true;
+		}
+	}
+
+	if(rtl_found && land_found)
+	{
+		land_missionitem.lat = lat;
+		land_missionitem.lon = lon;
+		PX4_INFO("updating landing(%i) rtl(%i)", land_index, rtl_index);
+
+		if (dm_write((dm_item_t)_mission.dataman_id, land_index, DM_PERSIST_POWER_ON_RESET, &land_missionitem, len) != len) {
+			/* not supposed to happen unless the datamanager can't access the SD card, etc. */
+			PX4_ERR("failed to write mission");
+			return false;
+		}
+
+		mavlink_log_info(_navigator->get_mavlink_log_pub(), "Mission: land(%i) at arm position",land_index);
+		return true;
+	}
+	// all checks have passed
+	return false;
+}
+
