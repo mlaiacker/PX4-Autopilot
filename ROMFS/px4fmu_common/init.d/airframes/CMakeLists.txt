@@ -133,7 +133,8 @@ px4_add_romfs_files(
 	13012_convergence
 	13013_deltaquad
 	13200_generic_vtol_tailsitter
-
+        13015_Songbird_V3
+        
 	# [14000, 14999] Tri Y
 	14001_tri_y_yaw+
 	14002_tri_y_yaw-
