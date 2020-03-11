@@ -527,13 +527,29 @@ MissionFeasibilityChecker::checkFixedWingLanding(const mission_s &mission, bool 
 bool
 MissionFeasibilityChecker::checkDistanceToFirstWaypoint(const mission_s &mission, float max_distance)
 {
-	if (max_distance <= 0.0f) {
-		/* param not set, check is ok */
+	if (max_distance <= 0.0f || _navigator->get_vstatus()->arming_state==vehicle_status_s::ARMING_STATE_ARMED) {
+		/* param not set or armed, check is ok */
 		return true;
 	}
 
+	size_t current_mission_index = 0;
+	mission_s mission_state = {};
+	dm_lock(DM_KEY_MISSION_STATE);
+	/* read current state */
+	int read_res = dm_read(DM_KEY_MISSION_STATE, 0, &mission_state, sizeof(mission_s));
+
+	dm_unlock(DM_KEY_MISSION_STATE);
+
+	if (read_res == sizeof(mission_s)) {
+		current_mission_index = mission_state.current_seq;
+	}
+
+	if((current_mission_index+1)>=mission_state.count) {
+			current_mission_index=0; // go back to start
+	}
+
 	/* find first waypoint (with lat/lon) item in datamanager */
-	for (size_t i = 0; i < mission.count; i++) {
+	for (size_t i = current_mission_index; i < mission.count; i++) {
 
 		struct mission_item_s mission_item {};
 
@@ -560,8 +576,8 @@ MissionFeasibilityChecker::checkDistanceToFirstWaypoint(const mission_s &mission
 		} else {
 			/* item is too far from home */
 			mavlink_log_critical(_navigator->get_mavlink_log_pub(),
-					     "First waypoint too far away: %d meters, %d max.",
-					     (int)dist_to_1wp, (int)max_distance);
+					     "First waypoint(%i) too far away: %d meters, %d max.",
+					     (int)i, (int)dist_to_1wp, (int)max_distance);
 
 			_navigator->get_mission_result()->warning = true;
 			return false;
