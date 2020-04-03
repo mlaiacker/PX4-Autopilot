@@ -10,7 +10,7 @@ SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
 #
 # Main SITL startup script
 #
-
+# build/px4_sitl_songbird/tmp/rootfs$ ../../bin/px4 -s etc/init.d-posix/13015_sitl_songbird ../../../../ROMFS/px4fmu_common/
 
 # initialize script variables
 set AUX_MODE                    none
@@ -92,9 +92,9 @@ pwm_out_sim start
 
 
 sensors start -h
-commander start
+commander start -h
 
-navigator start -h
+navigator start
 ekf2 start
 vtol_att_control start
 mc_pos_control start
@@ -133,5 +133,7 @@ mavlink stream -r 10 -s HIL_ACTUATOR_CONTROLS -u 14556
 #linux_sbus start -d /dev/ttyUSB0
 
 #camera_trigger start
+
+commander lockdown off
 
 mavlink boot_complete
