@@ -94,7 +94,7 @@ pwm_out_sim start
 sensors start -h
 commander start
 
-navigator start
+navigator start -h
 ekf2 start
 vtol_att_control start
 mc_pos_control start
