@@ -40,14 +40,3 @@
  * @group Mount
  */
 PARAM_DEFINE_INT32(MNT_TRIP_MAVLINK, 0);
-
-
-/**
- * start a second gps on SER4
- *
- * @reboot_required true
- *
- * @boolean
- * @group GPS
- */
-PARAM_DEFINE_INT32(GPS2_ENABLE, 0);

@@ -27,7 +27,7 @@ sh /etc/init.d/rc.vtol_defaults
 if [ $AUTOCNF == yes ]
 then
 #TODO: copy default parameter
-	param set VT_TYPE 2
+	param set VT_TYPE 1
 	param set VT_MOT_COUNT 4
 	param set VT_F_TRANS_THR 0.80
 	param set VT_ARSP_TRANS 14
@@ -63,9 +63,6 @@ then
 	param set FW_THR_CRUISE 0.30
 
 	param set VT_IDLE_PWM_MC 1170
-	
-	param set MNT_TRIP_MAVLINK 0
-	param set GPS2_ENABLE 	   0
 fi
 
 set MIXER SBV3
@@ -84,15 +81,6 @@ batt_pac17xx start -b 1 -r 0.2 -s 80
 temp_lm75 start -n tempPDB
 
 gd_payload start
-usleep 20000
-gd_payload on
-
-if param compare SENS_EN_TFMINI 0 
-then
-	if param compare GPS2_ENABLE 1
-		gps start -d /dev/ttyS3 -e /dev/ttyS6 -p ubx
-	fi
-fi
 
 
 # /dev/ttyS0		IO debug except v4, there ttyS0 is the wifi

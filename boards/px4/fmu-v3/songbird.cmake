@@ -17,7 +17,7 @@ px4_add_board(
 		GPS1:/dev/ttyS3
 		TEL1:/dev/ttyS1
 		TEL2:/dev/ttyS2
-		TEL4:/dev/ttyS6
+		GPS2:/dev/ttyS6
 
 	DRIVERS
 		adc
@@ -59,9 +59,11 @@ px4_add_board(
 		test_ppm
 		tone_alarm
 		uavcan
+# GD drivers
 		temp_lm75
 		batt_pac17xx
 		pca9536
+		pwr_isl28022
 
 	MODULES
 		attitude_estimator_q
@@ -120,13 +122,13 @@ px4_add_board(
 
 	EXAMPLES
 #		bottle_drop # OBC challenge
-		fixedwing_control # Tutorial code from https://px4.io/dev/example_fixedwing_control
+#		fixedwing_control # Tutorial code from https://px4.io/dev/example_fixedwing_control
 #		hello
-		hwtest # Hardware test
+#		hwtest # Hardware test
 		#matlab_csv_serial
 #		px4_mavlink_debug # Tutorial code from http://dev.px4.io/en/debug/debug_values.html
 #		px4_simple_app # Tutorial code from http://dev.px4.io/en/apps/hello_sky.html
-		rover_steering_control # Rover example app
-		uuv_example_app
+#		rover_steering_control # Rover example app
+#		uuv_example_app
 
 	)
