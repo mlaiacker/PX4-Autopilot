@@ -32,9 +32,14 @@
  ****************************************************************************/
 
 /**
- * @file uart_unisens.cpp
+ * @file gd_payload.cpp
  *
- * Read data from SM-Modellbau Unisens over uart and publish battery_status in uOrb
+ * germandrones specific functions:
+ * eading of payload voltage and current,
+ * payload on off control
+ * battery switchover for hybrid battery PDB
+ * trip2 status debug
+ * battery simulator for SITL
  *
  * @author Maximilian Laiacker <post@mlaiacker.de>
  */
