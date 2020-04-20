@@ -32,74 +32,35 @@
  ****************************************************************************/
 
 /**
-* @file tiltrotor.h
+* @file songbird.h
 *
-* @author Roman Bapst 		<bapstroman@gmail.com>
+* @author Maximilian Laiacker m.laiacker@germandrones.com
 *
 */
 
-#ifndef TILTROTOR_H
-#define TILTROTOR_H
+#ifndef SONGBIRD_H
+#define SONGBIRD_H
 #include "vtol_type.h"
+#include "tiltrotor.h"
 #include <parameters/param.h>
 #include <drivers/drv_hrt.h>
 #include <mathlib/math/filter/LowPassFilter2p.hpp>
 
-class Tiltrotor : public VtolType
+class Songbird : public Tiltrotor
 {
 
 public:
 
-	Tiltrotor(VtolAttitudeControl *_att_controller);
-	~Tiltrotor() override = default;
+	Songbird(VtolAttitudeControl *_att_controller);
+	~Songbird() override = default;
 
-	void update_vtol_state() override;
-	void update_transition_state() override;
 	void fill_actuator_outputs() override;
-	void update_mc_state() override;
-	void update_fw_state() override;
-	void waiting_on_tecs() override;
 
 private:
 
-	struct {
-		float tilt_mc;					/**< actuator value corresponding to mc tilt */
-		float tilt_transition;			/**< actuator value corresponding to transition tilt (e.g 45 degrees) */
-		float tilt_fw;					/**< actuator value corresponding to fw tilt */
-		float front_trans_dur_p2;
-	} _params_tiltrotor;
-
-	struct {
-		param_t tilt_mc;
-		param_t tilt_transition;
-		param_t tilt_fw;
-		param_t front_trans_dur_p2;
-	} _params_handles_tiltrotor;
-
-	enum class vtol_mode {
-		MC_MODE = 0,			/**< vtol is in multicopter mode */
-		TRANSITION_FRONT_P1,	/**< vtol is in front transition part 1 mode */
-		TRANSITION_FRONT_P2,	/**< vtol is in front transition part 2 mode */
-		TRANSITION_BACK,		/**< vtol is in back transition mode */
-		FW_MODE					/**< vtol is in fixed wing mode */
-	};
-
-	/**
-	 * Specific to tiltrotor with vertical aligned rear engine/s.
-	 * These engines need to be shut down in fw mode. During the back-transition
-	 * they need to idle otherwise they need too much time to spin up for mc mode.
-	 */
-
-
-	struct {
-		vtol_mode flight_mode;			/**< vtol flight mode, defined by enum vtol_mode */
-		hrt_abstime transition_start;	/**< absoulte time at which front transition started */
-	} _vtol_schedule;
 
 	float _tilt_control{0.0f};		/**< actuator value for the tilt servo */
 	math::LowPassFilter2p	_tilt_yaw_lp_pitch; /* low pass filtered yaw control output to use for differential tilting (actuator control 0.6) (rad)*/
-
-	void parameters_update() override;
 
 };
 #endif
