@@ -83,6 +83,7 @@
 #include "standard.h"
 #include "tailsitter.h"
 #include "tiltrotor.h"
+#include "songbird.h"
 
 extern "C" __EXPORT int vtol_att_control_main(int argc, char *argv[]);
 

@@ -54,18 +54,14 @@ Songbird::Songbird(VtolAttitudeControl *attc) :
 */
 void Songbird::fill_actuator_outputs()
 {
+	float tilt_pitch_rad = 0.0f; // tilt angle offset to fly forwards in mc mode
+	float tilt_angle_rad = 0.0f; // combined angle from transition and attitude control, used for mc mixing
 	// Multirotor output
 	_actuators_out_0->timestamp = hrt_absolute_time();
 	_actuators_out_0->timestamp_sample = _actuators_mc_in->timestamp_sample;
 
-	_actuators_out_0->control[actuator_controls_s::INDEX_ROLL] =
-		_actuators_mc_in->control[actuator_controls_s::INDEX_ROLL] * _mc_roll_weight;
-	_actuators_out_0->control[actuator_controls_s::INDEX_PITCH] =
-		_actuators_mc_in->control[actuator_controls_s::INDEX_PITCH] * _mc_pitch_weight;
-	_actuators_out_0->control[actuator_controls_s::INDEX_YAW] =
-		_actuators_mc_in->control[actuator_controls_s::INDEX_YAW] * _mc_yaw_weight;
-	/* filter yaw control to use for differential tilt */
-	_actuators_out_0->control[actuator_controls_s::INDEX_AIRBRAKES] = _tilt_yaw_lp_pitch.apply(_actuators_out_0->control[actuator_controls_s::INDEX_YAW]);
+
+	_mc_yaw_weight = _mc_roll_weight;
 
 	if (_vtol_schedule.flight_mode == vtol_mode::FW_MODE) {
 		_actuators_out_0->control[actuator_controls_s::INDEX_THROTTLE] =
@@ -80,13 +76,27 @@ void Songbird::fill_actuator_outputs()
 	} else {
 		_actuators_out_0->control[actuator_controls_s::INDEX_THROTTLE] =
 			_actuators_mc_in->control[actuator_controls_s::INDEX_THROTTLE] * _mc_throttle_weight;
+		/* use output of  mc_att control for _tilt based on pitch cmd*/
+		tilt_pitch_rad = (PX4_ISFINITE(_actuators_mc_in->control[4])) ? _actuators_mc_in->control[4] : 0.0f;
 	}
 
 	// Fixed wing output
 	_actuators_out_1->timestamp = hrt_absolute_time();
 	_actuators_out_1->timestamp_sample = _actuators_fw_in->timestamp_sample;
+	// _tilt_control is between 0 and 1 so mapping to 0 and 90 degrees
+	tilt_angle_rad = _tilt_control*90.0f*M_PI_F/180.0f - tilt_pitch_rad; // 0 : up pi/2 : forward
 
-	_actuators_out_1->control[4] = _tilt_control;
+	_actuators_out_1->control[4] = acosf(1.0f-(tilt_angle_rad)*4.0f/M_PI_F)/M_PI_F; /* nonlinear map from tilt angle to servo angle*/;
+
+	float tilt_cos = 1.0f/cosf(fminf(M_PI_F*0.5f, tilt_angle_rad)); // max 45deg tilt compensation
+	float tilt_sin = sinf(fminf(M_PI_F*0.5f, tilt_angle_rad))*0.5f; // compensation for roll <-> yaw coupling
+	// we have to mix
+	_actuators_out_0->control[actuator_controls_s::INDEX_ROLL] = (_actuators_mc_in->control[actuator_controls_s::INDEX_ROLL]*tilt_cos + _actuators_mc_in->control[actuator_controls_s::INDEX_YAW]*tilt_sin ) * _mc_roll_weight;
+	_actuators_out_0->control[actuator_controls_s::INDEX_PITCH] = _actuators_mc_in->control[actuator_controls_s::INDEX_PITCH]*tilt_cos * _mc_pitch_weight;
+	_actuators_out_0->control[actuator_controls_s::INDEX_YAW] =	 (_actuators_mc_in->control[actuator_controls_s::INDEX_YAW]*tilt_cos  - _actuators_mc_in->control[actuator_controls_s::INDEX_ROLL]*tilt_sin )* _mc_yaw_weight;
+	/* filter yaw control to use for differential tilt */
+	_actuators_out_0->control[actuator_controls_s::INDEX_AIRBRAKES] = _tilt_yaw_lp_pitch.apply(_actuators_out_0->control[actuator_controls_s::INDEX_YAW]);
+
 
 	if (_params->elevons_mc_lock && _vtol_schedule.flight_mode == vtol_mode::MC_MODE) {
 		_actuators_out_1->control[actuator_controls_s::INDEX_ROLL] = 0.0f;

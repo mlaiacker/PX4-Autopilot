@@ -59,7 +59,7 @@ public:
 	void update_fw_state() override;
 	void waiting_on_tecs() override;
 
-private:
+protected:
 
 	struct {
 		float tilt_mc;					/**< actuator value corresponding to mc tilt */
