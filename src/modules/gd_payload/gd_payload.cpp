@@ -717,7 +717,7 @@ bool  GDPayload::readPayloadAdc()
 #else
 	_voltage_v = _battery_sim.cell_count()*_battery_sim.full_cell_voltage() + rand()*0.1f/RAND_MAX;
 	_current_a = (0.83f + rand()*0.01f/RAND_MAX)*g_gd_payload_on;
-	vehicle_control_mode_poll();
+	orb_copy(ORB_ID(vehicle_status), _sub_vehicle_status, &_vstatus);
 	if(_vstatus.hil_state == _vstatus.HIL_STATE_ON)
 	{
 		float sim_current_a=_current_a, sim_voltage_v= _voltage_v;
