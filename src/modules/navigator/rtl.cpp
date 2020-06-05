@@ -72,6 +72,10 @@ RTL::rtl_type() const
 void
 RTL::on_activation()
 {
+	const home_position_s &home = *_navigator->get_home_position();
+	const vehicle_global_position_s &gpos = *_navigator->get_global_position();
+	const float home_dist = get_distance_to_next_waypoint(home.lat, home.lon, gpos.lat, gpos.lon);
+
 	if (_navigator->get_land_detected()->landed) {
 		// for safety reasons don't go into RTL if landed
 		_rtl_state = RTL_STATE_LANDED;
@@ -87,8 +91,15 @@ RTL::on_activation()
 		_rtl_state = RTL_STATE_CLIMB;
 
 	} else {
+		// if we are a vtol and far away from home we transition to fixed wing
+		if (_navigator->get_vstatus()->is_vtol &&
+				_navigator->get_vstatus()->is_rotary_wing &&
+				home_dist > _param_rtl_min_dist.get()*5) {
+			_rtl_state = RTL_STATE_TRANSITION_TO_FW;
+		} else{
 		// otherwise go straight to return
 		_rtl_state = RTL_STATE_RETURN;
+		}
 	}
 
 	set_rtl_item();
@@ -119,6 +130,17 @@ RTL::set_rtl_item()
 	if (rtl_type() == RTL_LAND) {
 		if (_rtl_state > RTL_STATE_CLIMB) {
 			if (_navigator->start_mission_landing()) {
+				const home_position_s &home = *_navigator->get_home_position();
+				const vehicle_global_position_s &gpos = *_navigator->get_global_position();
+				const float home_dist = get_distance_to_next_waypoint(home.lat, home.lon, gpos.lat, gpos.lon);
+				// if we are a vtol and far away from home we transition to fixed wing
+				if (_navigator->get_vstatus()->is_vtol &&
+						_navigator->get_vstatus()->is_rotary_wing &&
+						home_dist > _param_rtl_min_dist.get()*5) {
+					set_vtol_transition_item(&_mission_item, vtol_vehicle_status_s::VEHICLE_VTOL_STATE_FW);
+					mavlink_and_console_log_info(_navigator->get_mavlink_log_pub(), "RTL: transition to FW");
+				}
+
 				mavlink_and_console_log_info(_navigator->get_mavlink_log_pub(), "RTL: using mission landing");
 				return;
 
@@ -198,6 +220,11 @@ RTL::set_rtl_item()
 
 			break;
 		}
+	case RTL_STATE_TRANSITION_TO_FW: {
+			set_vtol_transition_item(&_mission_item, vtol_vehicle_status_s::VEHICLE_VTOL_STATE_FW);
+			mavlink_and_console_log_info(_navigator->get_mavlink_log_pub(), "RTL: transition to FW");
+			break;
+		}
 
 	case RTL_STATE_TRANSITION_TO_MC: {
 			set_vtol_transition_item(&_mission_item, vtol_vehicle_status_s::VEHICLE_VTOL_STATE_MC);
@@ -261,7 +288,7 @@ RTL::set_rtl_item()
 				if (_navigator->get_vstatus()->is_vtol && !_navigator->get_vstatus()->is_rotary_wing)
 				{
 					_mission_item.nav_cmd = NAV_CMD_LOITER_TO_ALT;
-					mavlink_and_console_log_info(_navigator->get_mavlink_log_pub(), "RTL: loiter to alt %i m", (int)ceilf(loiter_altitude));
+					mavlink_and_console_log_info(_navigator->get_mavlink_log_pub(), "RTL: loiter to alt %im (%im abs) ", (int) ceil(loiter_altitude-home.alt) , (int)ceilf(loiter_altitude));
 				} else {
 					_mission_item.nav_cmd = NAV_CMD_LOITER_UNLIMITED;
 					mavlink_and_console_log_info(_navigator->get_mavlink_log_pub(), "RTL: completed, loitering");
@@ -320,10 +347,18 @@ RTL::advance_rtl()
 	const vehicle_global_position_s &gpos = *_navigator->get_global_position();
 	// compute the loiter altitude
 	const float loiter_altitude = min(home.alt + _param_descend_alt.get(), gpos.alt);
+	const float home_dist = get_distance_to_next_waypoint(home.lat, home.lon, gpos.lat, gpos.lon);
 
 	switch (_rtl_state) {
 	case RTL_STATE_CLIMB:
-		_rtl_state = RTL_STATE_RETURN;
+		// if we are a vtol and far away from home we transition to fixed wing
+		if (_navigator->get_vstatus()->is_vtol &&
+				_navigator->get_vstatus()->is_rotary_wing &&
+				home_dist > _param_rtl_min_dist.get()*5) {
+			_rtl_state = RTL_STATE_TRANSITION_TO_FW;
+		} else {
+			_rtl_state = RTL_STATE_RETURN;
+		}
 		break;
 
 	case RTL_STATE_RETURN:
@@ -339,6 +374,10 @@ RTL::advance_rtl()
 			}
 		}
 
+		break;
+
+	case RTL_STATE_TRANSITION_TO_FW:
+		_rtl_state = RTL_STATE_RETURN;
 		break;
 
 	case RTL_STATE_TRANSITION_TO_MC:
