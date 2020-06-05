@@ -210,13 +210,14 @@ RTL::set_rtl_item()
 				_mission_item.yaw = get_bearing_to_next_waypoint(gpos.lat, gpos.lon, home.lat, home.lon);
 			}
 
-			_mission_item.acceptance_radius = _navigator->get_acceptance_radius();
+			_mission_item.acceptance_radius = max(_param_rtl_min_dist.get()*2 ,_navigator->get_acceptance_radius());
 			_mission_item.time_inside = 0.0f;
 			_mission_item.autocontinue = true;
 			_mission_item.origin = ORIGIN_ONBOARD;
 
-			mavlink_and_console_log_info(_navigator->get_mavlink_log_pub(), "RTL: return at %d m (%d m above home)",
-						     (int)ceilf(_mission_item.altitude), (int)ceilf(_mission_item.altitude - home.alt));
+			mavlink_and_console_log_info(_navigator->get_mavlink_log_pub(), "RTL: return at %d m (%d m above home, %i from home)",
+						     (int)ceilf(_mission_item.altitude), (int)ceilf(_mission_item.altitude - home.alt),
+							 (int)ceilf(home_dist));
 
 			break;
 		}
