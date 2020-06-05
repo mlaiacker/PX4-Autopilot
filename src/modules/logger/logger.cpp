@@ -611,6 +611,7 @@ void Logger::add_default_topics()
 	add_topic("camera_trigger");
 	add_topic("cpuload");
 	add_topic("distance_sensor", 100);
+	add_topic("differential_pressure", 500);
 //	add_topic("ekf2_innovations", 200);
 	add_topic("esc_status", 250);
 //	add_topic("estimator_status", 200);
