@@ -135,14 +135,13 @@ RTL::set_rtl_item()
 				const float home_dist = get_distance_to_next_waypoint(home.lat, home.lon, gpos.lat, gpos.lon);
 				// if we are a vtol and far away from home we transition to fixed wing
 				if (_navigator->get_vstatus()->is_vtol &&
-						_navigator->get_vstatus()->is_rotary_wing &&
-						home_dist > _param_rtl_min_dist.get()*5) {
-					set_vtol_transition_item(&_mission_item, vtol_vehicle_status_s::VEHICLE_VTOL_STATE_FW);
-					mavlink_and_console_log_info(_navigator->get_mavlink_log_pub(), "RTL: transition to FW");
+					_navigator->get_vstatus()->is_rotary_wing &&
+					home_dist > _param_rtl_min_dist.get()*5) {
+					_rtl_state = RTL_STATE_CLIMB;
+				} else {
+					mavlink_and_console_log_info(_navigator->get_mavlink_log_pub(), "RTL: using mission landing");
+					return;
 				}
-
-				mavlink_and_console_log_info(_navigator->get_mavlink_log_pub(), "RTL: using mission landing");
-				return;
 
 			} else {
 				// otherwise use regular RTL
