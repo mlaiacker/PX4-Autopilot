@@ -777,7 +777,7 @@ MissionBlock::set_vtol_transition_item(struct mission_item_s *item, const uint8_
 	if (next_sp.valid) {
 		if(get_distance_to_next_waypoint(_navigator->get_global_position()->lat,
 			    _navigator->get_global_position()->lon,
-			    next_sp.lat, next_sp.lon)>=5.0f) /* only use waypoint for heading when 5m away from current position */
+			    next_sp.lat, next_sp.lon)>=MissionBlock::TAKEOFF_MIN_DIST) /* only use waypoint for heading when xm away from current position */
 		{
 			/* set yaw setpoint to point towards next waypoint so we do the transition in this direction*/
 			item->yaw = get_bearing_to_next_waypoint(_navigator->get_global_position()->lat,

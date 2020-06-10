@@ -137,7 +137,8 @@ RTL::set_rtl_item()
 				if (_navigator->get_vstatus()->is_vtol &&
 					_navigator->get_vstatus()->is_rotary_wing &&
 					home_dist > _param_rtl_min_dist.get()*5) {
-					_rtl_state = RTL_STATE_CLIMB;
+					set_vtol_transition_item(&_mission_item, vtol_vehicle_status_s::VEHICLE_VTOL_STATE_FW);
+					mavlink_and_console_log_info(_navigator->get_mavlink_log_pub(), "RTL: transition to FW");
 				} else {
 					mavlink_and_console_log_info(_navigator->get_mavlink_log_pub(), "RTL: using mission landing");
 					return;

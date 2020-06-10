@@ -750,8 +750,9 @@ Navigator::run()
 			//
 			// FIXME: a better solution would be to add reset where they are needed and remove
 			//        this general reset here.
-			if (!(_navigation_mode == &_takeoff &&
-			      navigation_mode_new == &_loiter)) {
+			if (!((_navigation_mode == &_takeoff &&
+			      navigation_mode_new == &_loiter) ||
+				  (navigation_mode_new == &_mission && rtl_type()==RTL::RTL_LAND))) { // don't reset current wp so we go in a line to the rtl land point
 				reset_triplets();
 			}
 		}
