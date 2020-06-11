@@ -612,7 +612,7 @@ MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, posi
 			if(orb_copy(ORB_ID(wind_estimate), wind_estimate_sub, &wind)==0)
 			{
 				/* only when more then 3m/s wind*/
-				if((wind.windspeed_east*wind.windspeed_east + wind.windspeed_north*wind.windspeed_north) > 9.0f)
+				if((wind.windspeed_east*wind.windspeed_east + wind.windspeed_north*wind.windspeed_north) > MissionBlock::WIND_THRESHOLD*MissionBlock::WIND_THRESHOLD)
 				{
 					/* set yaw setpoint to point towards wind direction for landing*/
 					sp->yaw = wrap_pi(atan2f(wind.windspeed_east, wind.windspeed_north) + M_PI_F);

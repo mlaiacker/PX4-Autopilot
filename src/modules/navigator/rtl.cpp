@@ -44,9 +44,11 @@
 
 #include <mathlib/mathlib.h>
 #include <systemlib/mavlink_log.h>
+#include <uORB/topics/wind_estimate.h>
 
 using math::max;
 using math::min;
+using matrix::wrap_pi;
 
 static constexpr float DELAY_SIGMA = 0.01f;
 
@@ -206,8 +208,13 @@ RTL::set_rtl_item()
 				_mission_item.yaw = home.yaw;
 
 			} else {
-				// use current heading to home
-				_mission_item.yaw = get_bearing_to_next_waypoint(gpos.lat, gpos.lon, home.lat, home.lon);
+				if (_navigator->get_vstatus()->is_vtol &&
+					_navigator->get_vstatus()->is_rotary_wing){
+					_mission_item.yaw = NAN; // don't control yaw when vtol and in MC mode
+				} else{
+					// use current heading to home
+					_mission_item.yaw = get_bearing_to_next_waypoint(gpos.lat, gpos.lon, home.lat, home.lon);
+				}
 			}
 
 			_mission_item.acceptance_radius = max(_param_rtl_min_dist.get()*2 ,_navigator->get_acceptance_radius());
@@ -311,7 +318,24 @@ RTL::set_rtl_item()
 			_mission_item.time_inside = 0.0f;
 			_mission_item.autocontinue = true;
 			_mission_item.origin = ORIGIN_ONBOARD;
-
+			if(_navigator->get_vstatus()->is_vtol)
+			{
+				int wind_estimate_sub = orb_subscribe(ORB_ID(wind_estimate));
+				struct wind_estimate_s wind;
+				if(orb_copy(ORB_ID(wind_estimate), wind_estimate_sub, &wind)==0)
+				{
+					/* only when more then xm/s wind*/
+					if((wind.windspeed_east*wind.windspeed_east + wind.windspeed_north*wind.windspeed_north) > MissionBlock::WIND_THRESHOLD*MissionBlock::WIND_THRESHOLD)
+					{
+						/* set yaw setpoint to point towards wind direction for landing*/
+						_mission_item.yaw = wrap_pi(atan2f(wind.windspeed_east, wind.windspeed_north) + M_PI_F);
+					}
+				} else
+				{
+					PX4_ERR("failed to get wind estimate for landing");
+				}
+				orb_unsubscribe(wind_estimate_sub);
+			}
 			mavlink_and_console_log_info(_navigator->get_mavlink_log_pub(), "RTL: land at home");
 			break;
 		}

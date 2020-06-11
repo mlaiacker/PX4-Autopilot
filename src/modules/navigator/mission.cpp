@@ -1312,6 +1312,11 @@ Mission::heading_sp_update()
 					pos_sp_triplet->current.yaw = _mission_item.yaw;
 
 				} else {
+					// if vtol and copter, we will not care about yaw. let the wind do it
+					if(_navigator->get_vstatus()->is_vtol && _navigator->get_vstatus()->is_rotary_wing)
+					{
+						yaw = NAN;
+					}
 					_mission_item.yaw = yaw;
 					pos_sp_triplet->current.yaw = _mission_item.yaw;
 				}
