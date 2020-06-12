@@ -557,6 +557,29 @@ MissionBlock::cruising_speed_sp_update()
 }
 
 bool
+MissionBlock::getWindYaw(float *yaw)
+{
+	bool result = false;
+	int wind_estimate_sub = orb_subscribe(ORB_ID(wind_estimate));
+	struct wind_estimate_s wind;
+	if(orb_copy(ORB_ID(wind_estimate), wind_estimate_sub, &wind)==0)
+	{
+		/* only when more then 3m/s wind*/
+		if((wind.windspeed_east*wind.windspeed_east + wind.windspeed_north*wind.windspeed_north) > MissionBlock::WIND_THRESHOLD*MissionBlock::WIND_THRESHOLD)
+		{
+			/* set yaw setpoint to point towards wind direction for landing*/
+			*yaw = wrap_pi(atan2f(wind.windspeed_east, wind.windspeed_north) + M_PI_F);
+			result = true;
+		}
+	} else
+	{
+		PX4_ERR("failed to get wind estimate for yaw alligment");
+	}
+	orb_unsubscribe(wind_estimate_sub);
+	return result;
+}
+
+bool
 MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, position_setpoint_s *sp)
 {
 	/* don't change the setpoint for non-position items */
@@ -607,21 +630,7 @@ MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, posi
 	case NAV_CMD_VTOL_LAND:
 		if(_navigator->get_vstatus()->is_vtol)
 		{
-			int wind_estimate_sub = orb_subscribe(ORB_ID(wind_estimate));
-			struct wind_estimate_s wind;
-			if(orb_copy(ORB_ID(wind_estimate), wind_estimate_sub, &wind)==0)
-			{
-				/* only when more then 3m/s wind*/
-				if((wind.windspeed_east*wind.windspeed_east + wind.windspeed_north*wind.windspeed_north) > MissionBlock::WIND_THRESHOLD*MissionBlock::WIND_THRESHOLD)
-				{
-					/* set yaw setpoint to point towards wind direction for landing*/
-					sp->yaw = wrap_pi(atan2f(wind.windspeed_east, wind.windspeed_north) + M_PI_F);
-				}
-			} else
-			{
-				PX4_ERR("failed to get wind estimate for landing");
-			}
-			orb_unsubscribe(wind_estimate_sub);
+			getWindYaw(&sp->yaw);
 		}
 		sp->type = position_setpoint_s::SETPOINT_TYPE_LAND;
 		break;
