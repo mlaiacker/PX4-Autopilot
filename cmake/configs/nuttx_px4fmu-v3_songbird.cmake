@@ -13,8 +13,8 @@ set(config_module_list
 	#
 	# Board support modules
 	#
-	drivers/barometer/ms5611
-	drivers/differential_pressure/ms5525
+	drivers/barometer
+	drivers/differential_pressure
 	#drivers/differential_pressure/ms4525
 	#drivers/distance_sensor
 	drivers/distance_sensor/tfmini
