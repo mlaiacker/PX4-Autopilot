@@ -260,7 +260,7 @@ RTL::set_rtl_item()
 
 			if(_navigator->get_vstatus()->is_vtol && _navigator->get_vstatus()->is_rotary_wing)
 			{ // get wind estimate for yaw
-				MissionBlock::getWindYaw(_mission_item.yaw);
+				_mission_item.yaw = MissionBlock::getWindYaw(_mission_item.yaw);
 			}
 
 			_mission_item.acceptance_radius = _navigator->get_acceptance_radius();
