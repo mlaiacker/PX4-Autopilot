@@ -183,7 +183,7 @@ RTL::set_rtl_item()
 			_mission_item.altitude = return_alt;
 			_mission_item.altitude_is_relative = false;
 			_mission_item.yaw = NAN;
-			MissionBlock::getWindYaw(&_mission_item.yaw);
+			_mission_item.yaw = MissionBlock::getWindYaw(NAN);
 			_mission_item.acceptance_radius = _navigator->get_acceptance_radius();
 			_mission_item.time_inside = 0.0f;
 			_mission_item.autocontinue = true;
@@ -206,14 +206,12 @@ RTL::set_rtl_item()
 			// use home yaw if close to home
 			/* check if we are pretty close to home already */
 			if (home_dist < _param_rtl_min_dist.get()) {
-				_mission_item.yaw = home.yaw;
-				MissionBlock::getWindYaw(&_mission_item.yaw);
+				_mission_item.yaw = MissionBlock::getWindYaw(home.yaw);
 
 			} else {
 				if (_navigator->get_vstatus()->is_vtol &&
 					_navigator->get_vstatus()->is_rotary_wing){
-					_mission_item.yaw = NAN; // don't control yaw when vtol and in MC mode
-					MissionBlock::getWindYaw(&_mission_item.yaw);
+					_mission_item.yaw = MissionBlock::getWindYaw(home.yaw);
 				} else{
 					// use current heading to home
 					_mission_item.yaw = get_bearing_to_next_waypoint(gpos.lat, gpos.lon, home.lat, home.lon);
@@ -262,7 +260,7 @@ RTL::set_rtl_item()
 
 			if(_navigator->get_vstatus()->is_vtol && _navigator->get_vstatus()->is_rotary_wing)
 			{ // get wind estimate for yaw
-				MissionBlock::getWindYaw(&_mission_item.yaw);
+				MissionBlock::getWindYaw(_mission_item.yaw);
 			}
 
 			_mission_item.acceptance_radius = _navigator->get_acceptance_radius();
@@ -329,7 +327,7 @@ RTL::set_rtl_item()
 
 			if(_navigator->get_vstatus()->is_vtol)
 			{ // get wind estimate for yaw
-				MissionBlock::getWindYaw(&_mission_item.yaw);
+				_mission_item.yaw = MissionBlock::getWindYaw(_mission_item.yaw);
 			}
 			mavlink_and_console_log_info(_navigator->get_mavlink_log_pub(), "RTL: land at home");
 			break;

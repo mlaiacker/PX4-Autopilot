@@ -556,10 +556,10 @@ MissionBlock::cruising_speed_sp_update()
 	_navigator->set_position_setpoint_triplet_updated();
 }
 
-bool
-MissionBlock::getWindYaw(float *yaw)
+float
+MissionBlock::getWindYaw(float yaw)
 {
-	bool result = false;
+	float result = yaw;
 	int wind_estimate_sub = orb_subscribe(ORB_ID(wind_estimate));
 	struct wind_estimate_s wind;
 	if(orb_copy(ORB_ID(wind_estimate), wind_estimate_sub, &wind)==0)
@@ -568,8 +568,7 @@ MissionBlock::getWindYaw(float *yaw)
 		if((wind.windspeed_east*wind.windspeed_east + wind.windspeed_north*wind.windspeed_north) > MissionBlock::WIND_THRESHOLD*MissionBlock::WIND_THRESHOLD)
 		{
 			/* set yaw setpoint to point towards wind direction for landing*/
-			*yaw = wrap_pi(atan2f(wind.windspeed_east, wind.windspeed_north) + M_PI_F);
-			result = true;
+			result = wrap_pi(atan2f(wind.windspeed_east, wind.windspeed_north) + M_PI_F);
 		}
 	} else
 	{
@@ -630,7 +629,7 @@ MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, posi
 	case NAV_CMD_VTOL_LAND:
 		if(_navigator->get_vstatus()->is_vtol)
 		{
-			getWindYaw(&sp->yaw);
+			sp->yaw = getWindYaw(sp->yaw);
 		}
 		sp->type = position_setpoint_s::SETPOINT_TYPE_LAND;
 		break;
