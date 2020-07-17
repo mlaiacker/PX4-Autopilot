@@ -13,10 +13,12 @@
 # @output MAIN4 motor 4
 # @output MAIN5 Tiltservo Left
 # @output MAIN6 Tiltsrevo Right
+# @output MAIN7 spare 1 aileron right
+# @output MAIN8 spare 2 aileron left
 # @output AUX1 Aileron Left
 # @output AUX2 Aileron Right
-# @output AUX3 Tail ?
-# @output AUX4 Tail ?
+# @output AUX3 Tail elevator
+# @output AUX4 Tail rudder
 # @output AUX5 Camera Trigger
 # @output AUX6 Camera Trigger
 #
