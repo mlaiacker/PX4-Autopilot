@@ -341,7 +341,7 @@ int GDPayload::task_spawn(int argc, char *argv[])
 {
 	_task_id = px4_task_spawn_cmd("gd_payload",
 				      SCHED_DEFAULT,
-				      SCHED_PRIORITY_DEFAULT+11, /* reduced pritority */
+					  SCHED_PRIORITY_MIN, /* reduced pritority */
 				      1512,
 				      (px4_main_t)&run_trampoline,
 				      (char *const *)argv);
@@ -525,10 +525,11 @@ bool GDPayload::cmdTripMode(int mode){
 
 void GDPayload::vehicleCommand(const vehicle_command_s *vcmd)
 {
-	if(_debug_flag)
+/*	if(_debug_flag)
 	{
 		PX4_INFO("cmd=%d", vcmd->command);
-	}
+		print_message(*vcmd);
+	}*/
 	switch(vcmd->command)
 	{
 	case vehicle_command_s::VEHICLE_CMD_CUSTOM_0:
@@ -539,7 +540,7 @@ void GDPayload::vehicleCommand(const vehicle_command_s *vcmd)
 	case vehicle_command_s::VEHICLE_CMD_DO_SET_ROI_LOCATION:
 		if(cmdTripCordinate(vcmd->param5,vcmd->param6, vcmd->param7))
 		{
-			vehicleCommandAck(vcmd);
+			//vehicleCommandAck(vcmd);
 		}
 		break;
 	case vehicle_command_s::VEHICLE_CMD_SET_CAMERA_MODE:
@@ -587,7 +588,6 @@ void GDPayload::vehicle_control_mode_poll()
 			struct vehicle_command_s vcmd;
 			orb_copy(ORB_ID(vehicle_command), _sub_vehicle_cmd, &vcmd);
 			vehicleCommand(&vcmd);
-			_cmdold = vcmd.command;
 		}
 	}
 	if(_sub_vehicle_status!=-1)

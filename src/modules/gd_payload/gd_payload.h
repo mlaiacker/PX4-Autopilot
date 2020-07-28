@@ -125,7 +125,6 @@ private:
 
 	bool		_armed{false};
 	bool		_auto_mode{false};
-	uint16_t _cmdold{0};
 
 	struct vehicle_status_s _vstatus{};
 

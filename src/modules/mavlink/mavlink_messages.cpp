@@ -463,6 +463,7 @@ private:
 	/* do not allow top copying this class */
 	MavlinkStreamCommandLong(MavlinkStreamCommandLong &) = delete;
 	MavlinkStreamCommandLong &operator = (const MavlinkStreamCommandLong &) = delete;
+	struct vehicle_command_s _cmd;
 
 protected:
 	explicit MavlinkStreamCommandLong(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -473,18 +474,18 @@ protected:
 	{
 		struct vehicle_command_s cmd;
 		bool sent = false;
-
-		if (_cmd_sub->update_if_changed(&cmd)) {
+		if (_cmd_sub->update(&cmd) && cmd.timestamp != _cmd.timestamp) {
+//		if (_cmd_sub->update_if_changed(&cmd)) {
 
 			if (!cmd.from_external) {
 				PX4_DEBUG("sending command %d to %d/%d", cmd.command, cmd.target_system, cmd.target_component);
-
 				MavlinkCommandSender::instance().handle_vehicle_command(cmd, _mavlink->get_channel());
 				sent = true;
 
 			} else {
 				PX4_DEBUG("not forwarding command %d to %d/%d", cmd.command, cmd.target_system, cmd.target_component);
 			}
+			_cmd = cmd;
 		}
 
 		MavlinkCommandSender::instance().check_timeout(_mavlink->get_channel());
