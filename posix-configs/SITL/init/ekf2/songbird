@@ -182,6 +182,7 @@ fw_pos_control_l1 start
 fw_att_control start
 wind_estimator start
 
+gd_payload start
 
 mavlink start -x -u 14556 -r 2000000 
 mavlink start -x -u 14557 -r 2000000 -m onboard -o 14540
@@ -200,8 +201,6 @@ mavlink stream -r 10 -s HIL_ACTUATOR_CONTROLS -u 14556
 mavlink stream -r 100 -s HIL_ACTUATOR_CONTROLS -u 14557
 
 mavlink start -d /dev/serial0 -f
-
-gd_payload start
 
 logger start -e -t
 
