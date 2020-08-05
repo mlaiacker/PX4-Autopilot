@@ -255,7 +255,7 @@ MulticopterAttitudeControl::vehicle_attitude_setpoint_poll()
 		orb_copy(ORB_ID(vehicle_attitude_setpoint), _v_att_sp_sub, &_v_att_sp);
 	}
 	/* do pitch control with tilt */
-	if(_vehicle_status.is_vtol && _vehicle_status.system_type == 22) /* VTOL tiltrotor */
+	if(_vehicle_status.is_vtol && (_vehicle_status.system_type == 22 || _vehicle_status.system_type == 23)) /* VTOL tiltrotor */
 	{
 		Quatf qd(_v_att_sp.q_d);
 	 	Quatf q(_v_att.q);
@@ -306,7 +306,13 @@ MulticopterAttitudeControl::vehicle_attitude_setpoint_poll()
 					tilt_angle = -30.0f*M_PI_F/180.0f; /* limit tilt angle */
 				}
 				pitch_body -= tilt_angle; /* remove tilt angle from pitch setpoint */
-				_tilt_cmd = acosf(1.0f-(-tilt_angle)*4/M_PI_F)/M_PI_F; /* nonlinear map from tilt angle to servo angle*/
+				if(_vehicle_status.system_type == 22) // songbird with tilt mechanics
+				{
+					_tilt_cmd = acosf(1.0f-(-tilt_angle)*4/M_PI_F)/M_PI_F; /* nonlinear map from tilt angle to servo angle*/
+				} else
+				{
+					_tilt_cmd = -(tilt_angle*2.0f/M_PI_F); // linear mapping -90deg to 0deg -> 1(fw) to 0(mc)
+				}
 			}else
 			{
 				_tilt_cmd = 0;

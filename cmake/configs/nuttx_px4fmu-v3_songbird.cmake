@@ -15,7 +15,6 @@ set(config_module_list
 	#
 	drivers/barometer
 	drivers/differential_pressure
-	#drivers/differential_pressure/ms4525
 	#drivers/distance_sensor
 	drivers/distance_sensor/tfmini
 	drivers/magnetometer
