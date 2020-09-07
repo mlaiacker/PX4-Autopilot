@@ -67,8 +67,26 @@ public:
 	MissionBlock(const MissionBlock &) = delete;
 	MissionBlock &operator=(const MissionBlock &) = delete;
 
+	/**
+	 * Check if the mission item contains a navigation position
+	 *
+	 * @return false if the mission item does not contain a valid position
+	 */
 	static bool item_contains_position(const mission_item_s &item);
 
+	/**
+	 * Check if the mission item contains a gate condition
+	 *
+	 * @return true if mission item is a gate
+	 */
+	static bool item_contains_gate(const mission_item_s &item);
+
+	/**
+	 * Check if the mission item contains a marker
+	 *
+	 * @return true if mission item is a marker
+	 */
+	static bool item_contains_marker(const mission_item_s &item);
 
 protected:
 	/**
@@ -125,11 +143,6 @@ protected:
 	float get_time_inside(const mission_item_s &item) const ;
 
 	float get_absolute_altitude_for_item(const mission_item_s &mission_item) const;
-
-	/**
-	 * Update the cruising speed setpoint.
-	 */
-	void cruising_speed_sp_update();
 
 	mission_item_s _mission_item{};
 

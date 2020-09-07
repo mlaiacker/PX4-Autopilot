@@ -33,15 +33,14 @@ px4_add_board(
 		#imu # all available imu drivers
 		imu/l3gd20
 		imu/lsm303d
-		imu/mpu6000
-		imu/mpu9250
+		imu/invensense/icm20608g
+		imu/invensense/mpu6000
+		imu/invensense/mpu9250
 		irlock
 		lights/blinkm
 		lights/rgbled
 		lights/rgbled_ncp5623c
-		#lights/rgbled_pwm
 		magnetometer # all available magnetometer drivers
-		#md25
 		mkblctrl
 		#optical_flow # all available optical flow drivers
 		optical_flow/px4flow
@@ -49,7 +48,7 @@ px4_add_board(
 		protocol_splitter
 		pwm_input
 		pwm_out_sim
-		px4fmu
+		pwm_out
 		px4io
 		roboclaw
 		tap_esc
@@ -75,18 +74,20 @@ px4_add_board(
 		logger
 		mavlink
 		mc_att_control
+		mc_rate_control
 		mc_pos_control
 		navigator
 		battery_status
+		rc_update
 		sensors
 		sih
+		temperature_compensation
 		vmount
 		vtol_att_control
 		airspeed_selector
 
 	SYSTEMCMDS
 		bl_update
-		config
 		dumpfile
 		esc_calib
 		hardfault_log
@@ -103,7 +104,6 @@ px4_add_board(
 		reboot
 		reflect
 		sd_bench
-		shutdown
 		tests # tests and test runner
 		top
 		topic_listener
@@ -113,7 +113,6 @@ px4_add_board(
 		work_queue
 
 	EXAMPLES
-		#bottle_drop # OBC challenge
 		#fixedwing_control # Tutorial code from https://px4.io/dev/example_fixedwing_control
 		#hello
 		#hwtest # Hardware test

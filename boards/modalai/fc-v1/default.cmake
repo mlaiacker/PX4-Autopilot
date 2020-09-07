@@ -9,13 +9,11 @@ px4_add_board(
 	ROMFSROOT px4fmu_common
 	TESTING
 	UAVCAN_INTERFACES 1
-
 	SERIAL_PORTS
 		GPS1:/dev/ttyS0 # UART1  / J10
 		TEL1:/dev/ttyS6 # UART7  / J5
 		TEL2:/dev/ttyS4 # UART5  / J1
 		TEL3:/dev/ttyS1 # USART2 / J4
-
 	DRIVERS
 		adc
 		barometer # all available barometer drivers
@@ -26,25 +24,24 @@ px4_add_board(
 		distance_sensor # all available distance sensor drivers
 		dshot
 		gps
-		imu/bmi088
-# TODO		imu/icm42688
-		imu/mpu6000
+		imu/bosch/bmi088
+		imu/invensense/icm20602
+		imu/invensense/icm42688p
 		irlock
 		lights/blinkm
 		lights/rgbled
 		lights/rgbled_ncp5623c
 		magnetometer # all available magnetometer drivers
-		#md25
 		mkblctrl
 		#optical_flow # all available optical flow drivers
+		#osd
 		pca9685
 		power_monitor/ina226
 		power_monitor/voxlpm
 		#protocol_splitter
 		#pwm_input
 		pwm_out_sim
-		px4fmu
-		#px4io
+		pwm_out
 		rc_input
 		roboclaw
 		safety_button
@@ -53,8 +50,8 @@ px4_add_board(
 		test_ppm
 		#tone_alarm
 		uavcan
-
 	MODULES
+		airspeed_selector
 		attitude_estimator_q
 		camera_feedback
 		commander
@@ -70,18 +67,19 @@ px4_add_board(
 		logger
 		mavlink
 		mc_att_control
+		mc_hover_thrust_estimator
 		mc_pos_control
+		mc_rate_control
 		navigator
+		rc_update
 		rover_pos_control
 		sensors
 		sih
+		temperature_compensation
 		vmount
 		vtol_att_control
-		airspeed_selector
-
 	SYSTEMCMDS
 		bl_update
-		config
 		dmesg
 		dumpfile
 		esc_calib
@@ -99,7 +97,6 @@ px4_add_board(
 		reboot
 		reflect
 		sd_bench
-		shutdown
 		tests # tests and test runner
 		top
 		topic_listener
@@ -107,9 +104,7 @@ px4_add_board(
 		usb_connected
 		ver
 		work_queue
-
 	EXAMPLES
-		bottle_drop # OBC challenge
 		fixedwing_control # Tutorial code from https://px4.io/dev/example_fixedwing_control
 		hello
 		hwtest # Hardware test
@@ -118,4 +113,5 @@ px4_add_board(
 		px4_simple_app # Tutorial code from http://dev.px4.io/en/apps/hello_sky.html
 		rover_steering_control # Rover example app
 		uuv_example_app
+		work_item
 	)

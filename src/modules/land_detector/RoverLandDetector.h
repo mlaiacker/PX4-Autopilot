@@ -50,12 +50,11 @@ class RoverLandDetector : public LandDetector
 {
 public:
 	RoverLandDetector() = default;
+	~RoverLandDetector() override = default;
 
 protected:
 	bool _get_ground_contact_state() override;
 	bool _get_landed_state() override;
-
-private:
 
 };
 

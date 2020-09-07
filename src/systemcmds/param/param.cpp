@@ -39,10 +39,10 @@
  * Parameter tool.
  */
 
-#include <px4_config.h>
-#include <px4_log.h>
-#include <px4_module.h>
-#include <px4_posix.h>
+#include <px4_platform_common/px4_config.h>
+#include <px4_platform_common/log.h>
+#include <px4_platform_common/module.h>
+#include <px4_platform_common/posix.h>
 
 #include <errno.h>
 #include <stdio.h>
@@ -55,8 +55,6 @@
 #include <math.h>
 #include <inttypes.h>
 #include <sys/stat.h>
-
-#include <arch/board/board.h>
 
 #include <parameters/param.h>
 #include "systemlib/err.h"
@@ -139,7 +137,7 @@ $ reboot
 
 	PRINT_MODULE_USAGE_COMMAND_DESCR("show", "Show parameter values");
 	PRINT_MODULE_USAGE_PARAM_FLAG('a', "Show all parameters (not just used)", true);
-	PRINT_MODULE_USAGE_PARAM_FLAG('c', "Show only changed and used params", true);
+	PRINT_MODULE_USAGE_PARAM_FLAG('c', "Show only changed params (unused too)", true);
 	PRINT_MODULE_USAGE_PARAM_FLAG('q', "quiet mode, print only param value (name needs to be exact)", true);
 	PRINT_MODULE_USAGE_ARG("<filter>", "Filter by param name (wildcard at end allowed, eg. sys_*)", true);
 
@@ -459,7 +457,8 @@ static int
 do_show(const char *search_string, bool only_changed)
 {
 	PARAM_PRINT("Symbols: x = used, + = saved, * = unsaved\n");
-	param_foreach(do_show_print, (char *)search_string, only_changed, true);
+	// also show unused params if we show non-default values only
+	param_foreach(do_show_print, (char *)search_string, only_changed, !only_changed);
 	PARAM_PRINT("\n %u/%u parameters used.\n", param_count_used(), param_count());
 
 	return 0;

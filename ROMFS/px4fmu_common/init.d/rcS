@@ -101,6 +101,33 @@ then
 			hardfault_log reset
 		fi
 	fi
+
+	# Prevent MacOS and Ubuntu from creating unnecessary temporary files on the microSD card
+
+	# block MacOS Spotlight indexing (.Spotlight-V100 folder)
+	if [ ! -f "/fs/microsd/.metadata_never_index" ]; then
+		cat > /fs/microsd/.metadata_never_index
+	fi
+
+	# block MacOS trashes
+	if [ ! -f "/fs/microsd/.Trashes" ]; then
+		cat > /fs/microsd/.Trashes
+	fi
+
+	# block MacOS logging of filesystem events
+	if [ ! -d "/fs/microsd/.fseventsd" ]; then
+		mkdir /fs/microsd/.fseventsd
+	fi
+
+	if [ ! -f "/fs/microsd/.fseventsd/no_log" ]; then
+		cat > /fs/microsd/.fseventsd/no_log
+	fi
+
+	# block Ubuntu trash
+	if [ ! -f "/fs/microsd/.Trash-1000" ]; then
+		cat > /fs/microsd/.Trash-1000
+	fi
+
 else
 	# tune SD_INIT
 	set STARTUP_TUNE 16
@@ -198,13 +225,12 @@ else
 	#
 	# Start system state indicator.
 	#
-	rgbled start
-	rgbled_ncp5623c start
-	rgbled_pwm start
+	rgbled start -X
+	rgbled_ncp5623c start -X
 
 	if param greater LIGHT_EN_BLINKM 0
 	then
-		if blinkm start
+		if blinkm start -X
 		then
 			blinkm systemstate
 		fi
@@ -311,6 +337,12 @@ else
 	fi
 
 	#
+	# RC update (map raw RC input to calibrate manual control)
+	#  start before commander
+	#
+	rc_update start
+
+	#
 	# Sensors System (start before Commander so Preflight checks are properly run).
 	# Commander needs to be this early for in-air-restarts.
 	#
@@ -340,9 +372,18 @@ else
 		fi
 		unset BOARD_RC_SENSORS
 
-		battery_status start
-
 		sh /etc/init.d/rc.sensors
+
+		if param compare -s BAT1_SOURCE 2
+		then
+			esc_battery start
+		fi
+
+		if ! param compare BAT1_SOURCE 1
+		then
+			battery_status start
+		fi
+
 		commander start
 	fi
 
@@ -354,17 +395,33 @@ else
 		set AUX_MODE pwm4
 	fi
 
+
+	# Check if ATS is enabled
+	if param compare FD_EXT_ATS_EN 1
+	then
+		# Clear pins 5 and 6.
+		set FMU_MODE pwm4
+		set AUX_MODE pwm4
+	fi
+
 	if param greater TRIG_MODE 0
 	then
-		# We ONLY support trigger on pins 5 and 6 when simultanously using AUX for actuator output.
+		# We ONLY support trigger on pins 5+6 or 7+8 when simultanously using AUX for actuator output.
 		if param compare TRIG_PINS 56
 		then
 			# clear pins 5 and 6
 			set FMU_MODE pwm4
 			set AUX_MODE pwm4
 		else
-			set FMU_MODE none
-			set AUX_MODE none
+			if param compare TRIG_PINS 78
+			then
+				# clear pins 7 and 8
+				set FMU_MODE pwm6
+				set AUX_MODE pwm6
+			else
+				set FMU_MODE none
+				set AUX_MODE none
+			fi
 		fi
 
 		camera_trigger start
@@ -412,7 +469,7 @@ else
 	#
 	sh /etc/init.d/rc.serial
 
-	if [ $IO_PRESENT = no -o $USE_IO = no ]
+	if [ $IO_PRESENT = no ]
 	then
 		# Must be started after the serial config is read
 		rc_input start $RC_INPUT_ARGS
@@ -452,16 +509,16 @@ else
 		vmount start
 	fi
 
-	# Check for flow sensor, launched as a background task to scan
+	# Check for flow sensor
 	if param compare SENS_EN_PX4FLOW 1
 	then
-		px4flow start &
+		px4flow start -X
 	fi
 
 	# Blacksheep telemetry
 	if param greater TEL_BST_EN 0
 	then
-		bst start
+		bst start -X
 	fi
 
 	#
