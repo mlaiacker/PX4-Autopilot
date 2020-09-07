@@ -50,11 +50,11 @@
 #include <drivers/device/i2c.h>
 #include <drivers/device/ringbuffer.h>
 #include <drivers/drv_hrt.h>
-#include <drivers/drv_io_expander.h>
+#include <px4_platform_common/workqueue.h>
+//#include <drivers/drv_io_expander.h>
 
-#include <px4_config.h>
-#include <px4_workqueue.h>
-#include <px4_getopt.h>
+#include <px4_platform_common/module.h>
+#include <px4_platform_common/getopt.h>
 #include <perf/perf_counter.h>
 #include <uORB/uORB.h>
 #include <mathlib/mathlib.h>
@@ -63,10 +63,6 @@
 
 #define PCA9536_MEASUREMENT_INTERVAL_US	(100000)	///< time in microseconds, measure at 10Hz
 #define PCA9536_TIMEOUT_US			(10000000)	///< timeout looking for battery 10seconds after startup
-
-#ifndef CONFIG_SCHED_WORKQUEUE
-# error This requires CONFIG_SCHED_WORKQUEUE.
-#endif
 
 #define PCA9536_ADDR			0x41 //default 0x80 in 8 bit
 #define PCA9536_I2C_BUS		1

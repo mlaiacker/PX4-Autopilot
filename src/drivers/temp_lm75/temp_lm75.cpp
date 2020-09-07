@@ -48,10 +48,10 @@
 #include <drivers/device/i2c.h>
 #include <drivers/device/ringbuffer.h>
 #include <drivers/drv_hrt.h>
-#include <px4_config.h>
-#include <px4_workqueue.h>
-#include <px4_getopt.h>
-#include <px4_posix.h>
+#include <px4_platform_common/i2c_spi_buses.h>
+#include <px4_platform_common/module.h>
+#include <px4_platform_common/getopt.h>
+#include <px4_platform_common/workqueue.h>
 #include <perf/perf_counter.h>
 #include <uORB/topics/debug_key_value.h>
 #include <uORB/uORB.h>
@@ -63,9 +63,6 @@
 #define TEMP_LM75_MEASUREMENT_INTERVAL_US	(200000)	///< time in microseconds,
 #define TEMP_LM75_TIMEOUT_US			(10000000)	///< timeout
 
-#ifndef CONFIG_SCHED_WORKQUEUE
-# error This requires CONFIG_SCHED_WORKQUEUE.
-#endif
 
 #define TEMP_LM75_ADDR			0x4f //default
 #define TEMP_LM75_I2C_BUS		1
@@ -78,7 +75,7 @@
 class TEMP_LM75 : public device::I2C
 {
 public:
-	TEMP_LM75(int bus = PX4_I2C_BUS_EXPANSION, uint16_t temp_lm75_addr = TEMP_LM75_ADDR, const char* name=NULL);
+	TEMP_LM75(int bus = TEMP_LM75_I2C_BUS, uint16_t temp_lm75_addr = TEMP_LM75_ADDR, const char* name=NULL);
 	virtual ~TEMP_LM75();
 
 	/**
@@ -180,7 +177,7 @@ extern "C" __EXPORT int temp_lm75_main(int argc, char *argv[]);
 
 
 TEMP_LM75::TEMP_LM75(int bus, uint16_t temp_lm75_addr, const char* name) :
-	I2C("temp_lm75", nullptr, bus, temp_lm75_addr, 400000),
+	I2C(DeviceBusType_I2C,"temp_lm75", bus, temp_lm75_addr, 400000),
 	_enabled(false),
 	_last_report{},
 	_temp_topic(nullptr),

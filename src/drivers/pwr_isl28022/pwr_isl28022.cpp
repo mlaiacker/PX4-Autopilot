@@ -50,9 +50,10 @@
 #include <drivers/device/i2c.h>
 #include <drivers/device/ringbuffer.h>
 #include <drivers/drv_hrt.h>
-#include <px4_config.h>
-#include <px4_workqueue.h>
-#include <px4_getopt.h>
+#include <px4_platform_common/module.h>
+#include <px4_platform_common/getopt.h>
+#include <px4_platform_common/workqueue.h>
+#include <px4_platform_common/i2c_spi_buses.h>
 #include <perf/perf_counter.h>
 #include <uORB/topics/battery_status.h>
 #include <uORB/topics/actuator_controls.h>
@@ -69,10 +70,6 @@
 #define PWR_ISL28022_SENS_RANGE			(320)   // mV
 #define PWR_ISL28022_SENS_R				(0.1f) // mOhm
 
-#ifndef CONFIG_SCHED_WORKQUEUE
-# error This requires CONFIG_SCHED_WORKQUEUE.
-#endif
-
 #define PWR_ISL28022_ADDR			0x40 //default 0x80 in 8 bit
 #define PWR_ISL28022_I2C_BUS		1
 
@@ -87,10 +84,10 @@
 #define PWR_ISL28022_REG_BUS		0x02
 
 
-class PWR_ISL28022 : public device::I2C
+class PWR_ISL28022 : public device::I2C, public ModuleParams
 {
 public:
-	PWR_ISL28022(int bus = PX4_I2C_BUS_EXPANSION, uint16_t pwr_isl28022_addr = PWR_ISL28022_ADDR,
+	PWR_ISL28022(int bus = PWR_ISL28022_I2C_BUS, uint16_t pwr_isl28022_addr = PWR_ISL28022_ADDR,
 			float sens_resistor=0, uint16_t sens_range=0);
 	virtual ~PWR_ISL28022();
 
@@ -201,7 +198,8 @@ extern "C" __EXPORT int pwr_isl28022_main(int argc, char *argv[]);
 
 
 PWR_ISL28022::PWR_ISL28022(int bus, uint16_t pwr_isl28022_addr, float sens_resistor, uint16_t sens_range) :
-	I2C("pwr_isl28022", nullptr, bus, pwr_isl28022_addr, 400000),
+	I2C(DeviceBusType_I2C,"pwr_isl28022", bus, pwr_isl28022_addr, 400000),
+	ModuleParams(nullptr),
 	_enabled(false),
 	_last_report{},
 	_batt_topic(nullptr),
@@ -211,7 +209,7 @@ PWR_ISL28022::PWR_ISL28022(int bus, uint16_t pwr_isl28022_addr, float sens_resis
 	_sens_sample_reg(0),
 	_sens_resistor(PWR_ISL28022_SENS_R),
 	_startRemaining(0),
-	_battery()
+	_battery(0, this, PWR_ISL28022_MEASUREMENT_INTERVAL_US)
 {
 	// capture startup time
 	_start_time = hrt_absolute_time();
@@ -426,9 +424,8 @@ PWR_ISL28022::try_read_data(battery_status_s &new_report, uint64_t now){
 		orb_copy(ORB_ID(actuator_controls_0), _actuator_ctrl_0_sub, &ctrl);
 
 		_battery.updateBatteryStatus(now, _voltage_v, _current_a,
-				_voltage_v>2.0f, true , 0,
-				ctrl.control[actuator_controls_s::INDEX_THROTTLE],
-				_armed, &new_report);
+				_voltage_v>2.0f, 0 , 0,
+				ctrl.control[actuator_controls_s::INDEX_THROTTLE]);
 		new_report.voltage_filtered_v = _voltage_v_filtered;
 		new_report.current_filtered_a = _current_a_filtered;
 		if(_startRemaining>=0.0f && _startRemaining<=1.0f)

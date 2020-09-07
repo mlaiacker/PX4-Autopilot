@@ -50,9 +50,10 @@
 #include <drivers/device/i2c.h>
 #include <drivers/device/ringbuffer.h>
 #include <drivers/drv_hrt.h>
-#include <px4_config.h>
-#include <px4_workqueue.h>
-#include <px4_getopt.h>
+#include <px4_platform_common/i2c_spi_buses.h>
+#include <px4_platform_common/workqueue.h>
+#include <px4_platform_common/module.h>
+#include <px4_platform_common/getopt.h>
 #include <perf/perf_counter.h>
 #include <uORB/topics/battery_status.h>
 #include <uORB/topics/actuator_controls.h>
@@ -68,10 +69,6 @@
 #define BATT_PAC17_TIMEOUT_US			(5000000)	///< timeout looking for battery xseconds after startup
 #define BATT_PAC17_SENS_RANGE			(80)   // mV
 #define BATT_PAC17_SENS_R				(0.1f) // mOhm
-
-#ifndef CONFIG_SCHED_WORKQUEUE
-# error This requires CONFIG_SCHED_WORKQUEUE.
-#endif
 
 #define BATT_PAC17_ADDR			0x4c //default 0x98 in 8 bit
 #define BATT_PAC17_I2C_BUS		1
@@ -99,10 +96,10 @@
 #define BATT_PAC17_REG_MID		0xfe // should be 0x5d
 #define BATT_PAC17_REG_REVISION	0xff // should be 0x81
 
-class BATT_PAC17 : public device::I2C
+class BATT_PAC17 : public device::I2C, public ModuleParams
 {
 public:
-	BATT_PAC17(int bus = PX4_I2C_BUS_EXPANSION, uint16_t batt_pac17_addr = BATT_PAC17_ADDR,
+	BATT_PAC17(int bus = BATT_PAC17_I2C_BUS, uint16_t batt_pac17_addr = BATT_PAC17_ADDR,
 			float sens_resistor=0, uint16_t sens_range=0);
 	virtual ~BATT_PAC17();
 
@@ -240,7 +237,8 @@ extern "C" __EXPORT int batt_pac17xx_main(int argc, char *argv[]);
 
 
 BATT_PAC17::BATT_PAC17(int bus, uint16_t batt_pac17_addr, float sens_resistor, uint16_t sens_range) :
-	I2C("batt_pac17", 0, bus, batt_pac17_addr, 400000),
+	I2C(DeviceBusType_I2C,"batt_pac17", bus, batt_pac17_addr, 400000),
+	ModuleParams(nullptr),
 	_enabled(false),
 	_last_report{},
 	_batt_topic(nullptr),
@@ -249,7 +247,7 @@ BATT_PAC17::BATT_PAC17(int bus, uint16_t batt_pac17_addr, float sens_resistor, u
 	_sens_sample_reg(0x53),
 	_sens_resistor(BATT_PAC17_SENS_R),
 	_startRemaining(0),
-	_battery()
+	_battery(0, this, BATT_PAC17_MEASUREMENT_INTERVAL_US)
 {
 	// capture startup time
 	_startupDelay = 10;
@@ -498,10 +496,7 @@ BATT_PAC17::try_read_data(battery_status_s &new_report, uint64_t now){
 //		orb_copy(ORB_ID(actuator_controls_0), _actuator_ctrl_0_sub, &ctrl);
 
 		_battery.updateBatteryStatus(now, _voltage_v, _current_a,
-				_voltage_v>2.0f, true , 0,
-//				ctrl.control[actuator_controls_s::INDEX_THROTTLE],
-				0,
-				_armed, &new_report);
+				_voltage_v>2.0f, BATTERY_STATUS_BATTERY_SOURCE_EXTERNAL, 0,	0.0f);
 		new_report.voltage_filtered_v = _voltage_v_filtered;
 /*		if((now-_time_arm)>0 && new_report.discharged_mah>_discharged_mah_armed)
 		{
