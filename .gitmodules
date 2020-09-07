@@ -21,7 +21,7 @@
 [submodule "src/lib/ecl"]
 	path = src/lib/ecl
 	url = https://github.com/PX4/ecl.git
-	branch = Release_v1.10
+	branch = master
 [submodule "boards/atlflight/cmake_hexagon"]
 	path = boards/atlflight/cmake_hexagon
 	url = https://github.com/PX4/cmake_hexagon.git
