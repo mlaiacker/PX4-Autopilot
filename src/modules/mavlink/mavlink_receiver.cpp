@@ -2169,15 +2169,15 @@ MavlinkReceiver::handle_message_hil_sensor(mavlink_message_t *msg)
 	{
 		airspeed_s airspeed{};
 
-		float ias = calc_IAS(imu.diff_pressure * 1e2f);
+		float ias = calc_IAS(hil_sensor.diff_pressure * 1e2f);
 		float scale = 1.0f; //assume no instrument or pitot placement errors
 		float eas = calc_EAS_from_IAS(ias, scale);
-		float tas = calc_TAS_from_EAS(eas, imu.abs_pressure * 100, imu.temperature);
+		float tas = calc_TAS_from_EAS(eas, hil_sensor.abs_pressure * 100, hil_sensor.temperature);
 
 		airspeed.timestamp = timestamp;
 		airspeed.indicated_airspeed_m_s = ias;
 		airspeed.true_airspeed_m_s = tas;
-		airspeed.air_temperature_celsius = imu.temperature;
+		airspeed.air_temperature_celsius = hil_sensor.temperature;
 
 		_airspeed_pub.publish(airspeed);
 	}

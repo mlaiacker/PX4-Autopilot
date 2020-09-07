@@ -489,7 +489,7 @@ Mavlink::forward_message(const mavlink_message_t *msg, Mavlink *self)
 				(msg->msgid != MAVLINK_MSG_ID_HEARTBEAT || self->forward_heartbeats_enabled());
 
 
-			if ((!targeted_only_at_us && target_component_id_ok && heartbeat_check_ok)
+			if ((!targeted_only_at_us && heartbeat_check_ok)
 					|| msg->msgid==MAVLINK_MSG_ID_V2_EXTENSION // Always forward
 					|| msg->msgid==MAVLINK_MSG_ID_COMMAND_LONG // Always forward
 					) {
