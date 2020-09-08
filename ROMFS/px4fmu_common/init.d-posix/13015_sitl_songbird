@@ -16,11 +16,11 @@ SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
 set AUX_MODE                    none
 set IO_PRESENT                  no
 set LOG_FILE                    bootlog.txt
-set MAV_TYPE                    22
+set MAV_TYPE                    21
 set MIXER                       none
 set MIXER_AUX                   none
 set MIXER_FILE                  none
-set OUTPUT_MODE                 hil
+set OUTPUT_MODE                 sim
 set PWM_OUT                     none
 set SDCARD_MIXERS_PATH          etc/mixers
 set USE_IO                      no
@@ -45,7 +45,7 @@ tone_alarm start
 
 set VEHICLE_TYPE vtol
 
-set MIXER_FILE etc/mixers-sitl/songbird.mix
+set MIXER_FILE etc/mixers-sitl/songbird.main.mix
 set MIXER custom
 
 param set SYS_MC_EST_GROUP 2
@@ -86,7 +86,7 @@ param set CAL_MAG0_ZSCALE		1.000
 replay tryapplyparams
 
 simulator start -u 14557
-gpssim start
+#gpssim start
 
 pwm_out_sim start
 
@@ -96,12 +96,24 @@ commander start -h
 
 navigator start
 ekf2 start
+
+airspeed_selector start
+
 vtol_att_control start
-mc_pos_control start
-mc_att_control start
-fw_pos_control_l1 start
-fw_att_control start
+
+mc_rate_control start vtol
+mc_att_control start vtol
+mc_pos_control start vtol
+mc_hover_thrust_estimator start
+
+fw_att_control start vtol
+fw_pos_control_l1 start vtol
+
+# Start Land Detector
+# Multicopter for now until we have something for VTOL
+#
 land_detector start vtol
+
 
 mixer load /dev/pwm_output0 etc/mixers-sitl/songbird.main.mix
 
