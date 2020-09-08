@@ -120,7 +120,7 @@ public:
 	/*
 	 * for hil
 	 */
-	void rechargeBattery(){ _discharged_mah=0.f; _battery_initialized = false;};
+	void rechargeBattery(){ _discharged_mah=0.f; _remaining=1.0; _battery_initialized = false;};
 
 protected:
 	struct {

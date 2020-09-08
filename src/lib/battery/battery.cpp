@@ -145,11 +145,12 @@ Battery::updateBatteryStatus(hrt_abstime timestamp, float voltage_v, float curre
 	estimateRemaining(_voltage_filter_v.getState(), _current_filter_a.getState(), _throttle_filter.getState());
 	computeScale();
 
+	estimateRemainingTime();
+
 	if (_battery_initialized) {
 		determineWarning(connected);
 	}
 
-	estimateRemainingTime();
 
 	if (_voltage_filter_v.getState() > 2.1f) {
 		_battery_initialized = true;
@@ -193,7 +194,7 @@ Battery::estimateRemainingTime() {
 		_discharged_mah_armed = _discharged_mah;
 		_startRemaining = -1.0f;
 	} else {
-		if (_params.capacity > 0.f) {
+		if (_capacity_mah > 0.f) {
 			_remaining = 1.0f - (_discharged_mah / _capacity_mah);
 			_remaining = math::max(_remaining, 0.f);
 		}
