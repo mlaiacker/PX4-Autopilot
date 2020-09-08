@@ -140,6 +140,8 @@ protected:
 
 	void issue_command(const mission_item_s &item);
 
+	void cruising_speed_sp_update();
+
 	float get_time_inside(const mission_item_s &item) const ;
 
 	float get_absolute_altitude_for_item(const mission_item_s &mission_item) const;
