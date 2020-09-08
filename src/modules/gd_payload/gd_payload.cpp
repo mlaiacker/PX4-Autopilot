@@ -44,9 +44,9 @@
  * @author Maximilian Laiacker <post@mlaiacker.de>
  */
 
-#include <px4_getopt.h>
+#include <px4_platform_common/module.h>
+#include <px4_platform_common/getopt.h>
 #include <px4_log.h>
-#include <px4_posix.h>
 #include <math.h>
 
 #include <sys/types.h>
@@ -74,7 +74,6 @@
 #include <drivers/drv_hrt.h>
 #include <drivers/drv_pwm_output.h>
 #include <drivers/drv_adc.h>
-#include <drivers/drv_io_expander.h>
 #include "gd_payload.h"
 
 #define SW_LIPO	(0xf0|1)
@@ -124,9 +123,12 @@ int GDPayload::print_status()
 	PX4_INFO("current: %.3fA (%f)", (double)_current_a, double(_parameters.battery_a_per_v));
 	PX4_INFO("bat used: %.1fmAh", (double)_used_mAh);
 #ifdef __PX4_NUTTX
-	for (unsigned i = 0; i < PX4_MAX_ADC_CHANNELS; i++)
+	adc_report_s adc_report;
+
+	_adc_report_sub.copy(&adc_report);
+	for (unsigned i = 0; i < sizeof(adc_report.raw_data)/sizeof(adc_report.raw_data[0]); i++)
 	{
-		PX4_INFO("ADC:%i, %i=%i",i,_buf_adc[i].am_channel, _buf_adc[i].am_data);
+		PX4_INFO("ADC:%i, %i=%i",i, adc_report.channel_id[i], adc_report.raw_data[i]);
 	}
 #endif
 	return 0;
@@ -321,7 +323,7 @@ void GDPayload::batGetAll(battery_status_s* lion, battery_status_s* lipo)
 int GDPayload::switchStatus()
 {
 	int port = -1;
-#ifdef __PX4_NUTTX
+#if defined(__PX4_NUTTX) && defined(IOX_GET_MASK)
 	int fd= open("/dev/pca9536", O_RDWR);
 	if(fd>0){
 		port = px4_ioctl(fd, IOX_GET_MASK, 0);
@@ -334,7 +336,7 @@ int GDPayload::switchStatus()
 int GDPayload::switchSet(int val)
 {
 	int port = -1;
-#ifdef __PX4_NUTTX
+#if defined(__PX4_NUTTX) && defined(IOX_SET_VALUE)
 	int fd= open("/dev/pca9536", O_RDWR);
 	if(fd>0){
 		port = px4_ioctl(fd, IOX_SET_VALUE, val);
@@ -399,16 +401,6 @@ GDPayload::GDPayload(char const *const device, bool debug_flag):
 ModuleParams(nullptr),
 _pub_battery(nullptr)
 {
-
-#ifdef __PX4_NUTTX
-	if(device)
-	{
-		memcpy(_device, device,sizeof(_device));
-	} else{
-		memcpy(_device, PX4IO_DEV,sizeof(PX4IO_DEV));
-	}
-	memset(&_buf_adc,0,sizeof(_buf_adc));
-#endif
 	_debug_flag = debug_flag;
 	memset(&_battery_status,0,sizeof(_battery_status));
 	_used_mAh = 0.0f;
@@ -419,9 +411,6 @@ _pub_battery(nullptr)
 bool GDPayload::init()
 {
 	bool result = true;
-#ifdef __PX4_NUTTX
-	DriverFramework::DevMgr::getHandle(ADC0_DEVICE_PATH, _h_adc);
-#endif
 	_parameters_handles.battery_v_div = param_find("BAT_V_DIV");
 	_parameters_handles.battery_a_per_v = param_find("BAT_A_PER_V");
 
@@ -686,43 +675,25 @@ void GDPayload::updateBatteryDisconnect()
 bool  GDPayload::readPayloadAdc()
 {
 #ifdef __PX4_NUTTX
-	if(!_h_adc.isValid())
-	{
-		DriverFramework::DevMgr::getHandle(ADC0_DEVICE_PATH, _h_adc);
-		if(!_h_adc.isValid())
-		{
-			return false;
-		}
-	}
 
-		/* make space for a maximum of twelve channels (to ensure reading all channels at once) */
-		px4_adc_msg_t buf_adc[PX4_MAX_ADC_CHANNELS];
-		/* read all channels available */
-		int ret = _h_adc.read(&buf_adc, sizeof(buf_adc));
+	if(_adc_report_sub.update(&_adc_report)) {
 
-
-		/* Based on the valid_chan, used to indicate the selected the lowest index
-		 * (highest priority) supply that is the source for the VDD_5V_IN
-		 * When < 0 none selected
-		 */
-		if (ret >= (int)sizeof(buf_adc[0])) {
 			/* Read adc channels we got */
-			for (unsigned i = 0; i < ret / sizeof(buf_adc[0]); i++)
+			for (unsigned i = 0; i < sizeof(_adc_report.raw_data)/sizeof(_adc_report.raw_data[0]); i++)
 			{
-				_buf_adc[i] = buf_adc[i];
 				/* look for specific channels and process the raw voltage to measurement data */
-				if (buf_adc[i].am_channel == 13) /* PC3=adc0 channel 13 */
+				if (_adc_report.channel_id[i] == 13) /* PC3=adc0 channel 13 */
 				{
 					/* Voltage in volts */
-					_voltage_v = ((float)buf_adc[i].am_data * (3.3f / 4096)) * _parameters.battery_v_div;
+					_voltage_v = ((float)_adc_report.raw_data[i] * (3.3f / 4096)) * _parameters.battery_v_div;
 
-				} else if (buf_adc[i].am_channel == 14) /* PC4=adc0 channel 14 */
+				} else if (_adc_report.channel_id[i] == 14) /* PC4=adc0 channel 14 */
 				{
-					_current_a = ((float)buf_adc[i].am_data * (3.3f / 4096)) * _parameters.battery_a_per_v;
+					_current_a = ((float)_adc_report.raw_data[i] * (3.3f / 4096)) * _parameters.battery_a_per_v;
 				}
 			}
 			return true;
-		}
+	}
 	return false;
 #else
 	_voltage_v = _battery_sim.cell_count()*_battery_sim.full_cell_voltage() + rand()*0.1f/RAND_MAX;

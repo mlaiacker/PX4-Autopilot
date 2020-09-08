@@ -33,12 +33,12 @@
 
 #pragma once
 
-#include <px4_module.h>
-#include <px4_module_params.h>
+#include <px4_platform_common/module.h>
+#include <px4_platform_common/module_params.h>
 #include <battery/battery.h>
 #include <uORB/topics/battery_status.h>
-#include <DevMgr.hpp>
-#include <battery/battery.h>
+#include <uORB/topics/adc_report.h>
+#include <uORB/Subscription.hpp>
 
 
 extern "C" __EXPORT int gd_payload_main(int argc, char *argv[]);
@@ -89,10 +89,8 @@ private:
 	int 	_parameter_update_sub{-1};
 
 #ifdef __PX4_NUTTX
-	DriverFramework::DevHandle 	_h_adc;				/**< ADC driver handle */
-
-	char 	_device[32];
-	px4_adc_msg_t _buf_adc[PX4_MAX_ADC_CHANNELS];
+	adc_report_s _adc_report;
+	uORB::Subscription	_adc_report_sub{ORB_ID(adc_report)};
 	int 	_px4io_fd = -1;
 #else
 	orb_advert_t		_pub_battery_sim;
