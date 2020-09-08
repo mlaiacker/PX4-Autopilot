@@ -496,7 +496,7 @@ BATT_PAC17::try_read_data(battery_status_s &new_report, uint64_t now){
 //		orb_copy(ORB_ID(actuator_controls_0), _actuator_ctrl_0_sub, &ctrl);
 
 		_battery.updateBatteryStatus(now, _voltage_v, _current_a,
-				_voltage_v>2.0f, BATTERY_STATUS_BATTERY_SOURCE_EXTERNAL, 0,	0.0f);
+				_voltage_v>2.0f, battery_status_s::BATTERY_SOURCE_EXTERNAL, 0,	0.0f);
 		new_report.voltage_filtered_v = _voltage_v_filtered;
 /*		if((now-_time_arm)>0 && new_report.discharged_mah>_discharged_mah_armed)
 		{
