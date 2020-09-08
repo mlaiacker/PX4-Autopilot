@@ -53,12 +53,13 @@
 #include <sys/ioctl.h>
 
 #include <termios.h>
+#include <poll.h>
 
 #ifdef __PX4_NUTTX
 #include <nuttx/arch.h>
 #include <nuttx/irq.h>
-#endif
 #include <arch/board/board.h>
+#endif
 
 #include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/topics/vehicle_command.h>
@@ -399,6 +400,9 @@ GDPayload *GDPayload::instantiate(int argc, char *argv[])
 
 GDPayload::GDPayload(char const *const device, bool debug_flag):
 ModuleParams(nullptr),
+#ifndef __PX4_NUTTX
+_battery_sim(0, this, 100000),
+#endif
 _pub_battery(nullptr)
 {
 	_debug_flag = debug_flag;
@@ -719,20 +723,15 @@ bool  GDPayload::readPayloadAdc()
 				sim_current_a += 1.0f + 75.0f*ctrl.control[actuator_controls_s::INDEX_THROTTLE]*ctrl.control[actuator_controls_s::INDEX_THROTTLE]
 							     + rand()*10.0f/RAND_MAX;
 			}
-			if(_batt_sim.connected)
-			{
-				sim_voltage_v -= _battery_sim.cell_count()*1.3f*(1.0f-_batt_sim.remaining);
-			}
+			sim_voltage_v -= _battery_sim.cell_count()*1.3f*(1.0f-_battery_sim.getRemaining());
 			sim_voltage_v -= sim_current_a*0.007f;
 		} else {
 			_battery_sim.rechargeBattery();
 		}
 		_battery_sim.updateBatteryStatus(hrt_absolute_time(),
 				sim_voltage_v, sim_current_a,
-				true, true, 1, ctrl.control[actuator_controls_s::INDEX_THROTTLE],
-				_vstatus.arming_state == _vstatus.ARMING_STATE_ARMED,
-				&_batt_sim);
-		orb_publish_auto(ORB_ID(battery_status), &_pub_battery_sim, &_batt_sim, &_instance_sim, ORB_PRIO_DEFAULT);
+				true, 0, 1, ctrl.control[actuator_controls_s::INDEX_THROTTLE]);
+		_battery_sim.publish();
 		return true;
 	}
 	return false;
@@ -797,7 +796,6 @@ void GDPayload::run()
 #ifndef __PX4_NUTTX
 	/* needed for the Battery class */
 	orb_unsubscribe(_sub_actuator_ctrl_0);
-	orb_unadvertise(_pub_battery_sim);
 #endif
 }
 
