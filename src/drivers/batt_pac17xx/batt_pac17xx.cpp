@@ -239,7 +239,7 @@ BATT_PAC17::BATT_PAC17(int bus, uint16_t batt_pac17_addr, float sens_resistor, u
 	_sens_sample_reg(0x53),
 	_sens_resistor(BATT_PAC17_SENS_R),
 	_startRemaining(0),
-	_battery(0, this, BATT_PAC17_MEASUREMENT_INTERVAL_US)
+	_battery(1, this, BATT_PAC17_MEASUREMENT_INTERVAL_US)
 {
 	// capture startup time
 	_startupDelay = 10;
