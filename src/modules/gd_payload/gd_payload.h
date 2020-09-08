@@ -95,6 +95,7 @@ private:
 #else
 	Battery				_battery_sim;
 	int					_sub_actuator_ctrl_0{-1};		/**< attitude controls sub */
+	bool				_sim_was_armed{false};
 #endif
 
 	orb_advert_t		_pub_battery;

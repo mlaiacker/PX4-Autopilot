@@ -401,15 +401,19 @@ GDPayload *GDPayload::instantiate(int argc, char *argv[])
 GDPayload::GDPayload(char const *const device, bool debug_flag):
 ModuleParams(nullptr),
 #ifndef __PX4_NUTTX
-_battery_sim(0, this, 100000),
+_battery_sim(1, this, 100000),
 #endif
 _pub_battery(nullptr)
 {
 	_debug_flag = debug_flag;
 	memset(&_battery_status,0,sizeof(_battery_status));
+	_battery_status.remaining = 1.0f;
 	_used_mAh = 0.0f;
 	_voltage_v = 0.0f;
 	_current_a = 0.0f;
+#ifndef __PX4_NUTTX
+	_battery_sim.rechargeBattery();
+#endif
 }
 
 bool GDPayload::init()
@@ -656,6 +660,8 @@ void GDPayload::vehicle_control_mode_poll()
 				}*/
 				_vstatus = vstatus;
 			}
+		} else {
+			orb_copy(ORB_ID(vehicle_status), _sub_vehicle_status, &_vstatus);
 		}
 	}
 }
@@ -725,8 +731,12 @@ bool  GDPayload::readPayloadAdc()
 			}
 			sim_voltage_v -= _battery_sim.cell_count()*1.3f*(1.0f-_battery_sim.getRemaining());
 			sim_voltage_v -= sim_current_a*0.007f;
+			_sim_was_armed = true;
 		} else {
-			_battery_sim.rechargeBattery();
+			if(_sim_was_armed) {
+				_battery_sim.rechargeBattery();
+				_sim_was_armed = false;
+			}
 		}
 		_battery_sim.updateBatteryStatus(hrt_absolute_time(),
 				sim_voltage_v, sim_current_a,
@@ -775,6 +785,10 @@ void GDPayload::run()
 				_battery_status.current_filtered_a = _battery_status.current_filtered_a*0.8f + _current_a*0.2f;
 				_battery_status.discharged_mah = _used_mAh;
 				_battery_status.priority = (uint8_t)switchStatus()&0x03;
+				for(int i = 0; i< _battery_status.cell_count; i++)
+				{
+					_battery_status.voltage_cell_v[i] = _battery_status.voltage_filtered_v/_battery_status.cell_count;
+				}
 				if(orb_publish_auto(ORB_ID(battery_status), &_pub_battery, &_battery_status, &_instance, ORB_PRIO_LOW))
 				{
 					if(_debug_flag)
