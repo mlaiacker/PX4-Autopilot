@@ -113,8 +113,10 @@ public:
 	 * get capacity param value
 	 */
 	float getCapacity() {	return _params.capacity;};
-	//float getCapacityReserve() {	return _param_capacity_vt_landig.get();};
+	float getCapacityReserve() {	return _params.capacity_vt_landig;};
 
+	float getRemaining() {	return _remaining;};
+	float getDischarged() {	return _discharged_mah;};
 	/*
 	 * for hil
 	 */
@@ -132,6 +134,7 @@ protected:
 		param_t crit_thr;
 		param_t emergen_thr;
 		param_t source;
+		param_t capacity_vt_landig;
 
 		// TODO: These parameters are depracated. They can be removed entirely once the
 		//  new version of Firmware has been around for long enough.
@@ -155,6 +158,7 @@ protected:
 		float crit_thr;
 		float emergen_thr;
 		int source;
+		float capacity_vt_landig;
 
 		// TODO: These parameters are depracated. They can be removed entirely once the
 		//  new version of Firmware has been around for long enough.
@@ -229,4 +233,11 @@ private:
 	float _scale = 1.f;
 	uint8_t _warning;
 	hrt_abstime _last_timestamp;
+
+	void estimateRemainingTime();
+	hrt_abstime _time_armed=0;
+	float _discharged_mah_armed = 0.f;
+	float _startRemaining = -1.f; ///< estimated percent remaining based on voltage at start
+	float _capacity_mah=0.0f; ///< estimated capacity left in battery at first boot
+	AlphaFilter<float> _current_filter_average_a;
 };
