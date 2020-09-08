@@ -104,6 +104,22 @@ public:
 	 */
 	void publish();
 
+	/**
+	 * get remaining estimate based on voltage
+	 */
+	float getRemainingVoltage() {return _remaining_voltage; }
+
+	/**
+	 * get capacity param value
+	 */
+	float getCapacity() {	return _params.capacity;};
+	//float getCapacityReserve() {	return _param_capacity_vt_landig.get();};
+
+	/*
+	 * for hil
+	 */
+	void rechargeBattery(){ _discharged_mah=0.f; _battery_initialized = false;};
+
 protected:
 	struct {
 		param_t v_empty;
