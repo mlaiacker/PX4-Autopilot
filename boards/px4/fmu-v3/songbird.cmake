@@ -20,12 +20,12 @@ px4_add_board(
 	DRIVERS
 		adc
 		barometer # all available barometer drivers
-		batt_smbus
+		#batt_smbus
 		camera_capture
 		camera_trigger
 		differential_pressure # all available differential pressure drivers
 		distance_sensor # all available distance sensor drivers
-		dshot
+		#dshot
 		gps
 		#heater
 		#imu # all available imu drivers
@@ -47,24 +47,24 @@ px4_add_board(
 		#optical_flow # all available optical flow drivers
 		optical_flow/px4flow
 		#osd
-		pca9685
+		#pca9685
 		#power_monitor/ina226
 		#protocol_splitter
 		pwm_input
 		pwm_out_sim
 		pwm_out
 		px4io
-		roboclaw
-		tap_esc
+		#roboclaw
+		#tap_esc
 		telemetry # all available telemetry drivers
 		test_ppm
 		tone_alarm
-		uavcan
+		#uavcan
 # GD drivers
 		temp_lm75
 		batt_pac17xx
-		pca9536
-		pwr_isl28022
+		#pca9536
+		#pwr_isl28022
 
 	MODULES
 		airspeed_selector
@@ -118,7 +118,7 @@ px4_add_board(
 		reboot
 		reflect
 		sd_bench
-		shutdown
+		#shutdown
 		tests # tests and test runner
 		top
 		topic_listener
