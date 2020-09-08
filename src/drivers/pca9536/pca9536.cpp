@@ -72,11 +72,16 @@
 #define PCA9536_REG_INVERSION	0x2
 #define PCA9536_REG_DDR			0x3 // gpio direction register 1=input 0=output
 
+enum IOX_MODE {
+	IOX_MODE_OFF,
+	IOX_MODE_ON,
+	IOX_MODE_TEST_OUT
+};
 
 class PCA9536 : public device::I2C
 {
 public:
-	PCA9536(int bus = PX4_I2C_BUS_EXPANSION);
+	PCA9536(int bus = PCA9536_I2C_BUS);
 	virtual ~PCA9536();
 
 	/**
@@ -168,7 +173,7 @@ extern "C" __EXPORT int pca9536_main(int argc, char *argv[]);
 
 
 PCA9536::PCA9536(int bus) :
-	I2C("pca9536", PCA9536_DEVICE_PATH, bus, PCA9536_ADDR, 400000),
+	I2C(DeviceBusType_I2C, "pca9536", bus, PCA9536_ADDR, 400000),
 	_enabled(false),
 	_start_time(0)
 {
