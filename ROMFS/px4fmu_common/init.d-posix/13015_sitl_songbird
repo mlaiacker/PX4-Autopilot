@@ -137,7 +137,7 @@ mavlink stream -r 10 -s HIL_ACTUATOR_CONTROLS -u 14556
 
 #mavlink start -d /dev/serial0 -f
 
-#logger start -e -t
+logger start -t
 
 #replay trystart
 #mavlink stream -r 200 -s HIL_ACTUATOR_CONTROLS -u 14557
