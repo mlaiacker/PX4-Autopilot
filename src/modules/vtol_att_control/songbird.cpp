@@ -32,10 +32,9 @@
  ****************************************************************************/
 
 /**
- * @file tiltrotor.cpp
+ * @file songbird.cpp
  *
- * @author Roman Bapst 		<bapstroman@gmail.com>
- * @author Andreas Antener 	<andreas@uaventure.com>
+ * @author Maximilian Laiacker 		<m.laiacker@germandrones.com>
  *
 */
 
