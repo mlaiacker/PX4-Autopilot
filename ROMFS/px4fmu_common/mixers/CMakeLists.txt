@@ -85,4 +85,6 @@ px4_add_romfs_files(
 	zmr250.main.mix
 	SBV3.aux.mix
 	SBV3.main.mix
+	SBfoam.main.mix
+	SBfoam.aux.mix
 )

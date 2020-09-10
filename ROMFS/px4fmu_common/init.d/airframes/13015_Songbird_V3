@@ -76,7 +76,7 @@ set PWM_AUX_RATE 50
 set PWM_ACHDIS 5
 set PWM_AUX_DISARMED 950
 
-set MAV_TYPE 22
+set MAV_TYPE 21
 
 # batt_pac on I2C bus 1
 batt_pac17xx start -b 1 -r 0.2 -s 80
