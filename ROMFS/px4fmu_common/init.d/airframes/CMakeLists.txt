@@ -135,6 +135,7 @@ px4_add_romfs_files(
 
     13015_Songbird_V3
     13015_Songbird_V3.post
+    13018_Songbird_foam
         
 	# [14000, 14999] Tri Y
 	14001_tri_y_yaw+
