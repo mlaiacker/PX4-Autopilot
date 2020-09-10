@@ -129,7 +129,7 @@ int GDPayload::print_status()
 	_adc_report_sub.copy(&adc_report);
 	for (unsigned i = 0; i < sizeof(adc_report.raw_data)/sizeof(adc_report.raw_data[0]); i++)
 	{
-		PX4_INFO("ADC:%i, %i=%i",i, adc_report.channel_id[i], adc_report.raw_data[i]);
+		PX4_INFO("ADC:%02i, %02i=%fV",i, adc_report.channel_id[i], (double)(adc_report.raw_data[i]*adc_report.v_ref/adc_report.resolution));
 	}
 #endif
 	return 0;
@@ -695,11 +695,11 @@ bool  GDPayload::readPayloadAdc()
 				if (_adc_report.channel_id[i] == 13) /* PC3=adc0 channel 13 */
 				{
 					/* Voltage in volts */
-					_voltage_v = ((float)_adc_report.raw_data[i] * (3.3f / 4096)) * _parameters.battery_v_div;
+					_voltage_v = ((float)_adc_report.raw_data[i]*_adc_report.v_ref/_adc_report.resolution) * _parameters.battery_v_div;
 
 				} else if (_adc_report.channel_id[i] == 14) /* PC4=adc0 channel 14 */
 				{
-					_current_a = ((float)_adc_report.raw_data[i] * (3.3f / 4096)) * _parameters.battery_a_per_v;
+					_current_a = ((float)_adc_report.raw_data[i]*_adc_report.v_ref/_adc_report.resolution) * _parameters.battery_a_per_v;
 				}
 			}
 			return true;
@@ -726,7 +726,7 @@ bool  GDPayload::readPayloadAdc()
 			if(!vtol_status.vtol_in_rw_mode){
 				sim_current_a += 5.0f + 180.0f*ctrl.control[actuator_controls_s::INDEX_THROTTLE]*ctrl.control[actuator_controls_s::INDEX_THROTTLE];
 			} else{
-				sim_current_a += 1.0f + 75.0f*ctrl.control[actuator_controls_s::INDEX_THROTTLE]*ctrl.control[actuator_controls_s::INDEX_THROTTLE]
+				sim_current_a += 1.0f + 55.0f*ctrl.control[actuator_controls_s::INDEX_THROTTLE]*ctrl.control[actuator_controls_s::INDEX_THROTTLE]
 							     + rand()*10.0f/RAND_MAX;
 			}
 			sim_voltage_v -= _battery_sim.cell_count()*1.3f*(1.0f-_battery_sim.getRemaining());
@@ -777,7 +777,7 @@ void GDPayload::run()
 				}
 				_battery_status.timestamp = now;
 				_battery_status.connected = connected;
-				_battery_status.temperature = INT16_MAX;
+				//_battery_status.temperature = ;
 				_battery_status.voltage_v = _voltage_v;
 				_battery_status.cell_count = 8;
 				_battery_status.current_a = _current_a;
@@ -785,6 +785,7 @@ void GDPayload::run()
 				_battery_status.current_filtered_a = _battery_status.current_filtered_a*0.8f + _current_a*0.2f;
 				_battery_status.discharged_mah = _used_mAh;
 				_battery_status.priority = (uint8_t)switchStatus()&0x03;
+				_battery_status.serial_number = 13015; // songbird ID
 				for(int i = 0; i< _battery_status.cell_count; i++)
 				{
 					_battery_status.voltage_cell_v[i] = _battery_status.voltage_filtered_v/_battery_status.cell_count;

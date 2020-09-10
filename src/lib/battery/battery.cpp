@@ -105,7 +105,7 @@ Battery::Battery(int index, ModuleParams *parent, const int sample_interval_us) 
 	updateParams();
 
 	_param_handles.capacity_vt_landig = param_find("BAT_CAP_VT_LAND");
-	_current_filter_average_a.setParameters(expected_filter_dt, .1f);
+	_current_filter_average_a.setParameters(expected_filter_dt, 60.0f);
 }
 
 void
