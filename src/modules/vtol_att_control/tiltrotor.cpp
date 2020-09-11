@@ -408,6 +408,9 @@ void Tiltrotor::fill_actuator_outputs()
 	_actuators_out_0->control[actuator_controls_s::INDEX_YAW] =
 		_actuators_mc_in->control[actuator_controls_s::INDEX_YAW] * _mc_yaw_weight;
 
+	/* filter yaw control to use for differential tilt */
+	_actuators_out_0->control[actuator_controls_s::INDEX_AIRBRAKES] = _actuators_out_0->control[actuator_controls_s::INDEX_YAW];
+
 	if (_vtol_schedule.flight_mode == vtol_mode::FW_MODE) {
 		_actuators_out_0->control[actuator_controls_s::INDEX_THROTTLE] =
 			_actuators_fw_in->control[actuator_controls_s::INDEX_THROTTLE];
