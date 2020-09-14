@@ -202,3 +202,14 @@ PARAM_DEFINE_INT32(SENS_EN_THERMAL, -1);
  * @group Sensors
  */
 PARAM_DEFINE_INT32(SENS_EXT_I2C_PRB, 1);
+
+/**
+ * Differential pressure gain for compensation
+ *
+ * The gain
+ *
+ * @min 0.1
+ * @max 2.0
+ * @group Sensor Calibration
+ */
+PARAM_DEFINE_FLOAT(CAL_AIR_GAIN, 1.0f);

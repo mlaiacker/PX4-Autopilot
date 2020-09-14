@@ -65,6 +65,8 @@ struct Parameters {
 	int32_t air_cmodel;
 	float air_tube_length;
 	float air_tube_diameter_mm;
+
+	float air_gain;
 };
 
 struct ParameterHandles {
@@ -86,6 +88,7 @@ struct ParameterHandles {
 	param_t air_tube_length;
 	param_t air_tube_diameter_mm;
 
+	param_t air_gain; // calibration factor for measurement scale errors with differential pressure
 };
 
 /**

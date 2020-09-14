@@ -319,7 +319,7 @@ void Sensors::diff_pres_poll()
 		airspeed.indicated_airspeed_m_s = calc_IAS_corrected((enum AIRSPEED_COMPENSATION_MODEL)
 						  _parameters.air_cmodel,
 						  smodel, _parameters.air_tube_length, _parameters.air_tube_diameter_mm,
-						  diff_pres.differential_pressure_filtered_pa, air_data.baro_pressure_pa,
+						  diff_pres.differential_pressure_filtered_pa*_parameters.air_gain, air_data.baro_pressure_pa,
 						  air_temperature_celsius);
 
 		airspeed.true_airspeed_m_s = calc_TAS_from_EAS(airspeed.indicated_airspeed_m_s, air_data.baro_pressure_pa,
