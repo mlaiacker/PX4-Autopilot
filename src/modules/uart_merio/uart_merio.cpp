@@ -56,9 +56,66 @@
 #include <uORB/topics/vehicle_control_mode.h>
 
 #include <drivers/drv_hrt.h>
-#include "uart_unisens.h"
 
-int UartUnisens::print_usage(const char *reason)
+extern "C" __EXPORT int uart_merio_main(int argc, char *argv[]);
+
+class UartMerio : public ModuleBase<UartMerio>, public ModuleParams
+{
+public:
+	UartMerio(char const *const device, bool debug_flag);
+
+	virtual ~UartMerio() = default;
+
+	/** @see ModuleBase */
+	static int task_spawn(int argc, char *argv[]);
+
+	/** @see ModuleBase */
+	static UartMerio *instantiate(int argc, char *argv[]);
+
+	/** @see ModuleBase */
+	static int custom_command(int argc, char *argv[]);
+
+	/** @see ModuleBase */
+	static int print_usage(const char *reason = nullptr);
+
+	/** @see ModuleBase::run() */
+	void run() override;
+
+	/** @see ModuleBase::print_status() */
+	int print_status() override;
+private:
+	char 	_device[32];
+	int 	_uart_fd = -1;
+	int 	_rate = 0;
+	int		_timeout = 0;
+	bool	_debug_flag = false;
+	orb_advert_t		_pub_battery;
+	battery_status_s	_battery_status;
+	Battery				_battery;			/**< Helper lib to publish battery_status topic. */
+	float _voltage_v, _current_a, _used_mAh, _temp_c,_baro_hPa, _voltage_rc_v ;
+	int		_actuator_ctrl_0_sub{-1};		/**< attitude controls sub */
+	int		_vcontrol_mode_sub{-1};		/**< vehicle control mode subscription */
+	bool		_armed{false};
+
+	bool init();
+
+	bool readPoll(uint32_t tout=5000);
+	bool  readStatusInit();
+	bool  readStatusData();
+	void writeRequest();
+	void writeInit();
+	void vehicle_control_mode_poll();
+	int8_t calcCheckSum(uint8_t *data, ssize_t length);
+	void updateBatteryDisconnect();
+	/**
+	 * Check for parameter changes and update them if needed.
+	 * @param parameter_update_sub uorb subscription to parameter_update
+	 * @param force for a parameter update
+	 */
+	void parameters_update(int parameter_update_sub, bool force = false);
+};
+
+int UartMerio::print_usage(const char *reason)
 {
 	if (reason) {
 		PX4_WARN("%s\n", reason);
@@ -82,7 +139,7 @@ $ uart_unisens start -d <uart device> -v
 	return 0;
 }
 
-int UartUnisens::print_status()
+int UartMerio::print_status()
 {
 	// print additional runtime information about the state of the module
 	PX4_INFO("rate: %i", _rate);
@@ -95,13 +152,13 @@ int UartUnisens::print_status()
 	return 0;
 }
 
-int UartUnisens::custom_command(int argc, char *argv[])
+int UartMerio::custom_command(int argc, char *argv[])
 {
 	return print_usage("unknown command");
 }
 
 
-int UartUnisens::task_spawn(int argc, char *argv[])
+int UartMerio::task_spawn(int argc, char *argv[])
 {
 	_task_id = px4_task_spawn_cmd("uart_unisens",
 				      SCHED_DEFAULT,
@@ -118,7 +175,7 @@ int UartUnisens::task_spawn(int argc, char *argv[])
 	return 0;
 }
 
-UartUnisens *UartUnisens::instantiate(int argc, char *argv[])
+UartMerio *UartMerio::instantiate(int argc, char *argv[])
 {
 	bool debug_flag = false;
 	bool error_flag = false;
@@ -153,7 +210,7 @@ UartUnisens *UartUnisens::instantiate(int argc, char *argv[])
 		return nullptr;
 	}
 
-	UartUnisens *instance = new UartUnisens(device, debug_flag);
+	UartMerio *instance = new UartMerio(device, debug_flag);
 
 	if (instance == nullptr) {
 		PX4_ERR("alloc failed");
@@ -162,7 +219,7 @@ UartUnisens *UartUnisens::instantiate(int argc, char *argv[])
 	return instance;
 }
 
-UartUnisens::UartUnisens(char const *const device, bool debug_flag):
+UartMerio::UartMerio(char const *const device, bool debug_flag):
 ModuleParams(nullptr),
 _pub_battery(nullptr),
 _battery()
@@ -179,7 +236,7 @@ _battery()
 	_used_mAh = 0;
 }
 
-bool UartUnisens::init()
+bool UartMerio::init()
 {
 	bool result = true;
 	// open uart
@@ -248,7 +305,7 @@ bool UartUnisens::init()
 }
 
 /* read arming state */
-void UartUnisens::vehicle_control_mode_poll()
+void UartMerio::vehicle_control_mode_poll()
 {
 	struct vehicle_control_mode_s vcontrol_mode;
 	bool vcontrol_mode_updated;
@@ -260,7 +317,7 @@ void UartUnisens::vehicle_control_mode_poll()
 }
 
 /* wait tout ms for data available on the serial interface to read */
-bool UartUnisens::readPoll(uint32_t tout)
+bool UartMerio::readPoll(uint32_t tout)
 {
     struct pollfd uartPoll;
     uartPoll.fd = _uart_fd;
@@ -270,7 +327,7 @@ bool UartUnisens::readPoll(uint32_t tout)
     return true; /* data available */
 }
 
-bool UartUnisens::readStatusInit()
+bool UartMerio::readStatusInit()
 {
     // read version with poll
 	if(readPoll(300))
@@ -310,7 +367,7 @@ bool UartUnisens::readStatusInit()
  * $UL2,2012-01-01,0:00:00.0,0.66,0.000,0.000,0.07,0.01,0.00,0.0,5.132,0.0,0.0,,,,,,,,,,1027.37,29.9,0.0,0.0,0,0,0*05
  * after that you have to wait 1 second and then start again by sending "g\r\n"
  *  */
-bool UartUnisens::readStatusData()
+bool UartMerio::readStatusData()
 {
 	/* wait a max of 1s for an answer from unisens */
 	if(!readPoll(1000)) return false;
@@ -402,7 +459,7 @@ bool UartUnisens::readStatusData()
 }
 // uart_unisens start -v -d /dev/ttyS2
 
-int8_t UartUnisens::calcCheckSum(uint8_t *data, ssize_t length)
+int8_t UartMerio::calcCheckSum(uint8_t *data, ssize_t length)
 {
 	int8_t iXor = 0;
 	//calculate checksum by xor'ing over from $ to *
@@ -414,7 +471,7 @@ int8_t UartUnisens::calcCheckSum(uint8_t *data, ssize_t length)
 }
 
 /* unisens should answer with "2" */
-void UartUnisens::writeInit()
+void UartMerio::writeInit()
 {
 	char cmd[] = "g\r\n";
 	::write(_uart_fd, cmd, 3);
@@ -422,7 +479,7 @@ void UartUnisens::writeInit()
 /*
  * Unisnes should answer with data
  */
-void UartUnisens::writeRequest()
+void UartMerio::writeRequest()
 {
 	char cmd[] = "v\r\n";
 	::write(_uart_fd, cmd, 3);
@@ -430,7 +487,7 @@ void UartUnisens::writeRequest()
 /*
  * after timeout or when exit the module signal that we lost connection to the battery sensor
  */
-void UartUnisens::updateBatteryDisconnect()
+void UartMerio::updateBatteryDisconnect()
 {
 	_battery.reset(&_battery_status);
 	_battery_status.warning = battery_status_s::BATTERY_WARNING_FAILED;
@@ -445,7 +502,7 @@ void UartUnisens::updateBatteryDisconnect()
 
 }
 
-void UartUnisens::run()
+void UartMerio::run()
 {
 	if(!init())
 		return;
@@ -511,7 +568,7 @@ void UartUnisens::run()
 	close(_uart_fd);
 }
 
-int uart_unisens_main(int argc, char *argv[])
+int uart_merio_main(int argc, char *argv[])
 {
-	return UartUnisens::main(argc, argv);
+	return UartMerio::main(argc, argv);
 }
