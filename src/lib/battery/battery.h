@@ -90,6 +90,18 @@ public:
 	 * get remaining estimate based on voltage
 	 */
 	float getRemainingVoltage() {return _remaining_voltage; }
+
+	/**
+	 * get capacity param value
+	 */
+	float getCapacity() {	return _capacity.get();};
+	float getCapacityReserve() {	return _capacity_vt_landig.get();};
+
+	/*
+	 * for hil
+	 */
+
+	void rechargeBattery(){ _discharged_mah=0.f; _battery_initialized = false; _discharged_mah_armed = 0.f;};
 private:
 	void filterVoltage(float voltage_v);
 	void filterThrottle(float throttle);
@@ -108,18 +120,25 @@ private:
 		(ParamFloat<px4::params::BAT_R_INTERNAL>) _r_internal,
 		(ParamFloat<px4::params::BAT_LOW_THR>) _low_thr,
 		(ParamFloat<px4::params::BAT_CRIT_THR>) _crit_thr,
-		(ParamFloat<px4::params::BAT_EMERGEN_THR>) _emergency_thr
+		(ParamFloat<px4::params::BAT_EMERGEN_THR>) _emergency_thr,
+		(ParamFloat<px4::params::BAT_CAP_VT_LAND>) _capacity_vt_landig // vtol reserved capaciy for landing
 	)
 
 	bool _battery_initialized = false;
 	float _voltage_filtered_v = -1.f;
 	float _throttle_filtered = -1.f;
 	float _current_filtered_a = -1.f;
+	float _current_average_a = -1.f;
 	float _discharged_mah = 0.f;
 	float _discharged_mah_loop = 0.f;
+	float _discharged_mah_armed = 0.f;
 	float _remaining_voltage = -1.f;		///< normalized battery charge level remaining based on voltage
 	float _remaining = -1.f;			///< normalized battery charge level, selected based on config param
+	float _startRemaining = -1.f; ///< estimated percent remaining based on voltage at start
+	float _capacity_mah=0.0f; ///< estimated capacity left in battery at first boot
 	float _scale = 1.f;
 	uint8_t _warning;
+	bool	_armed=false;
 	hrt_abstime _last_timestamp;
+	hrt_abstime _time_armed=0;
 };

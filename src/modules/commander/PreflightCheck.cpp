@@ -71,6 +71,7 @@ using namespace DriverFramework;
 
 namespace Preflight
 {
+static const int AIRSPEED_OFFSET_MAX = 15;
 
 static int check_calibration(DevHandle &h, const char *param_template, int &devid)
 {
@@ -473,9 +474,9 @@ static bool airspeedCheck(orb_advert_t *mavlink_log_pub, vehicle_status_s &statu
 	 * Negative and positive offsets are considered. Do not check anymore while arming because pitot cover
 	 * might have been removed.
 	 */
-	if (fabsf(differential_pressure.differential_pressure_filtered_pa) > 15.0f && !prearm) {
+	if (fabsf(differential_pressure.differential_pressure_filtered_pa) > Preflight::AIRSPEED_OFFSET_MAX && !prearm) {
 		if (report_fail) {
-			mavlink_log_critical(mavlink_log_pub, "PREFLIGHT FAIL: CHECK AIRSPEED CAL - %.3f", (double) differential_pressure.differential_pressure_filtered_pa);
+			mavlink_log_critical(mavlink_log_pub, "PREFLIGHT FAIL: AIRSPEED OFFSET %.0fPa max. %iPa", (double) differential_pressure.differential_pressure_filtered_pa, Preflight::AIRSPEED_OFFSET_MAX);
 		}
 		present = true;
 		success = false;

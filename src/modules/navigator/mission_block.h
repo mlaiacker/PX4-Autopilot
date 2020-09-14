@@ -67,6 +67,10 @@ public:
 
 	static bool item_contains_position(const mission_item_s &item);
 
+	static const int TAKEOFF_MIN_DIST = 10; // minimum distance for takeoff waypoint to do yaw alignment after climb
+	static const int WIND_THRESHOLD = 3; // minimum windspeed for doing yaw aligment while landing as vtol landing
+
+	static float getWindYaw(float yaw);
 
 protected:
 	/**

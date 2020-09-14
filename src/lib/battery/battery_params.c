@@ -196,3 +196,18 @@ PARAM_DEFINE_INT32(BAT_N_CELLS, 0);
  * @reboot_required true
  */
 PARAM_DEFINE_FLOAT(BAT_CAPACITY, -1.0f);
+
+/**
+ * Battery capacity reserved for VTOL landig.
+ *
+ * Defines the capacity reserved for landig for the remaining time estimation.
+ *
+ * @group Battery Calibration
+ * @unit mAh
+ * @decimal 0
+ * @min -1.0
+ * @max 100000
+ * @increment 50
+ * @reboot_required true
+ */
+PARAM_DEFINE_FLOAT(BAT_CAP_VT_LAND, -1.0f);

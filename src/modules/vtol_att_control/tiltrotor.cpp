@@ -272,13 +272,10 @@ void Tiltrotor::update_transition_state()
 		_mc_throttle_weight = 1.0f;
 
 		// reduce MC controls once the plane has picked up speed
-		if (!_params->airspeed_disabled && _airspeed->indicated_airspeed_m_s > ARSP_YAW_CTRL_DISABLE) {
-			_mc_yaw_weight = 0.0f;
-		}
-
 		if (!_params->airspeed_disabled && _airspeed->indicated_airspeed_m_s >= _params->airspeed_blend) {
 			_mc_roll_weight = 1.0f - (_airspeed->indicated_airspeed_m_s - _params->airspeed_blend) /
 					  (_params->transition_airspeed - _params->airspeed_blend);
+			_mc_yaw_weight = _mc_roll_weight;
 		}
 
 		// without airspeed do timed weight changes
@@ -384,7 +381,6 @@ void Tiltrotor::fill_actuator_outputs()
 		if(_fw_throttle_weight<1.0f)
 		{
 			_fw_throttle_weight += (1.0f/250.0f)/1.0f;
-			//PX4_INFO("th w:%f", (double)_fw_throttle_weight);
 		} else
 		{
 			_fw_throttle_weight = 1.0f;

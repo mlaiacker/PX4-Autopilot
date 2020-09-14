@@ -520,13 +520,34 @@ MissionFeasibilityChecker::checkFixedWingLanding(const mission_s &mission, bool 
 bool
 MissionFeasibilityChecker::checkDistanceToFirstWaypoint(const mission_s &mission, float max_distance)
 {
-	if (max_distance <= 0.0f) {
+	if (max_distance <= 0.0f || _navigator->get_vstatus()->arming_state==vehicle_status_s::ARMING_STATE_ARMED) {
 		/* param not set, check is ok */
 		return true;
 	}
 
+	float min_distance = 0.0f;
+	if (_navigator->get_vstatus()->is_vtol)	{
+		min_distance = MissionBlock::TAKEOFF_MIN_DIST;
+	}
+
+	size_t current_mission_index = 0;
+	mission_s mission_state = {};
+	dm_lock(DM_KEY_MISSION_STATE);
+	/* read current state */
+	int read_res = dm_read(DM_KEY_MISSION_STATE, 0, &mission_state, sizeof(mission_s));
+
+	dm_unlock(DM_KEY_MISSION_STATE);
+
+	if (read_res == sizeof(mission_s)) {
+		current_mission_index = mission_state.current_seq;
+	}
+
+	if((current_mission_index+1)>=mission_state.count) {
+			current_mission_index=0; // go back to start
+	}
+
 	/* find first waypoint (with lat/lon) item in datamanager */
-	for (size_t i = 0; i < mission.count; i++) {
+	for (size_t i = current_mission_index; i < mission.count; i++) {
 
 		struct mission_item_s mission_item {};
 
@@ -545,13 +566,30 @@ MissionFeasibilityChecker::checkDistanceToFirstWaypoint(const mission_s &mission
 		float dist_to_1wp = get_distance_to_next_waypoint(
 					    mission_item.lat, mission_item.lon,
 					    _navigator->get_home_position()->lat, _navigator->get_home_position()->lon);
+		if (_navigator->get_vstatus()->is_vtol){
+			// warn if we are a vtol but selected waypoint is not a vtol take off mission item, but we will still allow it
+			if(mission_item.nav_cmd != NAV_CMD_VTOL_TAKEOFF)
+			{
+				mavlink_log_critical(_navigator->get_mavlink_log_pub(),
+						     "First wp(%i) is not a VTOL takeoff.",i+1);
+				_navigator->get_mission_result()->warning = true;
+			}
+			// waypoint too close for good yaw aligment for transition
+			if((min_distance > 0.0f) && (dist_to_1wp < min_distance))
+			{
+				mavlink_log_critical(_navigator->get_mavlink_log_pub(),
+						     "First wp(%i) too close: %d meters.",i+1, (int)dist_to_1wp);
+				_navigator->get_mission_result()->warning = true;
+				return false;
+			}
+		}
 
 		if (dist_to_1wp < max_distance) {
 
 			if (dist_to_1wp > ((max_distance * 2) / 3)) {
 				/* allow at 2/3 distance, but warn */
 				mavlink_log_critical(_navigator->get_mavlink_log_pub(),
-						     "First waypoint far away: %d meters.", (int)dist_to_1wp);
+						     "First wp(%i) far away: %d meters.",i+1, (int)dist_to_1wp);
 
 				_navigator->get_mission_result()->warning = true;
 			}
@@ -561,12 +599,13 @@ MissionFeasibilityChecker::checkDistanceToFirstWaypoint(const mission_s &mission
 		} else {
 			/* item is too far from home */
 			mavlink_log_critical(_navigator->get_mavlink_log_pub(),
-					     "First waypoint too far away: %d meters, %d max.",
-					     (int)dist_to_1wp, (int)max_distance);
+					     "First wp(%i) too far away: %d meters, %d max.",
+					     i+1, (int)dist_to_1wp, (int)max_distance);
 
 			_navigator->get_mission_result()->warning = true;
 			return false;
 		}
+
 	}
 
 	/* no waypoints found in mission, then we will not fly far away */
@@ -613,7 +652,7 @@ MissionFeasibilityChecker::checkDistancesBetweenWaypoints(const mission_s &missi
 				if (dist_between_waypoints > ((max_distance * 2) / 3)) {
 					/* allow at 2/3 distance, but warn */
 					mavlink_log_critical(_navigator->get_mavlink_log_pub(),
-							     "Distance between waypoints very far: %d meters.", (int)dist_between_waypoints);
+							     "Distance between WP(%i-%i) very far: %dm.",i, i+1, (int)dist_between_waypoints);
 
 					_navigator->get_mission_result()->warning = true;
 				}
@@ -621,8 +660,8 @@ MissionFeasibilityChecker::checkDistancesBetweenWaypoints(const mission_s &missi
 			} else {
 				/* item is too far from home */
 				mavlink_log_critical(_navigator->get_mavlink_log_pub(),
-						     "Distance between waypoints too far: %d meters, %d max.",
-						     (int)dist_between_waypoints, (int)max_distance);
+						     "Distance between WP(%i-%i) too far: %dm, %d max.",
+						     i, i+1, (int)dist_between_waypoints, (int)max_distance);
 
 				_navigator->get_mission_result()->warning = true;
 				return false;

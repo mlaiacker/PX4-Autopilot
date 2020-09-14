@@ -168,6 +168,19 @@ Mission::on_activation()
 
 	set_mission_items();
 
+	if(PX4_ISFINITE(_navigator->get_global_position()->lat) &&
+			PX4_ISFINITE(_navigator->get_global_position()->lon) &&
+			PX4_ISFINITE(_navigator->get_global_position()->alt) &&
+			!_navigator->get_vstatus()->is_rotary_wing){
+		// use current position so we go along a line to next waypoint
+		_navigator->get_position_setpoint_triplet()->previous.lat = _navigator->get_global_position()->lat;
+		_navigator->get_position_setpoint_triplet()->previous.lon = _navigator->get_global_position()->lon;
+		_navigator->get_position_setpoint_triplet()->previous.alt = _navigator->get_global_position()->alt;
+		_navigator->get_position_setpoint_triplet()->previous.alt_valid  =true;
+		_navigator->get_position_setpoint_triplet()->previous.position_valid = true;
+		_navigator->get_position_setpoint_triplet()->previous.valid = true;
+	}
+
 	// unpause triggering if it was paused
 	vehicle_command_s cmd = {};
 	cmd.command = vehicle_command_s::VEHICLE_CMD_DO_TRIGGER_CONTROL;
@@ -292,7 +305,22 @@ Mission::set_current_offboard_mission_index(uint16_t index)
 			_navigator->get_position_setpoint_triplet()->previous.valid = false;
 			_navigator->get_position_setpoint_triplet()->current.valid = false;
 			_navigator->get_position_setpoint_triplet()->next.valid = false;
+
 			set_mission_items();
+		} else {
+			if(PX4_ISFINITE(_navigator->get_global_position()->lat) &&
+					PX4_ISFINITE(_navigator->get_global_position()->lon) &&
+					PX4_ISFINITE(_navigator->get_global_position()->alt) &&
+					!_navigator->get_vstatus()->is_rotary_wing){
+				PX4_INFO("following \"previous - current\" line");
+				// use current position so we go along a line to next waypoint
+				_navigator->get_position_setpoint_triplet()->previous.lat = _navigator->get_global_position()->lat;
+				_navigator->get_position_setpoint_triplet()->previous.lon = _navigator->get_global_position()->lon;
+				_navigator->get_position_setpoint_triplet()->previous.alt = _navigator->get_global_position()->alt;
+				_navigator->get_position_setpoint_triplet()->previous.alt_valid  =true;
+				_navigator->get_position_setpoint_triplet()->previous.position_valid = true;
+				_navigator->get_position_setpoint_triplet()->previous.valid = true;
+			}
 		}
 
 		return true;
@@ -311,14 +339,15 @@ void
 Mission::set_execution_mode(const uint8_t mode)
 {
 	if (_mission_execution_mode != mode) {
+		PX4_INFO("set_execution_mode(%i)", mode);
 		_execution_mode_changed = true;
 		_navigator->get_mission_result()->execution_mode = mode;
 
 
-		switch (_mission_execution_mode) {
+		switch (_mission_execution_mode) { // old mode was
 		case mission_result_s::MISSION_EXECUTION_MODE_NORMAL:
 		case mission_result_s::MISSION_EXECUTION_MODE_FAST_FORWARD:
-			if (mode == mission_result_s::MISSION_EXECUTION_MODE_REVERSE) {
+			if (mode == mission_result_s::MISSION_EXECUTION_MODE_REVERSE) { // new mode is reverse
 				// command a transition if in vtol mc mode
 				if (_navigator->get_vstatus()->is_rotary_wing &&
 				    _navigator->get_vstatus()->is_vtol &&
@@ -367,7 +396,7 @@ Mission::set_execution_mode(const uint8_t mode)
 
 		}
 
-		_mission_execution_mode = mode;
+		_mission_execution_mode = mode; // safe new mode
 	}
 }
 
@@ -439,9 +468,20 @@ Mission::update_offboard_mission()
 {
 
 	bool failed = true;
-
 	/* reset triplets */
 	_navigator->reset_triplets();
+	if(PX4_ISFINITE(_navigator->get_global_position()->lat) &&
+			PX4_ISFINITE(_navigator->get_global_position()->lon) &&
+			PX4_ISFINITE(_navigator->get_global_position()->alt)/* &&
+			_navigator->is_planned_mission()*/){
+		// use current position so we go along a line to next waypoint
+		_navigator->get_position_setpoint_triplet()->current.lat = _navigator->get_global_position()->lat;
+		_navigator->get_position_setpoint_triplet()->current.lon = _navigator->get_global_position()->lon;
+		_navigator->get_position_setpoint_triplet()->current.alt = _navigator->get_global_position()->alt;
+		_navigator->get_position_setpoint_triplet()->current.alt_valid  =true;
+		_navigator->get_position_setpoint_triplet()->current.position_valid = true;
+		_navigator->get_position_setpoint_triplet()->current.valid = true;
+	}
 
 	struct mission_s old_offboard_mission = _offboard_mission;
 
@@ -776,6 +816,7 @@ Mission::set_mission_items()
 				    && new_work_item_type == WORK_ITEM_TYPE_DEFAULT
 				    && !_navigator->get_land_detected()->landed) {
 
+					PX4_INFO("move to land wp as fixed wing");
 					new_work_item_type = WORK_ITEM_TYPE_MOVE_TO_LAND;
 
 					/* use current mission item as next position item */
@@ -1278,6 +1319,11 @@ Mission::heading_sp_update()
 					pos_sp_triplet->current.yaw = _mission_item.yaw;
 
 				} else {
+					// if vtol and copter, we will not care about yaw. let the wind do it
+					if(_navigator->get_vstatus()->is_vtol && _navigator->get_vstatus()->is_rotary_wing)
+					{
+						yaw = NAN;
+					}
 					_mission_item.yaw = yaw;
 					pos_sp_triplet->current.yaw = _mission_item.yaw;
 				}
@@ -1304,7 +1350,6 @@ Mission::altitude_sp_foh_update()
 	    || !(pos_sp_triplet->previous.type == position_setpoint_s::SETPOINT_TYPE_POSITION ||
 		 pos_sp_triplet->previous.type == position_setpoint_s::SETPOINT_TYPE_LOITER) ||
 	    _navigator->get_vstatus()->is_rotary_wing) {
-
 		return;
 	}
 
@@ -1345,7 +1390,7 @@ Mission::altitude_sp_foh_update()
 
 	/* if the minimal distance is smaller then the acceptance radius, we should be at waypoint alt
 	 * navigator will soon switch to the next waypoint item (if there is one) as soon as we reach this altitude */
-	if (_min_current_sp_distance_xy < acc_rad) {
+	if (_min_current_sp_distance_xy < acc_rad || (_distance_current_previous < acc_rad)) {
 		pos_sp_triplet->current.alt = get_absolute_altitude_for_item(_mission_item);
 
 	} else {
@@ -1356,8 +1401,9 @@ Mission::altitude_sp_foh_update()
 		 **/
 		float delta_alt = (get_absolute_altitude_for_item(_mission_item) - pos_sp_triplet->previous.alt);
 		float grad = -delta_alt / (_distance_current_previous - acc_rad);
-		float a = pos_sp_triplet->previous.alt - grad * _distance_current_previous;
-		pos_sp_triplet->current.alt = a + grad * _min_current_sp_distance_xy;
+		float a = pos_sp_triplet->previous.alt - grad * (_distance_current_previous - acc_rad);
+		float dist = math::max(0.0f, _min_current_sp_distance_xy-acc_rad); // look ahead
+		pos_sp_triplet->current.alt = a + grad * dist;
 	}
 
 	// we set altitude directly so we can run this in parallel to the heading update

@@ -1384,6 +1384,7 @@ MavlinkMissionManager::parse_mavlink_mission_item(const mavlink_mission_item_t *
 		case MAV_CMD_NAV_VTOL_LAND:
 			mission_item->nav_cmd = (NAV_CMD)mavlink_mission_item->command;
 			mission_item->yaw = wrap_pi(math::radians(mavlink_mission_item->param4));
+			mission_item->params[0] = mavlink_mission_item->param1;
 			break;
 
 		case MAV_CMD_NAV_FENCE_RETURN_POINT:
@@ -1621,6 +1622,7 @@ MavlinkMissionManager::format_mavlink_mission_item(const struct mission_item_s *
 
 		case MAV_CMD_NAV_VTOL_TAKEOFF:
 		case MAV_CMD_NAV_VTOL_LAND:
+			mavlink_mission_item->param1 = mission_item->params[0];
 			mavlink_mission_item->param4 = mission_item->yaw * M_RAD_TO_DEG_F;
 			break;
 

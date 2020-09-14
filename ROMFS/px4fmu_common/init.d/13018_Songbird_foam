@@ -1,6 +1,6 @@
 #!nsh
 #
-# @name Germandrones Songbird V3
+# @name Germandrones Songbird foamie
 #
 # @type Standard VTOL
 # @class VTOL
@@ -13,10 +13,12 @@
 # @output MAIN4 motor 4
 # @output MAIN5 Tiltservo Left
 # @output MAIN6 Tiltsrevo Right
+# @output MAIN7 spare 1 aileron right
+# @output MAIN8 spare 2 aileron left
 # @output AUX1 Aileron Left
 # @output AUX2 Aileron Right
-# @output AUX3 VTail Left
-# @output AUX4 VTail Right
+# @output AUX3 Tail elevator
+# @output AUX4 Tail rudder
 # @output AUX5 Camera Trigger
 # @output AUX6 Camera Trigger
 #
@@ -68,20 +70,20 @@ then
 	param set GPS2_ENABLE 	   0
 fi
 
-set MIXER SBV3
+set MIXER SBfoam
 set PWM_OUT 1234
 set PWM_RATE 400
 
-set MIXER_AUX SBV3
+set MIXER_AUX SBfoam
 set PWM_ACHDIS 5
 set PWM_AUX_DISARMED 950
 
-set MAV_TYPE 22
+set MAV_TYPE 23
 
 # batt_pac on I2C bus 1
-batt_pac17xx start -b 1 -r 0.2 -s 80
+batt_pac17xx start -b 1 -r 0.2 -s 40
 
-temp_lm75 start -n tempPDB
+#temp_lm75 start -n tempPDB
 
 gd_payload start
 usleep 20000
