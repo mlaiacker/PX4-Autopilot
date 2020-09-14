@@ -1,40 +1,7 @@
-/****************************************************************************
- *
- *   Copyright (c) 2018 PX4 Development Team. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- * 3. Neither the name PX4 nor the names of its contributors may be
- *    used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
- * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
- * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- ****************************************************************************/
-
 /**
- * @file uart_unisens.cpp
+ * @file uart_merio.cpp
  *
- * Read data from SM-Modellbau Unisens over uart and publish battery_status in uOrb
+ * generate NAVINFO1(0x36), NAVINFO2(0x37) and GPSTIME(0x3A) in merio binay format
  *
  * @author Maximilian Laiacker <post@mlaiacker.de>
  */
@@ -42,20 +9,28 @@
 #include <px4_getopt.h>
 #include <px4_log.h>
 #include <px4_posix.h>
+#include <px4_module.h>
+#include <px4_module_params.h>
 
 #include <sys/types.h>
 #include <sys/ioctl.h>
 
 #include <termios.h>
 
-#include <nuttx/arch.h>
-#include <nuttx/irq.h>
 #include <arch/board/board.h>
 
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/vehicle_control_mode.h>
+#include <uORB/topics/vehicle_global_position.h>
+#include <uORB/topics/vehicle_gps_position.h>
+#include <uORB/topics/vehicle_attitude.h>
+#include <matrix/math.hpp>
 
 #include <drivers/drv_hrt.h>
+
+#include "linker.h"
+/* default uart */
+#define UART_MERIO_UART "/dev/ttyS2"
 
 extern "C" __EXPORT int uart_merio_main(int argc, char *argv[]);
 
@@ -84,29 +59,27 @@ public:
 	/** @see ModuleBase::print_status() */
 	int print_status() override;
 private:
+	Linker  _merioParser;
 	char 	_device[32];
 	int 	_uart_fd = -1;
 	int 	_rate = 0;
 	int		_timeout = 0;
 	bool	_debug_flag = false;
-	orb_advert_t		_pub_battery;
-	battery_status_s	_battery_status;
-	Battery				_battery;			/**< Helper lib to publish battery_status topic. */
-	float _voltage_v, _current_a, _used_mAh, _temp_c,_baro_hPa, _voltage_rc_v ;
-	int		_actuator_ctrl_0_sub{-1};		/**< attitude controls sub */
-	int		_vcontrol_mode_sub{-1};		/**< vehicle control mode subscription */
 	bool		_armed{false};
+	int		_sub_vcontrol_mode{-1};		/**< vehicle control mode subscription */
+	vehicle_control_mode_s _v_cmode;
+	int 	_sub_v_attitude{-1};
+	vehicle_attitude_s _v_attitude;
+	int 	_sub_v_gpos{-1};
+	vehicle_global_position_s _v_gpos;
+	int 	_sub_v_gps{-1};
+	vehicle_gps_position_s _v_gps;
 
 	bool init();
 
 	bool readPoll(uint32_t tout=5000);
-	bool  readStatusInit();
-	bool  readStatusData();
-	void writeRequest();
-	void writeInit();
+	void updateData();
 	void vehicle_control_mode_poll();
-	int8_t calcCheckSum(uint8_t *data, ssize_t length);
-	void updateBatteryDisconnect();
 	/**
 	 * Check for parameter changes and update them if needed.
 	 * @param parameter_update_sub uorb subscription to parameter_update
@@ -124,16 +97,16 @@ int UartMerio::print_usage(const char *reason)
 	PRINT_MODULE_DESCRIPTION(
 		R"DESCR_STR(
 ### Description
-	driver for unisens
+	driver for merio gimbal
 ### Examples
 CLI usage example:
-$ uart_unisens start -d <uart device> -v
+$ uart_merio start -d <uart device> -v
 )DESCR_STR");
 
-	PRINT_MODULE_USAGE_NAME("uart_unisens", "modules");
+	PRINT_MODULE_USAGE_NAME("uart_merio", "modules");
 	PRINT_MODULE_USAGE_COMMAND("start");
 	PRINT_MODULE_USAGE_PARAM_FLAG('v', "debug flag", true);
-	PRINT_MODULE_USAGE_PARAM_STRING('d',"/dev/ttyS6", "", "debug flag", true);
+	PRINT_MODULE_USAGE_PARAM_STRING('d',UART_MERIO_UART, "", "debug flag", true);
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
 	return 0;
@@ -142,13 +115,8 @@ $ uart_unisens start -d <uart device> -v
 int UartMerio::print_status()
 {
 	// print additional runtime information about the state of the module
-	PX4_INFO("rate: %i", _rate);
-	PX4_INFO("voltage: %.2fV", (double)_voltage_v);
-	PX4_INFO("current: %.3fA", (double)_current_a);
-	PX4_INFO("bat used: %.1fmAh", (double)_used_mAh);
-	PX4_INFO("temp: %.1fdegC", (double)_temp_c);
-	PX4_INFO("baro: %.1fhPa", (double)_baro_hPa);
-	PX4_INFO("volt RC: %.1fV", (double)_voltage_rc_v);
+	PX4_INFO("rate:\t%i", _rate);
+	PX4_INFO("conn:\t%i", _merioParser.getConnectStatus());
 	return 0;
 }
 
@@ -160,10 +128,10 @@ int UartMerio::custom_command(int argc, char *argv[])
 
 int UartMerio::task_spawn(int argc, char *argv[])
 {
-	_task_id = px4_task_spawn_cmd("uart_unisens",
+	_task_id = px4_task_spawn_cmd("uart_merio",
 				      SCHED_DEFAULT,
 				      SCHED_PRIORITY_DEFAULT+10, /* reduced pritority */
-				      1512,
+				      1024,
 				      (px4_main_t)&run_trampoline,
 				      (char *const *)argv);
 
@@ -221,19 +189,18 @@ UartMerio *UartMerio::instantiate(int argc, char *argv[])
 
 UartMerio::UartMerio(char const *const device, bool debug_flag):
 ModuleParams(nullptr),
-_pub_battery(nullptr),
-_battery()
+_merioParser()
 {
 	if(device)
 	{
 		memcpy(_device, device,sizeof(_device));
 	} else{
-		memcpy(_device, UART_UNISENS_UART,sizeof(UART_UNISENS_UART));
+		memcpy(_device, UART_MERIO_UART,sizeof(UART_MERIO_UART));
 	}
 
 	_debug_flag = debug_flag;
-	memset(&_battery_status,0,sizeof(_battery_status));
-	_used_mAh = 0;
+	memset(&_v_attitude,0,sizeof(_v_attitude));
+	memset(&_v_gpos, 0, sizeof(_v_gpos));
 }
 
 bool UartMerio::init()
@@ -249,7 +216,7 @@ bool UartMerio::init()
 	}
 
 	// set baud rate
-	int speed = B115200;
+	int speed = B57600;
 	struct termios uart_config;
 	tcgetattr(_uart_fd, &uart_config);
 	//
@@ -297,209 +264,54 @@ bool UartMerio::init()
 		close(_uart_fd);
 		return false;
 	}
-	/* needed for the Battery class */
-	_actuator_ctrl_0_sub = orb_subscribe(ORB_ID(actuator_controls_0));
-	/* needed to read arming status */
-	_vcontrol_mode_sub = orb_subscribe(ORB_ID(vehicle_control_mode));
+	_merioParser.connectWith(_uart_fd);
+	/* subscribe to topics */
+	_sub_v_attitude = orb_subscribe(ORB_ID(vehicle_attitude));
+	_sub_vcontrol_mode = orb_subscribe(ORB_ID(vehicle_control_mode));
+	_sub_v_gpos = orb_subscribe(ORB_ID(vehicle_global_position));
+	_sub_v_gps = orb_subscribe(ORB_ID(vehicle_gps_position));
+	if(_sub_v_attitude<0 || _sub_v_gpos<0 || _sub_v_gps<0) {
+		result = false;
+	}
 	return result;
 }
 
 /* read arming state */
 void UartMerio::vehicle_control_mode_poll()
 {
-	struct vehicle_control_mode_s vcontrol_mode;
 	bool vcontrol_mode_updated;
-	orb_check(_vcontrol_mode_sub, &vcontrol_mode_updated);
+	orb_check(_sub_vcontrol_mode, &vcontrol_mode_updated);
 	if (vcontrol_mode_updated) {
-		orb_copy(ORB_ID(vehicle_control_mode), _vcontrol_mode_sub, &vcontrol_mode);
-		_armed = vcontrol_mode.flag_armed;
+		orb_copy(ORB_ID(vehicle_control_mode), _sub_vcontrol_mode, &_v_cmode);
+		_armed = _v_cmode.flag_armed;
 	}
 }
 
 /* wait tout ms for data available on the serial interface to read */
 bool UartMerio::readPoll(uint32_t tout)
 {
-    struct pollfd uartPoll;
-    uartPoll.fd = _uart_fd;
-    uartPoll.events = POLLIN;
-    int pollrc = poll(&uartPoll, 1, tout);
+    struct pollfd uartPoll[3];
+    uartPoll[0].fd = _uart_fd;
+    uartPoll[0].events = POLLIN;
+    uartPoll[1].fd = _sub_v_gpos;
+    uartPoll[1].events = POLLIN;
+    uartPoll[2].fd = _sub_v_attitude;
+    uartPoll[2].events = POLLIN;
+
+    int pollrc = poll(&uartPoll[0], 3, tout);
     if (pollrc < 1) return false; /* no data to read */
     return true; /* data available */
 }
 
-bool UartMerio::readStatusInit()
-{
-    // read version with poll
-	if(readPoll(300))
-	{
-		/* expected message is "2" */
-		uint8_t rxmsg[1];
-		size_t msgsize;
-		ssize_t nbytes=0;
-		msgsize = sizeof(rxmsg);
-		nbytes = ::read(_uart_fd, rxmsg, msgsize);
-		if(nbytes > (ssize_t)msgsize) /* more read then asked for, should not happen */
-		{
-			PX4_ERR("read(%i) returned %i",
-				   (int)msgsize, (int)nbytes);
-		}
-		if(nbytes>0) /* we got an answer */
-		{
-			if(rxmsg[0]=='2') /* correct answer */
-			{
-				if(_debug_flag)
-				{
-					PX4_INFO("init ack");
-				}
-				return true; /* proceed */
-			} else {
-				if(_debug_flag)
-				{
-					PX4_INFO("wrong init");
-				}
-			}
-		}
-	}
-	return false; /* failed to read answer */
-}
 /*
- * after sending a "v\r\n" unisens should answer with something like this:
- * $UL2,2012-01-01,0:00:00.0,0.66,0.000,0.000,0.07,0.01,0.00,0.0,5.132,0.0,0.0,,,,,,,,,,1027.37,29.9,0.0,0.0,0,0,0*05
- * after that you have to wait 1 second and then start again by sending "g\r\n"
- *  */
-bool UartMerio::readStatusData()
-{
-	/* wait a max of 1s for an answer from unisens */
-	if(!readPoll(1000)) return false;
-	uint8_t rxmsg[257]; /* normal answer is around 120 bytes */
-	ssize_t unisens_length=0;
-	ssize_t nbytes=0;
-	size_t msgsize;
-    // read version with poll
-    do{
-		if(should_exit()) return false;
-    	nbytes=0;
-    	msgsize = sizeof(rxmsg)-unisens_length-1; /* space left in rx buffer, with extra space for the null termination */
-        nbytes = ::read(_uart_fd, &rxmsg[unisens_length], msgsize); /* read data into buffer*/
-		if(nbytes > (ssize_t)msgsize)
-		{
-			PX4_ERR("read(%i) returned %i",
-				   (int)msgsize, (int)nbytes);
-			break;
-		}
-		if(nbytes>0){
-			unisens_length+=nbytes; /* number of bytes in buffer */
-			nbytes = readPoll(20); /* more data available? */
-		}
-    } while(nbytes>0 && msgsize>0); /* until no more data available or buffer is full*/
-	if(unisens_length>5) /* at least 6 bytes so that  calCheckSum gets >=0 length */
-	{
-		rxmsg[unisens_length]=0; /* 0 termination for str token */
-		if(_debug_flag)
-		{
-			PX4_INFO("data %i", unisens_length);
-		}
-		if(rxmsg[0]=='$'){ /* first byte in answer should be "$" */
-			/* xor bytes and store for later use */
-			int8_t check2 = calcCheckSum(&rxmsg[1], unisens_length-6);
-			char *tok_ptr;
-			char *token;
-			int token_index=0;
-			/* initalize token function
-			 * message format is:
-			 * $<values>,<values>,...*<checksum>\r\n */
-			token = strtok_r((char*)rxmsg,",*\r\n",&tok_ptr);
-			while(token != NULL){
-				token_index++;
-				if(token_index==5)
-				{
-					_voltage_v = atof(token);
-				} else if(token_index==6)
-				{
-					_current_a = atof(token);
-				}else if(token_index==11)
-				{
-					_voltage_rc_v = atof(token);
-				}else if(token_index==12)
-				{
-					_used_mAh= atof(token); /*  */
-				} else if(token_index==14)
-				{
-					_baro_hPa = atof(token); /* air pressure */
-				} else  if(token_index==15)
-				{
-					_temp_c = atof(token); /* temperature of baro sensor? */
-				} else  if(token_index==21)
-				{
-					char * pEnd;
-					int8_t check_rx = strtol(token, &pEnd, 16);
-					if(check2==check_rx) /* checksum correct*/
-					{
-						return true;
-					} else
-					{
-						if(_debug_flag)
-						{
-							PX4_INFO("0x%x!=0x%x",check2, check_rx);
-						}
-					}
-				}
-				/* currently I don't have information about the other fields but they should contain vario and rpm information */
-				token = strtok_r(NULL,",*\r\n",&tok_ptr);
-			}
-			return 0;
-		} else {
-			if(_debug_flag)
-			{
-				PX4_INFO("wrong data");
-			}
-		}
-	}
-    return false;
-}
-// uart_unisens start -v -d /dev/ttyS2
-
-int8_t UartMerio::calcCheckSum(uint8_t *data, ssize_t length)
-{
-	int8_t iXor = 0;
-	//calculate checksum by xor'ing over from $ to *
-	for (ssize_t i = 0; i < length; i++)
-	{
-		iXor = iXor ^ data[i];
-	}
-	return iXor;
-}
-
-/* unisens should answer with "2" */
-void UartMerio::writeInit()
-{
-	char cmd[] = "g\r\n";
-	::write(_uart_fd, cmd, 3);
-}
-/*
- * Unisnes should answer with data
+ * read subscriptions
  */
-void UartMerio::writeRequest()
+void UartMerio::updateData()
 {
-	char cmd[] = "v\r\n";
-	::write(_uart_fd, cmd, 3);
-}
-/*
- * after timeout or when exit the module signal that we lost connection to the battery sensor
- */
-void UartMerio::updateBatteryDisconnect()
-{
-	_battery.reset(&_battery_status);
-	_battery_status.warning = battery_status_s::BATTERY_WARNING_FAILED;
-	int instance;
-	_battery_status.temperature = -1;
-	_battery_status.timestamp = hrt_absolute_time();
-	orb_publish_auto(ORB_ID(battery_status), &_pub_battery, &_battery_status, &instance, ORB_PRIO_DEFAULT);
-	if(_debug_flag)
-	{
-		PX4_INFO("disconnect");
-	}
-
+	vehicle_control_mode_poll();
+	orb_copy(ORB_ID(vehicle_global_position), _sub_v_gpos, &_v_gpos);
+	orb_copy(ORB_ID(vehicle_attitude), _sub_v_attitude, &_v_attitude);
+	orb_copy(ORB_ID(vehicle_gps_position), _sub_v_gps, &_v_gps);
 }
 
 void UartMerio::run()
@@ -513,58 +325,77 @@ void UartMerio::run()
 		PX4_INFO("Start");
 	}
 	while (!should_exit()) {
-		writeInit();
-		if(should_exit()) break;
-		if(readStatusInit()>0)
+		if(readPoll(100))
 		{
-			writeRequest();
-			if(readStatusData())
+			n++;
+			updateData();
+			if(!_merioParser.getConnectStatus())
 			{
-				n++;
-				vehicle_control_mode_poll();
-				actuator_controls_s ctrl;
-				orb_copy(ORB_ID(actuator_controls_0), _actuator_ctrl_0_sub, &ctrl);
+				_merioParser.addBloc(GENPAYLOAD, B_REQCMD);
+				_merioParser.addBloc(GENPAYLOAD, B_ICR);
+				_merioParser.sendProtocol();
+			} else {
+				_merioParser.addBloc(GENPAYLOAD, B_NAVINFO1);
+				_merioParser.fillInt32((int32_t)_v_gpos.lat*1e9*M_PI/180.0); // in rad*1e9
+				_merioParser.fillInt32((int32_t)_v_gpos.lon*1e9*M_PI/180.0); // in rad*1e9
+				_merioParser.fillInt32((int32_t)_v_gpos.alt*1e2);
+				_merioParser.fillUInt8(_v_gps.satellites_used); // sats
+				_merioParser.addLEN(); // should be 15
 
-				bool connected = _voltage_v > 5.0f;
-				/* updateBatteryStatus assumes it is called at 100Hz
-				 * but here only 1Hz so filter for current and voltage will not work well
-				 * */
-				_battery.updateBatteryStatus(hrt_absolute_time(), _voltage_v, _current_a,
-								connected, true, 0,
-								ctrl.control[actuator_controls_s::INDEX_THROTTLE],
-								_armed, &_battery_status);
-				int instance;
-				_battery_status.temperature = _temp_c;
-				_battery_status.voltage_filtered_v = _voltage_v; /* override filtered value */
-				_battery_status.current_filtered_a = _current_a;
-				_battery_status.discharged_mah = _used_mAh; /* use value from unisens */
-				if(orb_publish_auto(ORB_ID(battery_status), &_pub_battery, &_battery_status, &instance, ORB_PRIO_DEFAULT))
-				{
-					if(_debug_flag)
-					{
-						PX4_INFO("pup failed");
-					}
-				}
-				_timeout = 0;
-				usleep(100000);
+				_merioParser.addBloc(GENPAYLOAD, B_NAVINFO2);
+				matrix::Eulerf euler = matrix::Quatf(_v_attitude.q);
+				_merioParser.fillInt16((int16_t)euler.phi()*1e4); // ROLL in rad*1e4
+				_merioParser.fillInt16((int16_t)euler.theta()*1e4); // PITCH in rad*1e4
+				_merioParser.fillInt16((int16_t)euler.psi()*1e4); // YAW in rad*1e4
+				_merioParser.addLEN(); // sould be 8
+
+				_merioParser.addBloc(GENPAYLOAD, B_GPSTIME);
+				time_t now;
+				time(&now);
+				struct tm* utc = gmtime(&now);
+				_merioParser.fillInt16(utc->tm_year);
+				_merioParser.fillUInt8(utc->tm_mon);
+				_merioParser.fillUInt8(utc->tm_mday);
+				_merioParser.fillUInt8(utc->tm_hour);
+				_merioParser.fillUInt8(utc->tm_min);
+				_merioParser.fillUInt8(utc->tm_sec);
+				_merioParser.fillUInt8(_v_gps.satellites_used);
+				_merioParser.addLEN(); // sould be 10
+				_merioParser.sendProtocol();
 			}
+			uint8_t rxmsg[1];
+			size_t msgsize;
+			ssize_t nbytes=0;
+			msgsize = sizeof(rxmsg);
+			do{
+				nbytes = ::read(_uart_fd, rxmsg, msgsize);
+				if(nbytes > (ssize_t)msgsize) /* more read then asked for, should not happen */
+				{
+					PX4_ERR("read(%i) returned %i",
+						   (int)msgsize, (int)nbytes);
+				}
+				if(nbytes>0) /* we got an answer */
+				{
+					_merioParser.receive(rxmsg[0]);
+					_timeout = 0;
+				}
+			}while(nbytes>0);
 		}
 		if(hrt_elapsed_time(&second_timer)>=10e6) /* every 10 seconds*/
 		{
-			_rate = n; /* update rate is only once per second */
+			_rate = n/10; /* update rate */
 			second_timer += 10e6;
 			if(n==0 && _timeout==0)
 			{
-				updateBatteryDisconnect(); /* lost connection to unisens */
+				/* lost connection */
 				_timeout = 1;
 			}
 			n=0;
 		}
 	}
-	updateBatteryDisconnect();
-	orb_unsubscribe(_actuator_ctrl_0_sub);
-	orb_unsubscribe(_vcontrol_mode_sub);
-	orb_unadvertise(_pub_battery);
+	orb_unsubscribe(_sub_v_attitude);
+	orb_unsubscribe(_sub_v_gpos);
+	orb_unsubscribe(_sub_vcontrol_mode);
 	close(_uart_fd);
 }
 

@@ -37,6 +37,7 @@ px4_add_module(
 	STACK_MAIN 1024
 	SRCS
 		uart_merio.cpp
+		linker.cpp
 	DEPENDS
 		modules__uORB
 	)

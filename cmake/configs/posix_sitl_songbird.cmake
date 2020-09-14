@@ -109,6 +109,7 @@ set(config_module_list
 	# GD apps
 	#
 	modules/gd_payload
+	modules/uart_merio
 
 )
 
