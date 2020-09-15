@@ -1,10 +1,5 @@
 #ifndef LINKER_H
 #define LINKER_H
-
-//C++
-#include <iostream>
-#include <string>
-
 //  Class GEN
 #define GENPAYLOAD          0x00
 //Associated blocs -v-
@@ -84,7 +79,7 @@ public:
      * @param blocId    -- Id of the Bloc(see list of those IDs in communiaction protocol)
      */
     void addBloc(uint8_t blocClass, uint8_t blocId);
-    void addLEN();
+    uint8_t addLEN();
     bool connectWith(int fd);
     bool getConnectStatus();
 
@@ -195,7 +190,7 @@ private:
 
 //- Read Byte
     bool    readBitfromByte(uint8_t *data, int bit);
-    std::string readString(uint8_t *data);
+    void readString(uint8_t *data, char* str);
     int8_t  readInt8(uint8_t *data);
     int16_t readInt16(uint8_t *data);
     uint16_t readUInt16(uint8_t *data);

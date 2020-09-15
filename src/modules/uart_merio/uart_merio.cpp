@@ -63,15 +63,21 @@ private:
 	char 	_device[32];
 	int 	_uart_fd = -1;
 	int 	_rate = 0;
+	int 	_rate_gps = 0;
+	int 	_rate_atti = 0;
+	int		_rate_rx = 0;
 	int		_timeout = 0;
 	bool	_debug_flag = false;
 	bool		_armed{false};
 	int		_sub_vcontrol_mode{-1};		/**< vehicle control mode subscription */
 	vehicle_control_mode_s _v_cmode;
+	bool 	_updated_vcontrol_mode=false;
 	int 	_sub_v_attitude{-1};
 	vehicle_attitude_s _v_attitude;
+	bool	_updated_attitude = false;
 	int 	_sub_v_gpos{-1};
 	vehicle_global_position_s _v_gpos;
+	bool	_updated_gpos = false;
 	int 	_sub_v_gps{-1};
 	vehicle_gps_position_s _v_gps;
 
@@ -115,8 +121,8 @@ $ uart_merio start -d <uart device> -v
 int UartMerio::print_status()
 {
 	// print additional runtime information about the state of the module
-	PX4_INFO("rate:\t%i", _rate);
-	PX4_INFO("conn:\t%i", _merioParser.getConnectStatus());
+	PX4_INFO("rate:%2i atti:%2i gps:%2i rx:%2i", _rate, _rate_atti, _rate_gps, _rate_rx);
+	PX4_INFO("conn:%2i", _merioParser.getConnectStatus());
 	return 0;
 }
 
@@ -279,9 +285,8 @@ bool UartMerio::init()
 /* read arming state */
 void UartMerio::vehicle_control_mode_poll()
 {
-	bool vcontrol_mode_updated;
-	orb_check(_sub_vcontrol_mode, &vcontrol_mode_updated);
-	if (vcontrol_mode_updated) {
+	orb_check(_sub_vcontrol_mode, &_updated_vcontrol_mode);
+	if (_updated_vcontrol_mode) {
 		orb_copy(ORB_ID(vehicle_control_mode), _sub_vcontrol_mode, &_v_cmode);
 		_armed = _v_cmode.flag_armed;
 	}
@@ -309,9 +314,15 @@ bool UartMerio::readPoll(uint32_t tout)
 void UartMerio::updateData()
 {
 	vehicle_control_mode_poll();
-	orb_copy(ORB_ID(vehicle_global_position), _sub_v_gpos, &_v_gpos);
-	orb_copy(ORB_ID(vehicle_attitude), _sub_v_attitude, &_v_attitude);
-	orb_copy(ORB_ID(vehicle_gps_position), _sub_v_gps, &_v_gps);
+	orb_check(_sub_v_gpos, &_updated_gpos);
+	if(_updated_gpos) {
+		orb_copy(ORB_ID(vehicle_global_position), _sub_v_gpos, &_v_gpos);
+		orb_copy(ORB_ID(vehicle_gps_position), _sub_v_gps, &_v_gps);
+	}
+	orb_check(_sub_v_attitude, &_updated_attitude);
+	if(_updated_attitude) {
+		orb_copy(ORB_ID(vehicle_attitude), _sub_v_attitude, &_v_attitude);
+	}
 }
 
 void UartMerio::run()
@@ -319,13 +330,13 @@ void UartMerio::run()
 	if(!init())
 		return;
 	hrt_abstime second_timer = hrt_absolute_time();
-	int n = 0;
+	int n = 0, n_atti=0, n_gps=0, n_rx=0;
 	if(_debug_flag)
 	{
 		PX4_INFO("Start");
 	}
 	while (!should_exit()) {
-		if(readPoll(100))
+		if(readPoll(100000))
 		{
 			n++;
 			updateData();
@@ -334,34 +345,46 @@ void UartMerio::run()
 				_merioParser.addBloc(GENPAYLOAD, B_REQCMD);
 				_merioParser.addBloc(GENPAYLOAD, B_ICR);
 				_merioParser.sendProtocol();
-			} else {
-				_merioParser.addBloc(GENPAYLOAD, B_NAVINFO1);
-				_merioParser.fillInt32((int32_t)_v_gpos.lat*1e9*M_PI/180.0); // in rad*1e9
-				_merioParser.fillInt32((int32_t)_v_gpos.lon*1e9*M_PI/180.0); // in rad*1e9
-				_merioParser.fillInt32((int32_t)_v_gpos.alt*1e2);
-				_merioParser.fillUInt8(_v_gps.satellites_used); // sats
-				_merioParser.addLEN(); // should be 15
-
-				_merioParser.addBloc(GENPAYLOAD, B_NAVINFO2);
-				matrix::Eulerf euler = matrix::Quatf(_v_attitude.q);
-				_merioParser.fillInt16((int16_t)euler.phi()*1e4); // ROLL in rad*1e4
-				_merioParser.fillInt16((int16_t)euler.theta()*1e4); // PITCH in rad*1e4
-				_merioParser.fillInt16((int16_t)euler.psi()*1e4); // YAW in rad*1e4
-				_merioParser.addLEN(); // sould be 8
-
-				_merioParser.addBloc(GENPAYLOAD, B_GPSTIME);
-				time_t now;
-				time(&now);
-				struct tm* utc = gmtime(&now);
-				_merioParser.fillInt16(utc->tm_year);
-				_merioParser.fillUInt8(utc->tm_mon);
-				_merioParser.fillUInt8(utc->tm_mday);
-				_merioParser.fillUInt8(utc->tm_hour);
-				_merioParser.fillUInt8(utc->tm_min);
-				_merioParser.fillUInt8(utc->tm_sec);
-				_merioParser.fillUInt8(_v_gps.satellites_used);
-				_merioParser.addLEN(); // sould be 10
-				_merioParser.sendProtocol();
+			}
+			{
+				bool send=false;
+				if(_updated_gpos) {
+					_merioParser.addBloc(GENPAYLOAD, B_NAVINFO1);
+					_merioParser.fillInt32((int32_t)_v_gpos.lat*1e9*M_PI/180.0); // in rad*1e9
+					_merioParser.fillInt32((int32_t)_v_gpos.lon*1e9*M_PI/180.0); // in rad*1e9
+					_merioParser.fillInt32((int32_t)_v_gpos.alt*1e2);
+					_merioParser.fillUInt8(_v_gps.satellites_used); // sats
+					_merioParser.addLEN(); // should be 15
+					_updated_gpos = false;
+					_merioParser.addBloc(GENPAYLOAD, B_GPSTIME);
+					time_t now;
+					time(&now);
+					struct tm* utc = gmtime(&now);
+					_merioParser.fillInt16(utc->tm_year);
+					_merioParser.fillUInt8(utc->tm_mon);
+					_merioParser.fillUInt8(utc->tm_mday);
+					_merioParser.fillUInt8(utc->tm_hour);
+					_merioParser.fillUInt8(utc->tm_min);
+					_merioParser.fillUInt8(utc->tm_sec);
+					_merioParser.fillUInt8(_v_gps.satellites_used);
+					_merioParser.addLEN(); // sould be 10
+					send = true;
+					n_gps++;
+				}
+				if(_updated_attitude){
+					_merioParser.addBloc(GENPAYLOAD, B_NAVINFO2);
+					matrix::Eulerf euler = matrix::Quatf(_v_attitude.q);
+					_merioParser.fillInt16((int16_t)euler.phi()*1e4); // ROLL in rad*1e4
+					_merioParser.fillInt16((int16_t)euler.theta()*1e4); // PITCH in rad*1e4
+					_merioParser.fillInt16((int16_t)euler.psi()*1e4); // YAW in rad*1e4
+					_merioParser.addLEN(); // sould be 8
+					_updated_attitude = false;
+					send = true;
+					n_atti++;
+				}
+				if(send) {
+					_merioParser.sendProtocol();
+				}
 			}
 			uint8_t rxmsg[1];
 			size_t msgsize;
@@ -378,12 +401,20 @@ void UartMerio::run()
 				{
 					_merioParser.receive(rxmsg[0]);
 					_timeout = 0;
+					n_rx++;
 				}
 			}while(nbytes>0);
+			usleep(20000);
 		}
 		if(hrt_elapsed_time(&second_timer)>=10e6) /* every 10 seconds*/
 		{
 			_rate = n/10; /* update rate */
+			_rate_atti = n_atti/10;
+			n_atti = 0;
+			_rate_gps = n_gps/10;
+			n_gps = 0;
+			_rate_rx = n_rx/10;
+			n_rx = 0;
 			second_timer += 10e6;
 			if(n==0 && _timeout==0)
 			{
@@ -395,6 +426,7 @@ void UartMerio::run()
 	}
 	orb_unsubscribe(_sub_v_attitude);
 	orb_unsubscribe(_sub_v_gpos);
+	orb_unsubscribe(_sub_v_gps);
 	orb_unsubscribe(_sub_vcontrol_mode);
 	close(_uart_fd);
 }

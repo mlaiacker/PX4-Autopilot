@@ -128,12 +128,15 @@ void Linker::addBlocGENPAYLOAD(uint8_t blocId)
     }
 }
 
-void Linker::addLEN()
+uint8_t Linker::addLEN()
 {
+	uint8_t len = 0;
 	if(_lenPos!=0) {
-		_sendBuffer[_lenPos] = _sendPtr-_lenPos-1;//LEN
+		len = _sendPtr-_lenPos-1;
+		_sendBuffer[_lenPos] = len;//LEN
 		_lenPos = 0;
 	}
+	return len;
 }
 /*
 // ========= Reading Blocs
@@ -276,39 +279,41 @@ void Linker::unbloc(uint8_t* buffer)
     uint8_t classe = buffer[1];
     uint8_t id = buffer[2];
     uint8_t *payload = &buffer[3];
+    char str[64];
 
-    std::cout << "unbloc class-id ";
-    printf("0x%02X- 0x%02X\n",classe, id);
+    printf("unbloc class-id 0x%02X- 0x%02X\n",classe, id);
     switch(id)
     {
     case B_SN:
         _isConnected = true;
-        std::cout <<"Serial Number: "<<readString(&payload[0])<<std::endl;
+        readString(&payload[0], str);
+        printf("Serial Number: %s\n",str);
         break;
     case B_PN:
-        std::cout <<"Part Number : "<<readString(&payload[0])<<std::endl;
+        readString(&payload[0], str);
+    	printf("Part Number : %s\n",str);
         break;
     case B_SOFTMAIN:
-        std::cout <<"Software : "<<readString(&payload[0])<<std::endl;
+        readString(&payload[0], str);
+    	printf("Software : %s\n",str);
         break;
     case B_STATUS:
     {
         int gimbalModeStatus = (payload[9] >> 5)&0x07;
-        std::cout <<"Mode Status : "<<gimbalModeStatus<<std::endl;
+        printf("Mode Status : %i",gimbalModeStatus);
         bool icrOnOff = readBitfromByte(&payload[11],5);
         if(icrOnOff)
         {
-            std::cout <<"ICR Status : ON"<<std::endl;
+        	printf("ICR Status : ON\n");
         }
         else
         {
-            std::cout <<"ICR Status : OFF"<<std::endl;
+        	printf("ICR Status : OFF\n");
         }
     }
         break;
     default:
-        std::cout<<"Received Unhandled Bloc of ID :"<<id
-                <<" and size:"<<len<<std::endl;
+    	printf("Received Unhandled Bloc of ID :%i and size: %i\n", id, len);
         break;
     }
 
@@ -326,7 +331,7 @@ void Linker::addBloc(uint8_t blocClass, uint8_t blocId)
         /*addBlockLRFPAYLOAD(blockId);*/
         break;
     default:
-        std::cout<<"Classe non implémentée"<<std::endl;
+        printf("Classe non implémentée\n");
         break;
     }
 }
@@ -559,16 +564,15 @@ bool Linker::readBitfromByte(uint8_t *data, int bit)
       }
       return tmp;
 }
-std::string Linker::readString(uint8_t *data)
+void Linker::readString(uint8_t *data, char* str)
 {
-    std::string tmp = "";
     int i = 0;
     while(data[i] != 0)
     {
-        tmp += data[i];
+    	str[i]+= data[i];
         i++;
     }
-    return tmp;
+    str[i]=0;
 }
 int8_t Linker::readInt8(uint8_t *data)
 {
