@@ -207,6 +207,8 @@ _merioParser()
 	_debug_flag = debug_flag;
 	memset(&_v_attitude,0,sizeof(_v_attitude));
 	memset(&_v_gpos, 0, sizeof(_v_gpos));
+	memset(&_v_gps, 0, sizeof(_v_gps));
+	memset(&_v_cmode, 0, sizeof(_v_cmode));
 }
 
 bool UartMerio::init()
@@ -317,8 +319,8 @@ void UartMerio::updateData()
 	orb_check(_sub_v_gpos, &_updated_gpos);
 	if(_updated_gpos) {
 		orb_copy(ORB_ID(vehicle_global_position), _sub_v_gpos, &_v_gpos);
-		orb_copy(ORB_ID(vehicle_gps_position), _sub_v_gps, &_v_gps);
 	}
+	orb_copy(ORB_ID(vehicle_gps_position), _sub_v_gps, &_v_gps);
 	orb_check(_sub_v_attitude, &_updated_attitude);
 	if(_updated_attitude) {
 		orb_copy(ORB_ID(vehicle_attitude), _sub_v_attitude, &_v_attitude);
@@ -331,10 +333,13 @@ void UartMerio::run()
 		return;
 	hrt_abstime second_timer = hrt_absolute_time();
 	int n = 0, n_atti=0, n_gps=0, n_rx=0;
+	bool update_time = true;
 	if(_debug_flag)
 	{
 		PX4_INFO("Start");
 	}
+	_merioParser.addBloc(GENPAYLOAD, B_POSITION);
+	_merioParser.sendProtocol();
 	while (!should_exit()) {
 		if(readPoll(100000))
 		{
@@ -343,23 +348,39 @@ void UartMerio::run()
 			if(!_merioParser.getConnectStatus())
 			{
 				_merioParser.addBloc(GENPAYLOAD, B_REQCMD);
-				_merioParser.addBloc(GENPAYLOAD, B_ICR);
+				//_merioParser.addBloc(GENPAYLOAD, B_ICR);
 				_merioParser.sendProtocol();
 			}
 			{
 				bool send=false;
 				if(_updated_gpos) {
 					_merioParser.addBloc(GENPAYLOAD, B_NAVINFO1);
-					_merioParser.fillInt32((int32_t)_v_gpos.lat*1e9*M_PI/180.0); // in rad*1e9
-					_merioParser.fillInt32((int32_t)_v_gpos.lon*1e9*M_PI/180.0); // in rad*1e9
-					_merioParser.fillInt32((int32_t)_v_gpos.alt*1e2);
+					_merioParser.fillInt32((int32_t)(_v_gpos.lat*1e9*M_PI/180.0)); // in rad*1e9
+					_merioParser.fillInt32((int32_t)(_v_gpos.lon*1e9*M_PI/180.0)); // in rad*1e9
+					_merioParser.fillInt32((int32_t)(_v_gpos.alt*1e2f));
 					_merioParser.fillUInt8(_v_gps.satellites_used); // sats
 					_merioParser.addLEN(); // should be 15
 					_updated_gpos = false;
-					_merioParser.addBloc(GENPAYLOAD, B_GPSTIME);
+					send = true;
+					n_gps++;
+				}
+				if(_updated_attitude){
+					_merioParser.addBloc(GENPAYLOAD, B_NAVINFO2);
+					matrix::Eulerf euler = matrix::Quatf(_v_attitude.q);
+					_merioParser.fillInt16((int16_t)(euler.phi()*1.0e4f)); // ROLL in rad*1e4
+					_merioParser.fillInt16((int16_t)(euler.theta()*1.0e4f)); // PITCH in rad*1e4
+					_merioParser.fillInt16((int16_t)(euler.psi()*1.0e4f)); // YAW in rad*1e4
+					_merioParser.addLEN(); // should be 8
+					_updated_attitude = false;
+
+					send = true;
+					n_atti++;
+				}
+				if(update_time){
 					time_t now;
 					time(&now);
 					struct tm* utc = gmtime(&now);
+					_merioParser.addBloc(GENPAYLOAD, B_GPSTIME);
 					_merioParser.fillInt16(utc->tm_year);
 					_merioParser.fillUInt8(utc->tm_mon);
 					_merioParser.fillUInt8(utc->tm_mday);
@@ -367,20 +388,9 @@ void UartMerio::run()
 					_merioParser.fillUInt8(utc->tm_min);
 					_merioParser.fillUInt8(utc->tm_sec);
 					_merioParser.fillUInt8(_v_gps.satellites_used);
-					_merioParser.addLEN(); // sould be 10
+					_merioParser.addLEN(); // should be 10
+					update_time = false;
 					send = true;
-					n_gps++;
-				}
-				if(_updated_attitude){
-					_merioParser.addBloc(GENPAYLOAD, B_NAVINFO2);
-					matrix::Eulerf euler = matrix::Quatf(_v_attitude.q);
-					_merioParser.fillInt16((int16_t)euler.phi()*1e4); // ROLL in rad*1e4
-					_merioParser.fillInt16((int16_t)euler.theta()*1e4); // PITCH in rad*1e4
-					_merioParser.fillInt16((int16_t)euler.psi()*1e4); // YAW in rad*1e4
-					_merioParser.addLEN(); // sould be 8
-					_updated_attitude = false;
-					send = true;
-					n_atti++;
 				}
 				if(send) {
 					_merioParser.sendProtocol();
@@ -406,16 +416,17 @@ void UartMerio::run()
 			}while(nbytes>0);
 			usleep(20000);
 		}
-		if(hrt_elapsed_time(&second_timer)>=10e6) /* every 10 seconds*/
+		if(hrt_elapsed_time(&second_timer)>=1e6) /* every 10 seconds*/
 		{
-			_rate = n/10; /* update rate */
-			_rate_atti = n_atti/10;
+			update_time = true;
+			_rate = n/1; /* update rate */
+			_rate_atti = n_atti/1;
 			n_atti = 0;
-			_rate_gps = n_gps/10;
+			_rate_gps = n_gps/1;
 			n_gps = 0;
-			_rate_rx = n_rx/10;
+			_rate_rx = n_rx/1;
 			n_rx = 0;
-			second_timer += 10e6;
+			second_timer += 1e6;
 			if(n==0 && _timeout==0)
 			{
 				/* lost connection */

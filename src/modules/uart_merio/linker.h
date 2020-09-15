@@ -1,5 +1,7 @@
 #ifndef LINKER_H
 #define LINKER_H
+
+#include <stdint.h>
 //  Class GEN
 #define GENPAYLOAD          0x00
 //Associated blocs -v-

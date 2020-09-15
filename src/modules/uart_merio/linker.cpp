@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <string.h>
+#include <stdio.h>
 #include "linker.h"
 
 #define CRCkey	0x1021
@@ -97,7 +98,7 @@ void Linker::addBlocGENPAYLOAD(uint8_t blocId)
 
     case B_POSITION:
         _sendBuffer[_lenPos] = 8;
-        X32ToInt16(_posRefAzi,0.005729577951300823); //scalling modified to convert degree to rad
+        X32ToInt16(_posRefAzi,0.005729577951300823); //scall_isConnecteding modified to convert degree to rad
         X32ToInt16(_posRefEle,0.005729577951300823);
         X32ToInt16(0.5, 6e-5);
         addLEN(); // sould be 8
