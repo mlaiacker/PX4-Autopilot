@@ -94,6 +94,10 @@ then
 	fi
 fi
 
+if param compare SYS_COMPANION 0 
+then
+	uart_merio start
+fi
 
 # /dev/ttyS0		IO debug except v4, there ttyS0 is the wifi
 # /dev/ttyS1		TELEM1 flow control serial1, telemetry

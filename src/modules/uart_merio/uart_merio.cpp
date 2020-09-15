@@ -381,8 +381,8 @@ void UartMerio::run()
 					time(&now);
 					struct tm* utc = gmtime(&now);
 					_merioParser.addBloc(GENPAYLOAD, B_GPSTIME);
-					_merioParser.fillInt16(utc->tm_year);
-					_merioParser.fillUInt8(utc->tm_mon);
+					_merioParser.fillInt16(utc->tm_year+1900);
+					_merioParser.fillUInt8(utc->tm_mon+1);
 					_merioParser.fillUInt8(utc->tm_mday);
 					_merioParser.fillUInt8(utc->tm_hour);
 					_merioParser.fillUInt8(utc->tm_min);
