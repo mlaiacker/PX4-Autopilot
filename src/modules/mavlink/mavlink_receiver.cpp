@@ -1980,7 +1980,7 @@ MavlinkReceiver::handle_message_hil_sensor(mavlink_message_t *msg)
 		}
 	}
 
-	/* magnetometer */
+	/* magnetometer
 	if(fabsf(imu.xmag)>0.0f || fabsf(imu.ymag)>0.0f || fabsf(imu.zmag)>0.0f){
 		struct mag_report mag = {};
 
@@ -1993,14 +1993,14 @@ MavlinkReceiver::handle_message_hil_sensor(mavlink_message_t *msg)
 		mag.z = imu.zmag;
 
 		if (_mag_pub == nullptr) {
-			/* publish to the first mag topic */
+			//publish to the first mag topic
 			_mag_pub = orb_advertise(ORB_ID(sensor_mag), &mag);
 
 		} else {
 			orb_publish(ORB_ID(sensor_mag), _mag_pub, &mag);
 		}
 	}
-
+*/
 	/* baro */
 	if(imu.abs_pressure>0) /* only do an update if valid data */
 	{
