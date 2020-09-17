@@ -854,9 +854,12 @@ Navigator::get_cruising_speed()
 		}
 
 	} else {
-		if (is_planned_mission() && _mission_cruising_speed_fw > 0.0f) {
+		if ((is_planned_mission()||
+				(_navigation_mode == &_loiter) ||
+				(_navigation_mode == &_rtl) ||
+				(_navigation_mode == &_follow_target))
+					&& _mission_cruising_speed_fw > 0.0f) {
 			return _mission_cruising_speed_fw;
-
 		} else {
 			return -1.0f;
 		}
@@ -868,7 +871,6 @@ Navigator::set_cruising_speed(float speed)
 {
 	if (_vstatus.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING) {
 		_mission_cruising_speed_mc = speed;
-
 	} else {
 		_mission_cruising_speed_fw = speed;
 	}

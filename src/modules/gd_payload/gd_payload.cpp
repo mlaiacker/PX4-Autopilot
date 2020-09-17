@@ -532,7 +532,8 @@ void GDPayload::vehicleCommand(const vehicle_command_s *vcmd)
 {
 	if(_debug_flag)
 	{
-		PX4_INFO("cmd=%d", vcmd->command);
+		PX4_INFO("cmd=%d (%f %f %f %f %f %f %f)", vcmd->command,
+				(double)vcmd->param1, (double)vcmd->param2, (double)vcmd->param3, (double)vcmd->param4, (double)vcmd->param5, (double)vcmd->param6, (double)vcmd->param7);
 	}
 	switch(vcmd->command)
 	{

@@ -68,10 +68,6 @@ Mission::Mission(Navigator *navigator) :
 void
 Mission::on_inactive()
 {
-	/* We need to reset the mission cruising speed, otherwise the
-	 * mission velocity which might have been set using mission items
-	 * is used for missions such as RTL. */
-	_navigator->set_cruising_speed();
 
 	/* Without home a mission can't be valid yet anyway, let's wait. */
 	if (!_navigator->home_position_valid()) {
@@ -147,6 +143,10 @@ Mission::on_inactivation()
 	if (_navigator->get_precland()->is_activated()) {
 		_navigator->get_precland()->on_inactivation();
 	}
+	/* We need to reset the mission cruising speed, otherwise the
+	 * mission velocity which might have been set using mission items
+	 * is used for missions such as RTL. */
+	_navigator->set_cruising_speed();
 }
 
 void
