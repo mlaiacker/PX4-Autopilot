@@ -105,7 +105,7 @@ Battery::Battery(int index, ModuleParams *parent, const int sample_interval_us) 
 	updateParams();
 
 	_param_handles.capacity_vt_landig = param_find("BAT_CAP_VT_LAND");
-	_current_filter_average_a.setParameters(expected_filter_dt, 60.0f);
+	_current_filter_average_a.setParameters(expected_filter_dt, 120.0f);
 }
 
 void
@@ -226,18 +226,18 @@ Battery::estimateRemainingTime() {
 			_battery_status.average_current_a = _current_filter_average_a.getState();
 			if(_battery_status.average_current_a>0.0f)
 			{
-				float max_flight_time = 3600.0f*_capacity_mah/(_battery_status.average_current_a*1000.0f);// in seconds
+				float max_flight_time = 3600.0f*_capacity_mah/(_battery_status.average_current_a*1000.0f)/60.0f;// in minutes
 				if(max_flight_time<UINT16_MAX && max_flight_time>0.0f)
 				{
-					_battery_status.run_time_to_empty = (uint16_t)(max_flight_time);
+					_battery_status.average_time_to_empty = (uint16_t)(max_flight_time); /* on a full battery */
 				}
 				float capacity_left_mAs = (_capacity_mah - _discharged_mah)*3600.0f;
 				//float capacity_used_mAs = (_discharged_mah-_discharged_mah_armed)*3600.0f; // used since last arming
-				float tte = capacity_left_mAs/(_battery_status.average_current_a*1000.0f);
+				float tte = capacity_left_mAs/(_battery_status.average_current_a*1000.0f)/60.0f; /* time to empty in minutes */
 
 				if(tte<UINT16_MAX && tte>0.0f)
 				{
-					_battery_status.average_time_to_empty = (uint16_t)tte;
+					_battery_status.run_time_to_empty = (uint16_t)tte; // in minutes
 				}
 				_battery_status.cycle_count = (uint16_t)duration_flight_s;
 			}

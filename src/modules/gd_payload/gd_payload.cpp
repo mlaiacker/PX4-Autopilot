@@ -724,11 +724,12 @@ bool  GDPayload::readPayloadAdc()
 		orb_copy(ORB_ID(vtol_vehicle_status), _sub_vtol_status, &vtol_status);
 
 		if (_vstatus.arming_state == _vstatus.ARMING_STATE_ARMED){
-			if(!vtol_status.vtol_in_rw_mode){
-				sim_current_a += 5.0f + 180.0f*ctrl.control[actuator_controls_s::INDEX_THROTTLE]*ctrl.control[actuator_controls_s::INDEX_THROTTLE];
+			if(vtol_status.vtol_in_rw_mode){
+				sim_current_a += 1.0f + 200.0f*ctrl.control[actuator_controls_s::INDEX_THROTTLE]*ctrl.control[actuator_controls_s::INDEX_THROTTLE]
+								+ rand()*10.0f/RAND_MAX;
 			} else{
-				sim_current_a += 1.0f + 55.0f*ctrl.control[actuator_controls_s::INDEX_THROTTLE]*ctrl.control[actuator_controls_s::INDEX_THROTTLE]
-							     + rand()*10.0f/RAND_MAX;
+				sim_current_a += 1.0f + 40.0f*ctrl.control[actuator_controls_s::INDEX_THROTTLE]*ctrl.control[actuator_controls_s::INDEX_THROTTLE]
+							     + rand()*1.0f/RAND_MAX;
 			}
 			sim_voltage_v -= _battery_sim.cell_count()*1.3f*(1.0f-_battery_sim.getRemaining());
 			sim_voltage_v -= sim_current_a*0.007f;
