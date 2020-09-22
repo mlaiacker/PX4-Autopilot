@@ -1379,8 +1379,13 @@ MavlinkMissionManager::parse_mavlink_mission_item(const mavlink_mission_item_t *
 			mission_item->params[6] = mavlink_mission_item->z;
 			break;
 
-		case MAV_CMD_NAV_VTOL_TAKEOFF:
 		case MAV_CMD_NAV_VTOL_LAND:
+			mission_item->params[0] = mavlink_mission_item->param1; // GD feature: autocontinue
+			mission_item->params[1] = mavlink_mission_item->param2; // GD feature: land at arming position
+			mission_item->nav_cmd = (NAV_CMD)mavlink_mission_item->command;
+			mission_item->yaw = wrap_2pi(math::radians(mavlink_mission_item->param4));
+			break;
+		case MAV_CMD_NAV_VTOL_TAKEOFF:
 			mission_item->nav_cmd = (NAV_CMD)mavlink_mission_item->command;
 			mission_item->yaw = wrap_2pi(math::radians(mavlink_mission_item->param4));
 			break;
@@ -1630,8 +1635,12 @@ MavlinkMissionManager::format_mavlink_mission_item(const struct mission_item_s *
 			mavlink_mission_item->param4 = mission_item->loiter_exit_xtrack;
 			break;
 
-		case MAV_CMD_NAV_VTOL_TAKEOFF:
 		case MAV_CMD_NAV_VTOL_LAND:
+			mavlink_mission_item->param1 = mission_item->params[0]; // GD feature: autocontinue
+			mavlink_mission_item->param2 = mission_item->params[1]; // GD feature: land at arming position
+			mavlink_mission_item->param4 = math::degrees(mission_item->yaw);
+			break;
+		case MAV_CMD_NAV_VTOL_TAKEOFF:
 			mavlink_mission_item->param4 = math::degrees(mission_item->yaw);
 			break;
 
