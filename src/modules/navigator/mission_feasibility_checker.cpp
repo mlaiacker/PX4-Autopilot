@@ -97,7 +97,7 @@ MissionFeasibilityChecker::checkMissionWhenArming(const mission_s &mission,
 		if((missionitem.nav_cmd == NAV_CMD_VTOL_LAND || missionitem.nav_cmd == NAV_CMD_LAND))
 		{
 			if(missionitem.nav_cmd == NAV_CMD_VTOL_LAND &&
-			   fabs(missionitem.params[1]-1.0f)<FLT_EPSILON && // GD feature: land at take off
+			   fabsf(missionitem.params[1]-1.0f)<FLT_EPSILON && // GD feature: land at take off
 			   !rtl_found ) {
 				missionitem.lat = lat;
 				missionitem.lon = lon;
