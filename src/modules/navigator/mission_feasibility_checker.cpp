@@ -563,7 +563,6 @@ MissionFeasibilityChecker::checkVTOLLanding(const mission_s &mission, bool land_
 	 * if landing waypoint is found: the previous waypoint is checked to be at a feasible distance and altitude given the landing slope */
 
 	bool land_start_found = false;
-	bool land_at_arming_found = false;
 	size_t do_land_start_index = 0;
 	size_t landing_approach_index = 0;
 
@@ -589,28 +588,6 @@ MissionFeasibilityChecker::checkVTOLLanding(const mission_s &mission, bool land_
 		}
 
 		if (missionitem.nav_cmd == NAV_CMD_LAND || missionitem.nav_cmd == NAV_CMD_VTOL_LAND) {
-			if(missionitem.nav_cmd == NAV_CMD_VTOL_LAND &&
-			   fabsf(missionitem.params[1]-1.0f)<FLT_EPSILON && // GD feature: land at take off
-			   !land_at_arming_found ) {
-				if (!PX4_ISFINITE(_navigator->get_global_position()->lat) ||
-					!PX4_ISFINITE(_navigator->get_global_position()->lon) ||
-					!PX4_ISFINITE(_navigator->get_global_position()->alt)) {
-					mavlink_log_critical(_navigator->get_mavlink_log_pub(), "Mission: cant update landing, no gps position");
-				} else {
-					missionitem.lat = _navigator->get_global_position()->lat;
-					missionitem.lon = _navigator->get_global_position()->lon;
-
-					land_at_arming_found = true; // only update one item
-					PX4_INFO("updating landing pos(%d).",(int)i);
-					if (dm_write((dm_item_t)mission.dataman_id, i, DM_PERSIST_POWER_ON_RESET, &missionitem, len) != len) {
-						/* not supposed to happen unless the datamanager can't access the SD card, etc. */
-						PX4_INFO("failed to write mission");
-						return false;
-					}
-					mavlink_log_info(_navigator->get_mavlink_log_pub(), "Mission: update land(%i) to cur. pos.",(int)i);
-				}
-			}
-
 			mission_item_s missionitem_previous {};
 
 			if (i > 0) {

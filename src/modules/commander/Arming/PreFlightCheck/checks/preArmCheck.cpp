@@ -38,6 +38,62 @@
 #include <uORB/topics/vehicle_command_ack.h>
 #include <HealthFlags.h>
 
+
+#include <uORB/Subscription.hpp>
+#include <dataman/dataman.h>
+#include <uORB/topics/mission.h>
+#include <uORB/topics/vehicle_global_position.h>
+
+bool
+checkVTOLLanding(orb_advert_t *mavlink_log_pub)
+{
+	uORB::Subscription	mission_sub(ORB_ID(mission));		/**< mission subscription */
+	mission_s		mission;
+	mission_sub.copy(&mission);
+
+	vehicle_global_position_s v_gpos;
+	uORB::Subscription v_gpos_sub(ORB_ID(vehicle_global_position));
+	v_gpos_sub.copy(&v_gpos);
+	/* Go through all mission items and search for a landing waypoint
+	 * if landing waypoint is found: the previous waypoint is checked to be at a feasible distance and altitude given the landing slope */
+
+	bool land_at_arming_found = false;
+
+	for (size_t i = 0; i < mission.count; i++) {
+		struct mission_item_s missionitem;
+		const ssize_t len = sizeof(missionitem);
+
+		if (dm_read((dm_item_t)mission.dataman_id, i, &missionitem, len) != len) {
+			/* not supposed to happen unless the datamanager can't access the SD card, etc. */
+			return false;
+		}
+			if(missionitem.nav_cmd == NAV_CMD_VTOL_LAND &&
+			   fabsf(missionitem.params[1]-1.0f)<FLT_EPSILON && // GD feature: land at take off
+			   !land_at_arming_found ) {
+				if (!PX4_ISFINITE(v_gpos.lat) ||
+					!PX4_ISFINITE(v_gpos.lon) ||
+					!PX4_ISFINITE(v_gpos.alt)) {
+					mavlink_log_critical(mavlink_log_pub, "Mission: cant update landing, no gps position");
+				} else {
+					missionitem.lat = v_gpos.lat;
+					missionitem.lon = v_gpos.lon;
+
+					land_at_arming_found = true; // only update one item
+					PX4_INFO("updating landing pos(%d).",(int)i);
+					if (dm_write((dm_item_t)mission.dataman_id, i, DM_PERSIST_POWER_ON_RESET, &missionitem, len) != len) {
+						/* not supposed to happen unless the datamanager can't access the SD card, etc. */
+						PX4_INFO("failed to write mission");
+						return false;
+					}
+					mavlink_log_info(mavlink_log_pub, "Mission: update land(%i) to cur. pos.",(int)i);
+				}
+			}
+	}
+	/* No landing waypoints or no waypoints */
+	return true;
+}
+
+
 bool PreFlightCheck::preArmCheck(orb_advert_t *mavlink_log_pub, const vehicle_status_flags_s &status_flags,
 				 const safety_s &safety, const arm_requirements_t &arm_requirements, vehicle_status_s &status, bool report_fail)
 {
@@ -91,6 +147,10 @@ bool PreFlightCheck::preArmCheck(orb_advert_t *mavlink_log_pub, const vehicle_st
 			}
 
 			prearm_ok = false;
+		} else {
+			if(!checkVTOLLanding(mavlink_log_pub)) {
+				prearm_ok = false;
+			}
 		}
 	}
 
