@@ -45,7 +45,7 @@
 #include <uORB/topics/vehicle_global_position.h>
 
 bool
-checkVTOLLanding(orb_advert_t *mavlink_log_pub)
+checkVTOLLanding(orb_advert_t *mavlink_log_pub, bool gpos_valid)
 {
 	uORB::Subscription	mission_sub(ORB_ID(mission));		/**< mission subscription */
 	mission_s		mission;
@@ -72,7 +72,8 @@ checkVTOLLanding(orb_advert_t *mavlink_log_pub)
 			   !land_at_arming_found ) {
 				if (!PX4_ISFINITE(v_gpos.lat) ||
 					!PX4_ISFINITE(v_gpos.lon) ||
-					!PX4_ISFINITE(v_gpos.alt)) {
+					!PX4_ISFINITE(v_gpos.alt) ||
+					!gpos_valid) {
 					mavlink_log_critical(mavlink_log_pub, "Mission: cant update landing, no gps position");
 				} else {
 					missionitem.lat = v_gpos.lat;
@@ -147,10 +148,6 @@ bool PreFlightCheck::preArmCheck(orb_advert_t *mavlink_log_pub, const vehicle_st
 			}
 
 			prearm_ok = false;
-		} else {
-			if(!checkVTOLLanding(mavlink_log_pub)) {
-				prearm_ok = false;
-			}
 		}
 	}
 
@@ -201,6 +198,10 @@ bool PreFlightCheck::preArmCheck(orb_advert_t *mavlink_log_pub, const vehicle_st
 	}
 
 	if (status.is_vtol) {
+
+		if(!checkVTOLLanding(mavlink_log_pub, status_flags.condition_global_position_valid)) {
+			prearm_ok = false;
+		}
 
 		if (status.in_transition_mode) {
 			if (prearm_ok) {
