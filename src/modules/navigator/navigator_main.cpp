@@ -358,8 +358,8 @@ Navigator::run()
 
 				// Go on and check which changes had been requested
 				if (PX4_ISFINITE(cmd.param4)) {
-					rep->current.yaw = cmd.param4;
-
+					// set yaw
+					rep->current.yaw = wrap_pi(math::radians(cmd.param4));
 				} else {
 					rep->current.yaw = NAN;
 				}
@@ -371,9 +371,10 @@ Navigator::run()
 					rep->current.lon = (cmd.param6 < 1000) ? cmd.param6 : cmd.param6 / (double)1e7;
 
 					if (PX4_ISFINITE(cmd.param7)) {
+						// chnge altitude
 						rep->current.alt = cmd.param7;
-
-					} else {
+					} else if (!PX4_ISFINITE(rep->current.alt)) { /* GD: only change altitude setpoint if we don't have already one */
+						// use current altitude
 						rep->current.alt = get_global_position()->alt;
 					}
 
