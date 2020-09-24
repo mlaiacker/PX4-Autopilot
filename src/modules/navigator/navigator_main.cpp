@@ -359,7 +359,7 @@ Navigator::run()
 				// Go on and check which changes had been requested
 				if (PX4_ISFINITE(cmd.param4)) {
 					// set yaw
-					rep->current.yaw = wrap_pi(math::radians(cmd.param4));
+					rep->current.yaw = matrix::wrap_pi(math::radians(cmd.param4));
 				} else {
 					rep->current.yaw = NAN;
 				}
