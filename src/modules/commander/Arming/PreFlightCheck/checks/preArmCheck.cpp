@@ -45,7 +45,7 @@
 #include <uORB/topics/vehicle_global_position.h>
 
 bool
-checkVTOLLanding(orb_advert_t *mavlink_log_pub, bool gpos_valid)
+checkVTOLLanding(orb_advert_t *mavlink_log_pub, bool gpos_valid, bool report_fail)
 {
 	uORB::Subscription	mission_sub(ORB_ID(mission));		/**< mission subscription */
 	mission_s		mission;
@@ -74,19 +74,18 @@ checkVTOLLanding(orb_advert_t *mavlink_log_pub, bool gpos_valid)
 					!PX4_ISFINITE(v_gpos.lon) ||
 					!PX4_ISFINITE(v_gpos.alt) ||
 					!gpos_valid) {
-					mavlink_log_critical(mavlink_log_pub, "Mission: cant update landing, no gps position");
+					if(report_fail) { mavlink_log_critical(mavlink_log_pub, "Mission: cant update landing, no gps position"); }
 				} else {
 					missionitem.lat = v_gpos.lat;
 					missionitem.lon = v_gpos.lon;
 
 					land_at_arming_found = true; // only update one item
-					PX4_INFO("updating landing pos(%d).",(int)i);
 					if (dm_write((dm_item_t)mission.dataman_id, i, DM_PERSIST_POWER_ON_RESET, &missionitem, len) != len) {
 						/* not supposed to happen unless the datamanager can't access the SD card, etc. */
 						PX4_INFO("failed to write mission");
 						return false;
 					}
-					mavlink_log_info(mavlink_log_pub, "Mission: update land(%i) to cur. pos.",(int)i);
+					if(report_fail) { mavlink_log_info(mavlink_log_pub, "Mission: update land(%i) to cur. pos.",(int)i); }
 				}
 			}
 	}
@@ -199,7 +198,9 @@ bool PreFlightCheck::preArmCheck(orb_advert_t *mavlink_log_pub, const vehicle_st
 
 	if (status.is_vtol) {
 
-		if(!checkVTOLLanding(mavlink_log_pub, status_flags.condition_global_position_valid)) {
+		if(!checkVTOLLanding(mavlink_log_pub, status_flags.condition_global_position_valid, report_fail)) {
+			if (report_fail) { mavlink_log_critical(mavlink_log_pub, "Arming denied! Update Landing pos failed"); }
+
 			prearm_ok = false;
 		}
 
