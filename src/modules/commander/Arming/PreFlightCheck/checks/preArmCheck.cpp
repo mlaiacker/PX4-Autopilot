@@ -49,7 +49,9 @@ checkVTOLLanding(orb_advert_t *mavlink_log_pub, bool gpos_valid, bool report_fai
 {
 	uORB::Subscription	mission_sub(ORB_ID(mission));		/**< mission subscription */
 	mission_s		mission;
-	mission_sub.copy(&mission);
+	if(!mission_sub.copy(&mission)) {
+		return true; // no mission noting to do..
+	}
 
 	vehicle_global_position_s v_gpos;
 	uORB::Subscription v_gpos_sub(ORB_ID(vehicle_global_position));
@@ -65,6 +67,7 @@ checkVTOLLanding(orb_advert_t *mavlink_log_pub, bool gpos_valid, bool report_fai
 
 		if (dm_read((dm_item_t)mission.dataman_id, i, &missionitem, len) != len) {
 			/* not supposed to happen unless the datamanager can't access the SD card, etc. */
+			if(report_fail) { mavlink_log_critical(mavlink_log_pub, "Mission: cant read mission"); }
 			return false;
 		}
 			if(missionitem.nav_cmd == NAV_CMD_VTOL_LAND &&
@@ -86,6 +89,7 @@ checkVTOLLanding(orb_advert_t *mavlink_log_pub, bool gpos_valid, bool report_fai
 						return false;
 					}
 					if(report_fail) { mavlink_log_info(mavlink_log_pub, "Mission: update land(%i) to cur. pos.",(int)i); }
+					return true;
 				}
 			}
 	}
