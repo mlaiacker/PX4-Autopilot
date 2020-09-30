@@ -48,7 +48,8 @@ using namespace time_literals;
 #define ARSP_YAW_CTRL_DISABLE 7.0f	// airspeed at which we stop controlling yaw during a front transition
 
 Tiltrotor::Tiltrotor(VtolAttitudeControl *attc) :
-	VtolType(attc)
+	VtolType(attc),
+	_tilt_yaw_lp_pitch(250,1.0f)
 {
 	_vtol_schedule.flight_mode = vtol_mode::MC_MODE;
 	_vtol_schedule.transition_start = 0;
@@ -409,7 +410,7 @@ void Tiltrotor::fill_actuator_outputs()
 		_actuators_mc_in->control[actuator_controls_s::INDEX_YAW] * _mc_yaw_weight;
 
 	/* filter yaw control to use for differential tilt */
-	_actuators_out_0->control[actuator_controls_s::INDEX_AIRBRAKES] = _actuators_out_0->control[actuator_controls_s::INDEX_YAW];
+	_actuators_out_0->control[actuator_controls_s::INDEX_AIRBRAKES] = _tilt_yaw_lp_pitch.apply(_actuators_out_0->control[actuator_controls_s::INDEX_YAW]);
 
 	if (_vtol_schedule.flight_mode == vtol_mode::FW_MODE) {
 		_actuators_out_0->control[actuator_controls_s::INDEX_THROTTLE] =
