@@ -164,14 +164,14 @@ void RTL::find_RTL_destination()
 			_destination.lat = closest_safe_point.lat;
 			_destination.lon = closest_safe_point.lon;
 			_destination.alt = closest_safe_point.alt;
-			_destination.yaw = home_landing_position.yaw;
+			_destination.yaw = MissionBlock::getWindYaw(home_landing_position.yaw);
 			break;
 
 		case 3: // MAV_FRAME_GLOBAL_RELATIVE_ALT
 			_destination.lat = closest_safe_point.lat;
 			_destination.lon = closest_safe_point.lon;
 			_destination.alt = closest_safe_point.alt + home_landing_position.alt; // alt of safe point is rel to home
-			_destination.yaw = home_landing_position.yaw;
+			_destination.yaw = MissionBlock::getWindYaw(home_landing_position.yaw);
 			break;
 
 		default:
@@ -283,7 +283,7 @@ void RTL::set_rtl_item()
 			_mission_item.lon = gpos.lon;
 			_mission_item.altitude = _rtl_alt;
 			_mission_item.altitude_is_relative = false;
-			_mission_item.yaw = _navigator->get_local_position()->heading;
+			_mission_item.yaw = MissionBlock::getWindYaw(_navigator->get_local_position()->heading);
 			_mission_item.acceptance_radius = _navigator->get_acceptance_radius();
 			_mission_item.time_inside = 0.0f;
 			_mission_item.autocontinue = true;
@@ -306,11 +306,17 @@ void RTL::set_rtl_item()
 			// Use destination yaw if close to _destination.
 			// Check if we are pretty close to the destination already.
 			if (destination_dist < _param_rtl_min_dist.get()) {
-				_mission_item.yaw = _destination.yaw;
+				_mission_item.yaw = MissionBlock::getWindYaw(_destination.yaw);
 
 			} else {
-				// Use current heading to _destination.
-				_mission_item.yaw = get_bearing_to_next_waypoint(gpos.lat, gpos.lon, _destination.lat, _destination.lon);
+				if (_navigator->get_vstatus()->is_vtol &&
+					_navigator->get_vstatus()->vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING){
+					// Use wind if we are a vtol
+					_mission_item.yaw = MissionBlock::getWindYaw(_destination.yaw);
+				} else{
+					// Use current heading to _destination.
+					_mission_item.yaw = get_bearing_to_next_waypoint(gpos.lat, gpos.lon, _destination.lat, _destination.lon);
+				}
 			}
 
 			_mission_item.acceptance_radius = _navigator->get_acceptance_radius();
@@ -345,7 +351,11 @@ void RTL::set_rtl_item()
 			} else {
 				_mission_item.yaw = _destination.yaw;
 			}
-
+			if(_navigator->get_vstatus()->is_vtol &&
+				_navigator->get_vstatus()->vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING)
+			{ // get wind estimate for yaw
+				_mission_item.yaw = MissionBlock::getWindYaw(_destination.yaw);
+			}
 			_mission_item.acceptance_radius = _navigator->get_acceptance_radius();
 			_mission_item.time_inside = 0.0f;
 			_mission_item.autocontinue = true;
@@ -402,6 +412,11 @@ void RTL::set_rtl_item()
 			_mission_item.autocontinue = true;
 			_mission_item.origin = ORIGIN_ONBOARD;
 			_mission_item.land_precision = _param_rtl_pld_md.get();
+
+			if(_navigator->get_vstatus()->is_vtol)
+			{ // get wind estimate for yaw
+				_mission_item.yaw = MissionBlock::getWindYaw(_mission_item.yaw);
+			}
 
 			if (_mission_item.land_precision == 1) {
 				_navigator->get_precland()->set_mode(PrecLandMode::Opportunistic);

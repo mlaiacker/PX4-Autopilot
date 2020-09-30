@@ -88,6 +88,10 @@ public:
 	 */
 	static bool item_contains_marker(const mission_item_s &item);
 
+	static const int WIND_THRESHOLD = 3; // minimum windspeed for doing yaw aligment while landing as vtol landing
+
+	static float getWindYaw(float yaw);
+
 protected:
 	/**
 	 * Check if mission item has been reached
