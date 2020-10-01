@@ -345,6 +345,8 @@ Navigator::run()
 
 				rep->current.loiter_radius = get_loiter_radius();
 				rep->current.loiter_direction = 1;
+//				PX4_INFO("REPOS. %f %f %f %f %f %f %f",
+//						(double)cmd.param1, (double)cmd.param2, (double)cmd.param3, (double)cmd.param4 , (double)cmd.param5, (double)cmd.param6 , (double)cmd.param7);
 				if(fabsf(cmd.param3)>10.0f && PX4_ISFINITE(cmd.param3) && fabsf(cmd.param3)<1000.0f) /* valid loiter radius */
 				{
 					rep->current.loiter_radius = fabsf(cmd.param3);
