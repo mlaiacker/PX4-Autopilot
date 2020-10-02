@@ -101,15 +101,17 @@ px4_add_board(
 		gd_payload
 
 	SYSTEMCMDS
-#		bl_update		
+		bl_update
+		#dmesg
 		dumpfile
-#		esc_calib
+		esc_calib
+		gpio
 		hardfault_log
 		i2cdetect
 		led_control
 		mixer
-#		motor_ramp
-#		motor_test
+		motor_ramp
+		motor_test
 		mtd
 		nshterm
 		param
@@ -118,7 +120,6 @@ px4_add_board(
 		reboot
 		reflect
 		sd_bench
-		#shutdown
 		tests # tests and test runner
 		top
 		topic_listener

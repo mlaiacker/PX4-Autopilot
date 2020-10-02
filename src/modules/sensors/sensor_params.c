@@ -210,6 +210,6 @@ PARAM_DEFINE_INT32(SENS_EXT_I2C_PRB, 1);
  *
  * @min 0.1
  * @max 2.0
- * @group Sensor Calibration
+ * @group Sensors
  */
 PARAM_DEFINE_FLOAT(CAL_AIR_GAIN, 1.0f);

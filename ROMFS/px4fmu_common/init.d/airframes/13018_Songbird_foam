@@ -38,6 +38,7 @@ then
 	param set BAT_V_DIV	15.468000
 	param set BAT_V_EMPTY	3.50000
 	param set BAT_V_CHARGED	4.100
+	param set CAL_AIR_GAIN	1.0
 	param set CBRK_IO_SAFETY	22027
 	param set COM_ARM_CHK_ESCS	0
 	param set COM_FLTMODE1	3

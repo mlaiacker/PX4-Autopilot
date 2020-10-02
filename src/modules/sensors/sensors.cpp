@@ -288,6 +288,12 @@ void Sensors::diff_pres_poll()
 		airspeed_s airspeed{};
 		airspeed.timestamp = diff_pres.timestamp;
 
+		if(_parameters.air_gain>0.0f)
+		{
+			diff_pres.differential_pressure_filtered_pa *= _parameters.air_gain;
+			diff_pres.differential_pressure_raw_pa *= _parameters.air_gain;
+		}
+
 		/* push data into validator */
 		float airspeed_input[3] = { diff_pres.differential_pressure_raw_pa, diff_pres.temperature, 0.0f };
 
@@ -319,7 +325,7 @@ void Sensors::diff_pres_poll()
 		airspeed.indicated_airspeed_m_s = calc_IAS_corrected((enum AIRSPEED_COMPENSATION_MODEL)
 						  _parameters.air_cmodel,
 						  smodel, _parameters.air_tube_length, _parameters.air_tube_diameter_mm,
-						  diff_pres.differential_pressure_filtered_pa*_parameters.air_gain, air_data.baro_pressure_pa,
+						  diff_pres.differential_pressure_filtered_pa, air_data.baro_pressure_pa,
 						  air_temperature_celsius);
 
 		airspeed.true_airspeed_m_s = calc_TAS_from_EAS(airspeed.indicated_airspeed_m_s, air_data.baro_pressure_pa,
@@ -409,7 +415,7 @@ void Sensors::adc_poll()
 							_diff_pres.differential_pressure_raw_pa = diff_pres_pa_raw;
 							_diff_pres.differential_pressure_filtered_pa = (_diff_pres.differential_pressure_filtered_pa * 0.9f) +
 									(diff_pres_pa_raw * 0.1f);
-							_diff_pres.temperature = -1000.0f;
+							_diff_pres.temperature = -1001.0f;
 
 							_diff_pres_pub.publish(_diff_pres);
 						}
