@@ -104,9 +104,10 @@ void FlightTaskManualPosition::_scaleSticks()
 
 	_velocity_scale = fminf(_computeVelXYGroundDist(), _velocity_scale);
 
-	if(stick_xy(0)<0.0f){
-		stick_xy(0)*=0.5f; // only half the speed backward TODO:should only be done when we are a vtol
+	if (stick_xy(0) < 0.0f) {
+		stick_xy(0) *= 0.5f; // only half the speed backward TODO:should only be done when we are a vtol
 	}
+
 	// scale velocity to its maximum limits
 	Vector2f vel_sp_xy = stick_xy * _velocity_scale;
 

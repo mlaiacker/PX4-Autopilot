@@ -2675,6 +2675,7 @@ PX4IO::ioctl(file *filep, int cmd, unsigned long arg)
 			io_reg_set(PX4IO_PAGE_SETUP, PX4IO_P_SETUP_DSM, dsm_bind_power_down); // power down GD payload
 			ret = OK;//-EINVAL;
 		}
+
 		break;
 
 	case DSM_BIND_POWER_UP:

@@ -88,7 +88,7 @@ class PWR_ISL28022 : public device::I2C, public ModuleParams
 {
 public:
 	PWR_ISL28022(int bus = PWR_ISL28022_I2C_BUS, uint16_t pwr_isl28022_addr = PWR_ISL28022_ADDR,
-			float sens_resistor=0, uint16_t sens_range=0);
+		     float sens_resistor = 0, uint16_t sens_range = 0);
 	virtual ~PWR_ISL28022();
 
 	/**
@@ -189,7 +189,7 @@ private:
 #define	INST_MAX 2
 namespace
 {
-PWR_ISL28022* g_pwr_isl28022[INST_MAX];	///< device handle. For now, we only support INST_MAX devices
+PWR_ISL28022 *g_pwr_isl28022[INST_MAX];	///< device handle. For now, we only support INST_MAX devices
 }
 
 void pwr_isl28022_usage();
@@ -198,7 +198,7 @@ extern "C" __EXPORT int pwr_isl28022_main(int argc, char *argv[]);
 
 
 PWR_ISL28022::PWR_ISL28022(int bus, uint16_t pwr_isl28022_addr, float sens_resistor, uint16_t sens_range) :
-	I2C(DeviceBusType_I2C,"pwr_isl28022", bus, pwr_isl28022_addr, 400000),
+	I2C(DeviceBusType_I2C, "pwr_isl28022", bus, pwr_isl28022_addr, 400000),
 	ModuleParams(nullptr),
 	_enabled(false),
 	_last_report{},
@@ -215,34 +215,35 @@ PWR_ISL28022::PWR_ISL28022(int bus, uint16_t pwr_isl28022_addr, float sens_resis
 	_start_time = hrt_absolute_time();
 	_startupDelay = 100;
 
-	if(sens_resistor>0){
-		_sens_resistor=sens_resistor;
+	if (sens_resistor > 0) {
+		_sens_resistor = sens_resistor;
 	}
+
 	// 0x5x = sign + 11 bits resolution
-	if(sens_range==40)
-	{
+	if (sens_range == 40) {
 		_sens_full_scale = 40;
-		_sens_sample_reg = 0x0<11; // 0101 0000
+		_sens_sample_reg = 0x0 < 11; // 0101 0000
 		_sens_resolution = 4096.0f;
 	}
-	if(sens_range==80)
-	{
+
+	if (sens_range == 80) {
 		_sens_full_scale = 80;
-		_sens_sample_reg = 0x1<11;
+		_sens_sample_reg = 0x1 < 11;
 		_sens_resolution = 8192.0f;
 	}
-	if(sens_range==160)
-	{
+
+	if (sens_range == 160) {
 		_sens_full_scale = 160;
-		_sens_sample_reg = 0x2<<11;
+		_sens_sample_reg = 0x2 << 11;
 		_sens_resolution = 16384.0f;
 	}
-	if(sens_range==320)
-	{
+
+	if (sens_range == 320) {
 		_sens_full_scale = 320;
-		_sens_sample_reg = 0x3<<11;
+		_sens_sample_reg = 0x3 << 11;
 		_sens_resolution = 32768.0f;
 	}
+
 	_current_a_filtered = 0.0f;
 	_voltage_v_filtered = 0.0f;
 	_current_a = 0.0f;
@@ -254,8 +255,8 @@ PWR_ISL28022::~PWR_ISL28022()
 	stop();
 	orb_unsubscribe(_actuator_ctrl_0_sub);
 	orb_unsubscribe(_vcontrol_mode_sub);
-	if(_batt_topic!=nullptr)
-	{
+
+	if (_batt_topic != nullptr) {
 		orb_unadvertise(_batt_topic);
 	}
 }
@@ -293,12 +294,12 @@ int
 PWR_ISL28022::test()
 {
 //	uint64_t start_time = hrt_absolute_time();
-	PX4_INFO("armed=%i",_armed);
+	PX4_INFO("armed=%i", _armed);
 
 	// loop for 3 seconds
 //	while ((hrt_absolute_time() - start_time) < 3000000) {
-		print_message(_last_report);
-		// sleep for 0.2 seconds
+	print_message(_last_report);
+	// sleep for 0.2 seconds
 //		usleep(200000);
 //	}
 
@@ -308,23 +309,28 @@ PWR_ISL28022::test()
 bool
 PWR_ISL28022::identify()
 {
-	uint16_t reg=0;
+	uint16_t reg = 0;
+
 	if (read_reg(PWR_ISL28022_REG_CONFIG, reg) == OK) {
-		if(reg>0){
+		if (reg > 0) {
 			PX4_INFO("config=0x%04x", reg);
+
 			if (read_reg(PWR_ISL28022_REG_BUS, reg) == OK) {
 				PX4_INFO("bus=0x%04x", reg);
 			}
+
 			if (read_reg(PWR_ISL28022_REG_SHUNT, reg) == OK) {
 				PX4_INFO("shunt=0x%04x", reg);
 			}
+
 			PX4_INFO("ISL28022 found at 0x%x", get_device_address());
 			return true;
-		} else
-		{
+
+		} else {
 			PX4_INFO("dev found at 0x%x reg0=0x%x", get_device_address(), reg);
 		}
 	}
+
 	return false;
 }
 
@@ -337,11 +343,12 @@ PWR_ISL28022::search()
 	// search through all valid SMBus addresses
 	for (uint8_t i = PWR_ISL28022_ADDR_MIN; i < PWR_ISL28022_ADDR_MAX; i++) {
 		set_device_address(i);
-		if(identify())
-		{
+
+		if (identify()) {
 			found_slave = true;
 			break;
 		}
+
 		usleep(1);
 
 	}
@@ -391,32 +398,36 @@ PWR_ISL28022::cycle_trampoline(void *arg)
 	dev->cycle();
 }
 bool
-PWR_ISL28022::try_read_data(battery_status_s &new_report, uint64_t now){
+PWR_ISL28022::try_read_data(battery_status_s &new_report, uint64_t now)
+{
 	// temporary variable for storing SMBUS reads
-	uint16_t shunt=0;
-	uint16_t bus=0;
+	uint16_t shunt = 0;
+	uint16_t bus = 0;
 
 
 	if (read_reg(PWR_ISL28022_REG_BUS, bus) == OK) {
 		// read data from sensor
-		memset(&new_report,0,sizeof(new_report));
+		memset(&new_report, 0, sizeof(new_report));
 		new_report.timestamp = now;
 
 		// convert millivolts to volts
-		_voltage_v = ((float)(bus>>2)*0.004f);//60.0f) / 16384.0f;
-		_voltage_v_filtered = _voltage_v*0.05f + _voltage_v_filtered*0.95f; /* voltage filter */
+		_voltage_v = ((float)(bus >> 2) * 0.004f); //60.0f) / 16384.0f;
+		_voltage_v_filtered = _voltage_v * 0.05f + _voltage_v_filtered * 0.95f; /* voltage filter */
+
 		// read current
-		if (read_reg(PWR_ISL28022_REG_SHUNT, shunt) == OK){
+		if (read_reg(PWR_ISL28022_REG_SHUNT, shunt) == OK) {
 			int16_t current = 0;
-			if(shunt&0x8000) // sign bit
-			{ // negative
+
+			if (shunt & 0x8000) { // sign bit
+				// negative
 				current = 0x8000 | shunt;
-			} else
-			{
+
+			} else {
 				current = shunt;
 			}
-			_current_a = ((float)_sens_full_scale/_sens_resistor)*((float)current)/_sens_resolution;
-			_current_a_filtered = _current_a*0.05f + _current_a_filtered*0.95f; /* current filter */
+
+			_current_a = ((float)_sens_full_scale / _sens_resistor) * ((float)current) / _sens_resolution;
+			_current_a_filtered = _current_a * 0.05f + _current_a_filtered * 0.95f; /* current filter */
 		}
 
 		vehicle_control_mode_poll();
@@ -424,18 +435,20 @@ PWR_ISL28022::try_read_data(battery_status_s &new_report, uint64_t now){
 		orb_copy(ORB_ID(actuator_controls_0), _actuator_ctrl_0_sub, &ctrl);
 
 		_battery.updateBatteryStatus(now, _voltage_v, _current_a,
-				_voltage_v>2.0f, 0 , 0,
-				ctrl.control[actuator_controls_s::INDEX_THROTTLE]);
+					     _voltage_v > 2.0f, 0, 0,
+					     ctrl.control[actuator_controls_s::INDEX_THROTTLE]);
 		new_report.voltage_filtered_v = _voltage_v_filtered;
 		new_report.current_filtered_a = _current_a_filtered;
-		if(_startRemaining>=0.0f && _startRemaining<=1.0f)
-		{
+
+		if (_startRemaining >= 0.0f && _startRemaining <= 1.0f) {
 			// subtract start remaining from remaining based on used mAh to deal with a startup with not fully charged battery
-			new_report.remaining = math::max(new_report.remaining-(1.0f-_startRemaining), 0.0f);
+			new_report.remaining = math::max(new_report.remaining - (1.0f - _startRemaining), 0.0f);
 		}
+
 		new_report.serial_number = get_device_address();
 		return true;
 	}
+
 	return false;
 }
 
@@ -446,47 +459,55 @@ PWR_ISL28022::cycle()
 	uint64_t now = hrt_absolute_time();
 
 	battery_status_s new_report = {};
-	if(try_read_data(new_report, now)){
+
+	if (try_read_data(new_report, now)) {
 		if (_batt_topic != nullptr) {
-				if(_startupDelay<=0) {
-					// publish to orb
-					orb_publish(_batt_orb_id, _batt_topic, &new_report);
-				} else
-				{
-					_startupDelay--;
-					_startRemaining = _battery.getRemainingVoltage();
-					if(_startupDelay==0)
-					{
-						PX4_INFO("remaining at start=%i", (int)_startRemaining*100);
-					}
+			if (_startupDelay <= 0) {
+				// publish to orb
+				orb_publish(_batt_orb_id, _batt_topic, &new_report);
+
+			} else {
+				_startupDelay--;
+				_startRemaining = _battery.getRemainingVoltage();
+
+				if (_startupDelay == 0) {
+					PX4_INFO("remaining at start=%i", (int)_startRemaining * 100);
 				}
+			}
+
 		} else {
-			uint16_t config = _sens_sample_reg|
-					PWR_ISL28022_CONFIG_AVG16|
-					PWR_ISL28022_CONFIG_MODE_SB_CONT |
-					PWR_ISL28022_CONFIG_BUS60V;
-			PX4_INFO("config reg 0x%04x",config);
+			uint16_t config = _sens_sample_reg |
+					  PWR_ISL28022_CONFIG_AVG16 |
+					  PWR_ISL28022_CONFIG_MODE_SB_CONT |
+					  PWR_ISL28022_CONFIG_BUS60V;
+			PX4_INFO("config reg 0x%04x", config);
 			write_reg(PWR_ISL28022_REG_CONFIG, config);
-			new_report.connected=0;
+			new_report.connected = 0;
 			_batt_topic = orb_advertise_multi(_batt_orb_id, &new_report, &_instance, ORB_PRIO_DEFAULT);
+
 			if (_batt_topic == nullptr) {
 				PX4_ERR("ADVERT FAIL");
+
 			} else {
 				PX4_INFO("instance %i", _instance);
 			}
 		}
+
 		// copy report for test()
 		_last_report = new_report;
 		// record we are working
 		_enabled = true;
+
 	} else { // failed to read data
-		if (_last_report.connected){
-			_last_report.connected=0;
+		if (_last_report.connected) {
+			_last_report.connected = 0;
+
 			if (_batt_topic != nullptr) {
 				orb_publish(_batt_orb_id, _batt_topic, &_last_report); // report lost connection to battery
 			}
 		}
 	}
+
 	// schedule a fresh cycle call when the measurement is done
 	work_queue(HPWORK, &_work, (worker_t)&PWR_ISL28022::cycle_trampoline, this,
 		   USEC2TICK(PWR_ISL28022_MEASUREMENT_INTERVAL_US));
@@ -500,7 +521,7 @@ PWR_ISL28022::read_reg(uint8_t reg, uint16_t &val)
 	// read from register
 	int ret = transfer(&reg, 1, buff, 2);
 
-	val = (((uint16_t)buff[0])<<8)|(uint16_t)buff[1];
+	val = (((uint16_t)buff[0]) << 8) | (uint16_t)buff[1];
 	// return success or failure
 	return ret;
 }
@@ -511,14 +532,16 @@ PWR_ISL28022::write_reg(uint8_t reg, uint16_t val)
 	uint8_t buff[3];  // reg + 1 bytes of data
 
 	buff[0] = reg;
-	buff[1] = (uint8_t)(val>>8);
-	buff[2] = (uint8_t)(val&0xff);
+	buff[1] = (uint8_t)(val >> 8);
+	buff[2] = (uint8_t)(val & 0xff);
 
 	// write bytes to register
 	int ret = transfer(buff, 3, nullptr, 0);
+
 	if (ret != OK) {
 		PX4_ERR("Reg 0x%x write error", reg);
 	}
+
 	// return success or failure
 	return ret;
 }
@@ -529,6 +552,7 @@ void PWR_ISL28022::vehicle_control_mode_poll()
 	struct vehicle_control_mode_s vcontrol_mode;
 	bool vcontrol_mode_updated;
 	orb_check(_vcontrol_mode_sub, &vcontrol_mode_updated);
+
 	if (vcontrol_mode_updated) {
 		orb_copy(ORB_ID(vehicle_control_mode), _vcontrol_mode_sub, &vcontrol_mode);
 		_armed = vcontrol_mode.flag_armed;
@@ -545,8 +569,8 @@ pwr_isl28022_usage()
 	PX4_INFO("    -i <instance (0..1)>");
 	PX4_INFO("    -b i2cbus (%d)", PWR_ISL28022_I2C_BUS);
 	PX4_INFO("    -a addr (0x%x)", PWR_ISL28022_ADDR);
-	PX4_INFO("    -r sense resistor (%.2fmOhm)",(double)PWR_ISL28022_SENS_R);
-	PX4_INFO("    -s full range sense voltage (%imV) 40,80,160,320",PWR_ISL28022_SENS_RANGE);
+	PX4_INFO("    -r sense resistor (%.2fmOhm)", (double)PWR_ISL28022_SENS_R);
+	PX4_INFO("    -s full range sense voltage (%imV) 40,80,160,320", PWR_ISL28022_SENS_RANGE);
 }
 
 
@@ -563,9 +587,10 @@ pwr_isl28022_main(int argc, char *argv[])
 	int myoptind = 1;
 	const char *myoptarg = nullptr;
 
-	for(instance=0;g_pwr_isl28022[instance]!=nullptr && instance<INST_MAX;instance++);
+	for (instance = 0; g_pwr_isl28022[instance] != nullptr && instance < INST_MAX; instance++);
 
 	int ch;
+
 	while ((ch = px4_getopt(argc, argv, "a:b:r:s:i:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
 		case 'a':
@@ -595,9 +620,9 @@ pwr_isl28022_main(int argc, char *argv[])
 			return 0;
 		}
 	}
-	if(instance>=INST_MAX)
-	{
-		instance = INST_MAX-1;
+
+	if (instance >= INST_MAX) {
+		instance = INST_MAX - 1;
 	}
 
 	if (myoptind >= argc) {
@@ -609,8 +634,10 @@ pwr_isl28022_main(int argc, char *argv[])
 
 	if (!strcmp(verb, "start")) {
 		PWR_ISL28022 *drv = g_pwr_isl28022[instance];
+
 		if (drv != nullptr) {
 			PX4_ERR("already started");
+
 		} else {
 			// create new global object
 			drv = new PWR_ISL28022(i2cdevice, pwr_isl28022adr, resistor, range);
@@ -626,7 +653,8 @@ pwr_isl28022_main(int argc, char *argv[])
 				PX4_ERR("init failed");
 				return 1;
 			}
-			PX4_INFO("%d started",instance);
+
+			PX4_INFO("%d started", instance);
 			g_pwr_isl28022[instance] = drv;
 		}
 
@@ -653,11 +681,11 @@ pwr_isl28022_main(int argc, char *argv[])
 	}
 
 	if (!strcmp(verb, "search")) {
-		if(g_pwr_isl28022[instance]->search()==OK)
-		{
+		if (g_pwr_isl28022[instance]->search() == OK) {
 			//g_pwr_isl28022->dumpreg();
 			return 0;
 		}
+
 		return 1;
 	}
 

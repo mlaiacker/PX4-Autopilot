@@ -1385,6 +1385,7 @@ MavlinkMissionManager::parse_mavlink_mission_item(const mavlink_mission_item_t *
 			mission_item->nav_cmd = (NAV_CMD)mavlink_mission_item->command;
 			mission_item->yaw = wrap_2pi(math::radians(mavlink_mission_item->param4));
 			break;
+
 		case MAV_CMD_NAV_VTOL_TAKEOFF:
 			mission_item->nav_cmd = (NAV_CMD)mavlink_mission_item->command;
 			mission_item->yaw = wrap_2pi(math::radians(mavlink_mission_item->param4));
@@ -1640,6 +1641,7 @@ MavlinkMissionManager::format_mavlink_mission_item(const struct mission_item_s *
 			mavlink_mission_item->param2 = mission_item->params[1]; // GD feature: land at arming position
 			mavlink_mission_item->param4 = math::degrees(mission_item->yaw);
 			break;
+
 		case MAV_CMD_NAV_VTOL_TAKEOFF:
 			mavlink_mission_item->param4 = math::degrees(mission_item->yaw);
 			break;

@@ -227,11 +227,13 @@ int PCA9536::ioctl(struct file *filp, int cmd, unsigned long arg)
 
 	case IOX_SET_MASK:
 		_dir = arg;
+
 		// if not active, kick it
 		if (!_enabled) {
 			_enabled = true;
 			work_queue(HPWORK, &_work, (worker_t)&PCA9536::cycle_trampoline, this, 1);
 		}
+
 		return OK;
 
 	case IOX_GET_MASK:
@@ -241,11 +243,13 @@ int PCA9536::ioctl(struct file *filp, int cmd, unsigned long arg)
 
 	case IOX_SET_VALUE:
 		_port = arg;
+
 		// if not active, kick it
 		if (!_enabled) {
 			_enabled = true;
 			work_queue(HPWORK, &_work, (worker_t)&PCA9536::cycle_trampoline, this, 1);
 		}
+
 		return OK;
 
 	default:
@@ -283,18 +287,22 @@ int
 PCA9536::test()
 {
 	uint64_t start_time = hrt_absolute_time();
-	uint8_t ddr=0;
+	uint8_t ddr = 0;
+
 	if (getDirection(ddr)) {
-		PX4_INFO("DIR  %d %d %d %d",(ddr>>3)&1,(ddr>>2)&1,(ddr>>1)&1,ddr&1);
+		PX4_INFO("DIR  %d %d %d %d", (ddr >> 3) & 1, (ddr >> 2) & 1, (ddr >> 1) & 1, ddr & 1);
 	}
+
 	PX4_INFO("GPIO 3 2 1 0");
+
 	// loop for 3 seconds
 	while ((hrt_absolute_time() - start_time) < 3000000) {
 		uint8_t port;
-		if(getPort(port))
-		{
-			PX4_INFO("GPIO %d %d %d %d",(port>>3)&1,(port>>2)&1,(port>>1)&1,port&1);
+
+		if (getPort(port)) {
+			PX4_INFO("GPIO %d %d %d %d", (port >> 3) & 1, (port >> 2) & 1, (port >> 1) & 1, port & 1);
 		}
+
 		// sleep for 0.2 seconds
 		usleep(200000);
 	}
@@ -305,27 +313,34 @@ PCA9536::test()
 bool
 PCA9536::identify()
 {
-	uint8_t reg=0;
+	uint8_t reg = 0;
+
 	if (read_reg(PCA9536_REG_INPUT, reg) == OK) {
-		if(reg>0){
+		if (reg > 0) {
 			PX4_INFO("input=0x%02x", reg);
+
 			if (read_reg(PCA9536_REG_OUTPUT, reg) == OK) {
 				PX4_INFO("output=0x%02x", reg);
 				_port = reg;
 			}
+
 			if (read_reg(PCA9536_REG_INVERSION, reg) == OK) {
 				PX4_INFO("inversion=0x%02x", reg);
 			}
+
 			if (read_reg(PCA9536_REG_DDR, reg) == OK) {
 				PX4_INFO("ddr=0x%02x", reg);
 				_dir = reg;
 			}
+
 			PX4_INFO("PCA9536 found at 0x%x", get_device_address());
 			return true;
+
 		} else {
 			PX4_INFO("dev found at 0x%x reg0=0x%x", get_device_address(), reg);
 		}
 	}
+
 	return false;
 }
 
@@ -363,17 +378,16 @@ PCA9536::cycle()
 	// get current time
 	//uint64_t now = hrt_absolute_time();
 
-	if(_enabled)
-	{
+	if (_enabled) {
 		bool result = true;
-		PX4_INFO("ddr=0x%x port=0x%x",_dir, _port);
+		PX4_INFO("ddr=0x%x port=0x%x", _dir, _port);
 		result &= setDirection(_dir);
 		result &= setPort(_port);
-		if(result)
-		{
+
+		if (result) {
 			_enabled = false;
-		} else
-		{
+
+		} else {
 			// schedule a fresh cycle call when the measurement is done
 			work_queue(HPWORK, &_work, (worker_t)&PCA9536::cycle_trampoline, this,
 				   USEC2TICK(PCA9536_MEASUREMENT_INTERVAL_US));
@@ -384,22 +398,22 @@ PCA9536::cycle()
 
 bool PCA9536::setDirection(uint8_t value)
 {
-	return write_reg(PCA9536_REG_DDR, value)==OK;
+	return write_reg(PCA9536_REG_DDR, value) == OK;
 }
 
 bool PCA9536::getDirection(uint8_t &value)
 {
-	return read_reg(PCA9536_REG_DDR, value)==OK;
+	return read_reg(PCA9536_REG_DDR, value) == OK;
 }
 
 bool PCA9536::setPort(uint8_t value)
 {
-	return write_reg(PCA9536_REG_OUTPUT, value)==OK;
+	return write_reg(PCA9536_REG_OUTPUT, value) == OK;
 }
 
 bool PCA9536::getPort(uint8_t &value)
 {
-	return read_reg(PCA9536_REG_INPUT, value)==OK;
+	return read_reg(PCA9536_REG_INPUT, value) == OK;
 }
 
 int
@@ -420,13 +434,15 @@ PCA9536::write_reg(uint8_t reg, uint8_t val)
 	uint8_t buff[3];  // reg + 1 bytes of data
 
 	buff[0] = reg;
-	buff[1] = (uint8_t)val&0xff;
+	buff[1] = (uint8_t)val & 0xff;
 
 	// write bytes to register
 	int ret = transfer(buff, 2, nullptr, 0);
+
 	if (ret != OK) {
 		PX4_ERR("Reg 0x%x write error", reg);
 	}
+
 	// return success or failure
 	return ret;
 }
@@ -450,13 +466,14 @@ int
 pca9536_main(int argc, char *argv[])
 {
 	int i2cdevice = PCA9536_I2C_BUS;
-	uint8_t	ddr=0;
-	uint8_t val=0;
+	uint8_t	ddr = 0;
+	uint8_t val = 0;
 
 	int myoptind = 1;
 	const char *myoptarg = nullptr;
 
 	int ch;
+
 	while ((ch = px4_getopt(argc, argv, "b:d:v:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
 		case 'd':
@@ -490,6 +507,7 @@ pca9536_main(int argc, char *argv[])
 		if (g_pca9536 != nullptr) {
 			PX4_ERR("already started");
 			return 1;
+
 		} else {
 			// create new global object
 			g_pca9536 = new PCA9536(i2cdevice);
@@ -529,25 +547,26 @@ pca9536_main(int argc, char *argv[])
 	}
 
 	if (!strcmp(verb, "write")) {
-		if((ddr!=0))
-		{
-			if(!g_pca9536->setDirection(ddr))
-			{
+		if ((ddr != 0)) {
+			if (!g_pca9536->setDirection(ddr)) {
 				PX4_INFO("write direction failed");
 				return 1;
+
 			} else {
-				PX4_INFO("write direction 0x%x",ddr);
+				PX4_INFO("write direction 0x%x", ddr);
 			}
 		}
-		if(val!=0){
-			if(!g_pca9536->setPort(val))
-			{
+
+		if (val != 0) {
+			if (!g_pca9536->setPort(val)) {
 				PX4_INFO("write output failed");
 				return 2;
+
 			} else {
-				PX4_INFO("write output 0x%x",val);
+				PX4_INFO("write output 0x%x", val);
 			}
 		}
+
 		g_pca9536->identify();
 		return 0;
 	}

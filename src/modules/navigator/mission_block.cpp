@@ -472,18 +472,19 @@ MissionBlock::getWindYaw(float yaw)
 	float result = yaw;
 	int wind_estimate_sub = orb_subscribe(ORB_ID(wind_estimate));
 	struct wind_estimate_s wind;
-	if(orb_copy(ORB_ID(wind_estimate), wind_estimate_sub, &wind)==0)
-	{
+
+	if (orb_copy(ORB_ID(wind_estimate), wind_estimate_sub, &wind) == 0) {
 		/* only when more then 3m/s wind*/
-		if((wind.windspeed_east*wind.windspeed_east + wind.windspeed_north*wind.windspeed_north) > MissionBlock::WIND_THRESHOLD*MissionBlock::WIND_THRESHOLD)
-		{
+		if ((wind.windspeed_east * wind.windspeed_east + wind.windspeed_north * wind.windspeed_north) >
+		    MissionBlock::WIND_THRESHOLD * MissionBlock::WIND_THRESHOLD) {
 			/* set yaw setpoint to point towards wind direction for landing*/
 			result = wrap_pi(atan2f(wind.windspeed_east, wind.windspeed_north) + M_PI_F);
 		}
-	} else
-	{
+
+	} else {
 		PX4_ERR("failed to get wind estimate for yaw alligment");
 	}
+
 	orb_unsubscribe(wind_estimate_sub);
 	return result;
 }
@@ -528,9 +529,11 @@ MissionBlock::issue_command(const mission_item_s &item)
 			vcmd.param5 = item.lat;
 			vcmd.param6 = item.lon;
 			vcmd.param7 = item.altitude;
+
 			if (item.altitude_is_relative) {
 				vcmd.param7 += _navigator->get_home_position()->alt;
 			}
+
 		} else {
 			vcmd.param5 = (double)item.params[4];
 			vcmd.param6 = (double)item.params[5];
@@ -656,8 +659,7 @@ MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, posi
 
 	case NAV_CMD_LAND:
 	case NAV_CMD_VTOL_LAND:
-		if(_navigator->get_vstatus()->is_vtol)
-		{
+		if (_navigator->get_vstatus()->is_vtol) {
 			sp->yaw = getWindYaw(sp->yaw);
 		}
 

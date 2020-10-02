@@ -113,7 +113,7 @@ VtolAttitudeControl::VtolAttitudeControl() :
 	} else if (static_cast<vtol_type>(_params.vtol_type) == vtol_type::STANDARD) {
 		_vtol_type = new Standard(this);
 
-	} else 	if (_params.vtol_type == ((int32_t)vtol_type::STANDARD+1)) {
+	} else 	if (_params.vtol_type == ((int32_t)vtol_type::STANDARD + 1)) {
 		_vtol_type = new Songbird(this);
 
 	} else {

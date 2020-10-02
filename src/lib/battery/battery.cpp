@@ -186,59 +186,66 @@ Battery::updateBatteryStatus(hrt_abstime timestamp, float voltage_v, float curre
 }
 
 void
-Battery::estimateRemainingTime() {
+Battery::estimateRemainingTime()
+{
 
 	if (!_battery_initialized) {
 		_current_filter_average_a.reset(_current_filter_a.getState());
 		_time_armed = _battery_status.timestamp;
 		_discharged_mah_armed = _discharged_mah;
 		_startRemaining = -1.0f;
+
 	} else {
 		if (_capacity_mah > 0.f) {
 			_remaining = 1.0f - (_discharged_mah / _capacity_mah);
 			_remaining = math::max(_remaining, 0.f);
 		}
-		if(_startRemaining>=0.0f && _startRemaining<=1.0f)
-		{
+
+		if (_startRemaining >= 0.0f && _startRemaining <= 1.0f) {
 			// subtract start remaining from remaining based on used mAh to deal with a startup with not fully charged battery
-			_remaining = math::max(_remaining-(1.0f-_startRemaining), 0.0f);
+			_remaining = math::max(_remaining - (1.0f - _startRemaining), 0.0f);
 		}
 	}
 
 	_current_filter_average_a.update(_current_filter_a.getState());
 
-	float duration_flight_s = (_battery_status.timestamp -_time_armed)*1.0e-6f;
-	if(duration_flight_s>10.0f && _battery_initialized){
+	float duration_flight_s = (_battery_status.timestamp - _time_armed) * 1.0e-6f;
 
-		if(_startRemaining<0.0f){
+	if (duration_flight_s > 10.0f && _battery_initialized) {
+
+		if (_startRemaining < 0.0f) {
 			_startRemaining = _remaining_voltage;
-			_capacity_mah = getCapacity()*_startRemaining;
-			if(getCapacityReserve()>0)	{
+			_capacity_mah = getCapacity() * _startRemaining;
+
+			if (getCapacityReserve() > 0)	{
 				_capacity_mah -= getCapacityReserve();
-				if(_capacity_mah<0.0f){
-					_capacity_mah=0.0f;
+
+				if (_capacity_mah < 0.0f) {
+					_capacity_mah = 0.0f;
 				}
 			}
 		}
+
 		/* calculate remaining time based on average current */
 		{
 			/* average current since last arming */
 			_battery_status.average_current_a = _current_filter_average_a.getState();
-			if(_battery_status.average_current_a>0.0f)
-			{
-				float max_flight_time = 3600.0f*_capacity_mah/(_battery_status.average_current_a*1000.0f)/60.0f;// in minutes
-				if(max_flight_time<UINT16_MAX && max_flight_time>0.0f)
-				{
+
+			if (_battery_status.average_current_a > 0.0f) {
+				float max_flight_time = 3600.0f * _capacity_mah / (_battery_status.average_current_a * 1000.0f) / 60.0f; // in minutes
+
+				if (max_flight_time < UINT16_MAX && max_flight_time > 0.0f) {
 					_battery_status.average_time_to_empty = (uint16_t)(max_flight_time); /* on a full battery */
 				}
-				float capacity_left_mAs = (_capacity_mah - _discharged_mah)*3600.0f;
-				//float capacity_used_mAs = (_discharged_mah-_discharged_mah_armed)*3600.0f; // used since last arming
-				float tte = capacity_left_mAs/(_battery_status.average_current_a*1000.0f)/60.0f; /* time to empty in minutes */
 
-				if(tte<UINT16_MAX && tte>0.0f)
-				{
+				float capacity_left_mAs = (_capacity_mah - _discharged_mah) * 3600.0f;
+				//float capacity_used_mAs = (_discharged_mah-_discharged_mah_armed)*3600.0f; // used since last arming
+				float tte = capacity_left_mAs / (_battery_status.average_current_a * 1000.0f) / 60.0f; /* time to empty in minutes */
+
+				if (tte < UINT16_MAX && tte > 0.0f) {
 					_battery_status.run_time_to_empty = (uint16_t)tte; // in minutes
 				}
+
 				_battery_status.cycle_count = (uint16_t)duration_flight_s;
 			}
 		}

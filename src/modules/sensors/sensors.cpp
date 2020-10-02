@@ -288,8 +288,7 @@ void Sensors::diff_pres_poll()
 		airspeed_s airspeed{};
 		airspeed.timestamp = diff_pres.timestamp;
 
-		if(_parameters.air_gain>0.0f)
-		{
+		if (_parameters.air_gain > 0.0f) {
 			diff_pres.differential_pressure_filtered_pa *= _parameters.air_gain;
 			diff_pres.differential_pressure_raw_pa *= _parameters.air_gain;
 		}

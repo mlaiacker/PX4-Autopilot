@@ -630,7 +630,7 @@ MissionFeasibilityChecker::checkVTOLLanding(const mission_s &mission, bool land_
 bool
 MissionFeasibilityChecker::checkDistanceToFirstWaypoint(const mission_s &mission, float max_distance)
 {
-	if (max_distance <= 0.0f || _navigator->get_vstatus()->arming_state==vehicle_status_s::ARMING_STATE_ARMED) {
+	if (max_distance <= 0.0f || _navigator->get_vstatus()->arming_state == vehicle_status_s::ARMING_STATE_ARMED) {
 		/* param not set or armed, check is ok */
 		return true;
 	}
@@ -647,8 +647,8 @@ MissionFeasibilityChecker::checkDistanceToFirstWaypoint(const mission_s &mission
 		current_mission_index = mission_state.current_seq;
 	}
 
-	if((current_mission_index+1)>=mission_state.count) {
-			current_mission_index=0; // go back to start
+	if ((current_mission_index + 1) >= mission_state.count) {
+		current_mission_index = 0; // go back to start
 	}
 
 	/* find first waypoint (with lat/lon) item in datamanager */

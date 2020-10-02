@@ -140,12 +140,14 @@ void LandDetector::Run()
 	// happen on the same event and it's better to set/save params while not in armed state)
 	if (_takeoff_time != 0 && !_armed && _previous_armed_state) {
 		hrt_abstime last_flight_duration_us = now_us - _takeoff_time;
+
 		// count only longer flights
-		if(last_flight_duration_us>60000000) {
+		if (last_flight_duration_us > 60000000) {
 			_total_flight_count += 1;
 			_param_total_flight_count.set(_total_flight_count);
 			_param_total_flight_count.commit_no_notification();
 		}
+
 		_total_flight_time += now_us - _takeoff_time;
 		_takeoff_time = 0;
 

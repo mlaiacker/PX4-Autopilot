@@ -49,7 +49,8 @@ checkVTOLLanding(orb_advert_t *mavlink_log_pub, bool gpos_valid, bool report_fai
 {
 	uORB::Subscription	mission_sub(ORB_ID(mission));		/**< mission subscription */
 	mission_s		mission;
-	if(!mission_sub.copy(&mission)) {
+
+	if (!mission_sub.copy(&mission)) {
 		return true; // no mission noting to do..
 	}
 
@@ -67,32 +68,39 @@ checkVTOLLanding(orb_advert_t *mavlink_log_pub, bool gpos_valid, bool report_fai
 
 		if (dm_read((dm_item_t)mission.dataman_id, i, &missionitem, len) != len) {
 			/* not supposed to happen unless the datamanager can't access the SD card, etc. */
-			if(report_fail) { mavlink_log_critical(mavlink_log_pub, "Mission: cant read mission"); }
+			if (report_fail) { mavlink_log_critical(mavlink_log_pub, "Mission: cant read mission"); }
+
 			return false;
 		}
-			if(missionitem.nav_cmd == NAV_CMD_VTOL_LAND &&
-			   fabsf(missionitem.params[1]-1.0f)<FLT_EPSILON && // GD feature: land at take off
-			   !land_at_arming_found ) {
-				if (!PX4_ISFINITE(v_gpos.lat) ||
-					!PX4_ISFINITE(v_gpos.lon) ||
-					!PX4_ISFINITE(v_gpos.alt) ||
-					!gpos_valid) {
-					if(report_fail) { mavlink_log_critical(mavlink_log_pub, "Mission: cant update landing, no gps position"); }
-				} else {
-					missionitem.lat = v_gpos.lat;
-					missionitem.lon = v_gpos.lon;
 
-					land_at_arming_found = true; // only update one item
-					if (dm_write((dm_item_t)mission.dataman_id, i, DM_PERSIST_POWER_ON_RESET, &missionitem, len) != len) {
-						/* not supposed to happen unless the datamanager can't access the SD card, etc. */
-						PX4_INFO("failed to write mission");
-						return false;
-					}
-					if(report_fail) { mavlink_log_info(mavlink_log_pub, "Mission: update land(%i) to cur. pos.",(int)i); }
-					return true;
+		if (missionitem.nav_cmd == NAV_CMD_VTOL_LAND &&
+		    fabsf(missionitem.params[1] - 1.0f) < FLT_EPSILON && // GD feature: land at take off
+		    !land_at_arming_found) {
+			if (!PX4_ISFINITE(v_gpos.lat) ||
+			    !PX4_ISFINITE(v_gpos.lon) ||
+			    !PX4_ISFINITE(v_gpos.alt) ||
+			    !gpos_valid) {
+				if (report_fail) { mavlink_log_critical(mavlink_log_pub, "Mission: cant update landing, no gps position"); }
+
+			} else {
+				missionitem.lat = v_gpos.lat;
+				missionitem.lon = v_gpos.lon;
+
+				land_at_arming_found = true; // only update one item
+
+				if (dm_write((dm_item_t)mission.dataman_id, i, DM_PERSIST_POWER_ON_RESET, &missionitem, len) != len) {
+					/* not supposed to happen unless the datamanager can't access the SD card, etc. */
+					PX4_INFO("failed to write mission");
+					return false;
 				}
+
+				if (report_fail) { mavlink_log_info(mavlink_log_pub, "Mission: update land(%i) to cur. pos.", (int)i); }
+
+				return true;
 			}
+		}
 	}
+
 	/* No landing waypoints or no waypoints */
 	return true;
 }
@@ -202,7 +210,7 @@ bool PreFlightCheck::preArmCheck(orb_advert_t *mavlink_log_pub, const vehicle_st
 
 	if (status.is_vtol) {
 
-		if(!checkVTOLLanding(mavlink_log_pub, status_flags.condition_global_position_valid, report_fail)) {
+		if (!checkVTOLLanding(mavlink_log_pub, status_flags.condition_global_position_valid, report_fail)) {
 			if (report_fail) { mavlink_log_critical(mavlink_log_pub, "Arming denied! Update Landing pos failed"); }
 
 			prearm_ok = false;

@@ -310,10 +310,11 @@ void RTL::set_rtl_item()
 
 			} else {
 				if (_navigator->get_vstatus()->is_vtol &&
-					_navigator->get_vstatus()->vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING){
+				    _navigator->get_vstatus()->vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING) {
 					// Use wind if we are a vtol
 					_mission_item.yaw = MissionBlock::getWindYaw(_destination.yaw);
-				} else{
+
+				} else {
 					// Use current heading to _destination.
 					_mission_item.yaw = get_bearing_to_next_waypoint(gpos.lat, gpos.lon, _destination.lat, _destination.lon);
 				}
@@ -351,11 +352,13 @@ void RTL::set_rtl_item()
 			} else {
 				_mission_item.yaw = _destination.yaw;
 			}
-			if(_navigator->get_vstatus()->is_vtol &&
-				_navigator->get_vstatus()->vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING)
-			{ // get wind estimate for yaw
+
+			if (_navigator->get_vstatus()->is_vtol &&
+			    _navigator->get_vstatus()->vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING) {
+				// get wind estimate for yaw
 				_mission_item.yaw = MissionBlock::getWindYaw(_destination.yaw);
 			}
+
 			_mission_item.acceptance_radius = _navigator->get_acceptance_radius();
 			_mission_item.time_inside = 0.0f;
 			_mission_item.autocontinue = true;
@@ -413,8 +416,8 @@ void RTL::set_rtl_item()
 			_mission_item.origin = ORIGIN_ONBOARD;
 			_mission_item.land_precision = _param_rtl_pld_md.get();
 
-			if(_navigator->get_vstatus()->is_vtol)
-			{ // get wind estimate for yaw
+			if (_navigator->get_vstatus()->is_vtol) {
+				// get wind estimate for yaw
 				_mission_item.yaw = MissionBlock::getWindYaw(_mission_item.yaw);
 			}
 

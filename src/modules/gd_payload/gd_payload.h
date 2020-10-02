@@ -76,7 +76,7 @@ public:
 	static  void printBatteryReport();
 	static  int  switchStatus();
 	static  int  switchSet(int);
-	static  void batGetAll(battery_status_s* lion, battery_status_s* lipo);
+	static  void batGetAll(battery_status_s *lion, battery_status_s *lipo);
 private:
 	struct {
 		float battery_v_div;
@@ -124,7 +124,7 @@ private:
 	bool		_auto_mode{false};
 	uint16_t _cmdold{0};
 
-	struct vehicle_status_s _vstatus{};
+	struct vehicle_status_s _vstatus {};
 
 	bool init();
 

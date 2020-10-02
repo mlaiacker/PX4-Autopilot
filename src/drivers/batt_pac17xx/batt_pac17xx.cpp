@@ -100,7 +100,7 @@ class BATT_PAC17 : public device::I2C, public ModuleParams
 {
 public:
 	BATT_PAC17(int bus = BATT_PAC17_I2C_BUS, uint16_t batt_pac17_addr = BATT_PAC17_ADDR,
-			float sens_resistor=0, uint16_t sens_range=0);
+		   float sens_resistor = 0, uint16_t sens_range = 0);
 	virtual ~BATT_PAC17();
 
 	/**
@@ -210,9 +210,8 @@ private:
 	float			_sens_resistor;	///< current sense resistor value in mOhm
 	int 			_startupDelay; ///< prevent publish voltage before filter converged
 	float 			_startRemaining; //< remain estimate based on voltage at beginning
-	enum SMBUS_BATT_DEV_E
-	{
-		NONE=0,
+	enum SMBUS_BATT_DEV_E {
+		NONE = 0,
 		BQ40Z50,
 		PAC1710,
 		PAC1720,
@@ -232,7 +231,7 @@ extern "C" __EXPORT int batt_pac17xx_main(int argc, char *argv[]);
 
 
 BATT_PAC17::BATT_PAC17(int bus, uint16_t batt_pac17_addr, float sens_resistor, uint16_t sens_range) :
-	I2C(DeviceBusType_I2C,"batt_pac17", bus, batt_pac17_addr, 400000),
+	I2C(DeviceBusType_I2C, "batt_pac17", bus, batt_pac17_addr, 400000),
 	ModuleParams(nullptr),
 	_enabled(false),
 	_sens_full_scale(BATT_PAC17_SENS_RANGE),
@@ -244,30 +243,31 @@ BATT_PAC17::BATT_PAC17(int bus, uint16_t batt_pac17_addr, float sens_resistor, u
 	// capture startup time
 	_startupDelay = 10;
 
-	if(sens_resistor>0){
-		_sens_resistor=sens_resistor;
+	if (sens_resistor > 0) {
+		_sens_resistor = sens_resistor;
 	}
+
 	// 0x5x = sign + 11 bits resolution
-	if(sens_range==10)
-	{
+	if (sens_range == 10) {
 		_sens_full_scale = 10;
 		_sens_sample_reg = 0x50; // 0101 0000
 	}
-	if(sens_range==20)
-	{
+
+	if (sens_range == 20) {
 		_sens_full_scale = 20;
 		_sens_sample_reg = 0x51; // 0101 0001
 	}
-	if(sens_range==40)
-	{
+
+	if (sens_range == 40) {
 		_sens_full_scale = 40;
 		_sens_sample_reg = 0x52;
 	}
-	if(sens_range==80)
-	{
+
+	if (sens_range == 80) {
 		_sens_full_scale = 80;
 		_sens_sample_reg = 0x53;
 	}
+
 	_current_a_filtered = 0.0f;
 	_voltage_v_filtered = 0.0f;
 	_current_a = 0.0f;
@@ -305,10 +305,11 @@ BATT_PAC17::init()
 		//_actuator_ctrl_0_sub = orb_subscribe(ORB_ID(actuator_controls_0));
 		/* needed to read arming status */
 		_sub_status = orb_subscribe(ORB_ID(vehicle_control_mode));
-		if(_sub_status<0)
-		{
+
+		if (_sub_status < 0) {
 			PX4_ERR("status sub failed");
 		}
+
 		_time_arm = hrt_absolute_time();
 		_discharged_mah_armed = 0;
 		// start work queue
@@ -322,61 +323,66 @@ int
 BATT_PAC17::test()
 {
 //	uint64_t start_time = hrt_absolute_time();
-	PX4_INFO("armed=%i",_armed);
-	PX4_INFO("armed_t=%f",(double)_time_arm*1e-6);
-	PX4_INFO("armed_mAh=%f",(double)_discharged_mah_armed);
+	PX4_INFO("armed=%i", _armed);
+	PX4_INFO("armed_t=%f", (double)_time_arm * 1e-6);
+	PX4_INFO("armed_mAh=%f", (double)_discharged_mah_armed);
 	//print_message(_last_report);
-/*	// loop for 3 seconds
-	while ((hrt_absolute_time() - start_time) < 3000000) {
-		print_message(_last_report);
-		// sleep for 0.2 seconds
-		usleep(200000);
-	}*/
+	/*	// loop for 3 seconds
+		while ((hrt_absolute_time() - start_time) < 3000000) {
+			print_message(_last_report);
+			// sleep for 0.2 seconds
+			usleep(200000);
+		}*/
 	return OK;
 }
 
 int
 BATT_PAC17::dumpreg()
 {
-	for(uint8_t addr = 0;addr<0xff;addr++)
-	{
-		uint8_t reg=0;
+	for (uint8_t addr = 0; addr < 0xff; addr++) {
+		uint8_t reg = 0;
+
 		if (read_reg(addr, reg) == OK) {
 			PX4_INFO("%i=0x%x", addr, reg);
 		}
+
 		usleep(1);
 	}
+
 	return 0;
 }
 
 bool
 BATT_PAC17::identify()
 {
-	uint8_t reg=0;
+	uint8_t reg = 0;
+
 	if (read_reg(BATT_PAC17_REG_PID, reg) == OK) {
-		if(reg>0){
-			uint8_t manufacturer=0;
+		if (reg > 0) {
+			uint8_t manufacturer = 0;
+
 			if (read_reg(BATT_PAC17_REG_MID, manufacturer) == OK) {
-				if(manufacturer==0x5d) //microchip?
-				{
-					if(reg==0x57){
+				if (manufacturer == 0x5d) { //microchip?
+					if (reg == 0x57) {
 						_dev_id = SMBUS_BATT_DEV_E::PAC1720;
 						PX4_INFO("PAC1720 found at 0x%x", get_device_address());
 						return true;
 					}
-					if(reg==0x58){
+
+					if (reg == 0x58) {
 						_dev_id = SMBUS_BATT_DEV_E::PAC1710;
 						PX4_INFO("PAC1710 found at 0x%x", get_device_address());
 						return true;
 					}
 				}
 			}
-		} else
-		{
+
+		} else {
 			PX4_INFO("dev found at 0x%x PID=0x%x", get_device_address(), reg);
 			//dumpreg();
 		}
 	}
+
 	return false;
 }
 
@@ -389,11 +395,12 @@ BATT_PAC17::search()
 	// search through all valid SMBus addresses
 	for (uint8_t i = BATT_PAC17_ADDR_MIN; i < BATT_PAC17_ADDR_MAX; i++) {
 		set_device_address(i);
-		if(identify())
-		{
+
+		if (identify()) {
 			found_slave = true;
 			//break;
 		}
+
 		usleep(1);
 
 	}
@@ -443,9 +450,10 @@ BATT_PAC17::cycle_trampoline(void *arg)
 	dev->cycle();
 }
 bool
-BATT_PAC17::try_read_data(uint64_t now){
+BATT_PAC17::try_read_data(uint64_t now)
+{
 	// temporary variable for storing SMBUS reads
-	uint8_t regval_H,regval_L;
+	uint8_t regval_H, regval_L;
 	int result = -1;
 
 
@@ -456,42 +464,46 @@ BATT_PAC17::try_read_data(uint64_t now){
 		// read data from sensor
 		result = read_reg(BATT_PAC17_REG_VOLT_CH1_L, regval_L);
 
-		uint16_t voltage = (((uint16_t)regval_H)<<3) | ((uint16_t)regval_L>>5);
+		uint16_t voltage = (((uint16_t)regval_H) << 3) | ((uint16_t)regval_L >> 5);
 		// convert millivolts to volts
-		_voltage_v = ((float)voltage*19.53125f) / 1000.0f;
-		_voltage_v_filtered = _voltage_v*0.06f + _voltage_v_filtered*0.94f; /* voltage filter */
+		_voltage_v = ((float)voltage * 19.53125f) / 1000.0f;
+		_voltage_v_filtered = _voltage_v * 0.06f + _voltage_v_filtered * 0.94f; /* voltage filter */
+
 		// read current
 		if ((read_reg(BATT_PAC17_REG_SENS_CH1_H, regval_H) == OK) &&
-			(read_reg(BATT_PAC17_REG_SENS_CH1_L, regval_L) == OK) ){
+		    (read_reg(BATT_PAC17_REG_SENS_CH1_L, regval_L) == OK)) {
 			int16_t current = 0;
-			if(regval_H&0x80) // sign bit
-			{ // negative
-				current = 0xf000 | (((int16_t)regval_H)<<4) | ((int16_t)regval_L>>4);
-			} else
-			{
-				current = (((int16_t)regval_H)<<4) | ((int16_t)regval_L>>4);
+
+			if (regval_H & 0x80) { // sign bit
+				// negative
+				current = 0xf000 | (((int16_t)regval_H) << 4) | ((int16_t)regval_L >> 4);
+
+			} else {
+				current = (((int16_t)regval_H) << 4) | ((int16_t)regval_L >> 4);
 			}
-			_current_a = ((float)_sens_full_scale/_sens_resistor)*((float)current)/2047.0f;
-			_current_a_filtered = _current_a*0.06f + _current_a_filtered*0.94f; /* current filter */
+
+			_current_a = ((float)_sens_full_scale / _sens_resistor) * ((float)current) / 2047.0f;
+			_current_a_filtered = _current_a * 0.06f + _current_a_filtered * 0.94f; /* current filter */
 		}
 
 		_battery.updateBatteryStatus(now, _voltage_v, _current_a,
-				_voltage_v>2.0f, battery_status_s::BATTERY_SOURCE_EXTERNAL, 0,	0.0f);
-		if(_dev_id == SMBUS_BATT_DEV_E::PAC1720)
-		{
+					     _voltage_v > 2.0f, battery_status_s::BATTERY_SOURCE_EXTERNAL, 0,	0.0f);
+
+		if (_dev_id == SMBUS_BATT_DEV_E::PAC1720) {
 			result  = read_reg(BATT_PAC17_REG_VOLT_CH2_H, regval_H) == OK;
 			result &= read_reg(BATT_PAC17_REG_VOLT_CH2_L, regval_L) == OK;
-			if(result)
-			{
-				uint16_t voltage2 = (((uint16_t)regval_H)<<3) + (regval_L>>5);
+
+			if (result) {
+				uint16_t voltage2 = (((uint16_t)regval_H) << 3) + (regval_L >> 5);
 				// convert millivolts to volts
-				_voltage2 = ((float)voltage2*19.53125f) / 1000.0f;
+				_voltage2 = ((float)voltage2 * 19.53125f) / 1000.0f;
 				//new_report.temperature = _voltage2; // hack to publish second channel
 			}
 		}
 
 		return true;
 	}
+
 	return false;
 }
 
@@ -502,36 +514,38 @@ BATT_PAC17::cycle()
 	uint64_t now = hrt_absolute_time();
 	vehicle_control_mode_poll();
 
-	if(_dev_id==SMBUS_BATT_DEV_E::NONE)
-	{
+	if (_dev_id == SMBUS_BATT_DEV_E::NONE) {
 		identify();
 	}
 
-	if(_dev_id!=SMBUS_BATT_DEV_E::NONE)
-	{
-		if(!_enabled)
-		{
+	if (_dev_id != SMBUS_BATT_DEV_E::NONE) {
+		if (!_enabled) {
 			write_reg(BATT_PAC17_REG_VOLT_SAMPLE_CONF, 0x88);
 			write_reg(BATT_PAC17_REG_SENS1_SAMPLE_CONF, _sens_sample_reg); // first channel range (10-80mV)
-			if(_dev_id == SMBUS_BATT_DEV_E::PAC1720) write_reg(BATT_PAC17_REG_SENS2_SAMPLE_CONF, _sens_sample_reg); // second channel range
+
+			if (_dev_id == SMBUS_BATT_DEV_E::PAC1720) { write_reg(BATT_PAC17_REG_SENS2_SAMPLE_CONF, _sens_sample_reg); } // second channel range
 		}
-		if(try_read_data(now)){
+
+		if (try_read_data(now)) {
 			// publish to orb
-			if(_startupDelay<=0) {
+			if (_startupDelay <= 0) {
 				_battery.publish();
+
 			} else {
 				_startupDelay--;
 				_startRemaining = _battery.getRemainingVoltage();
 			}
+
 			// record we are working
 			_enabled = true;
+
 		} else {
-			if (_enabled)
-			{
+			if (_enabled) {
 				_battery.updateBatteryStatus(now, _voltage_v, _current_a,
-						false, battery_status_s::BATTERY_SOURCE_EXTERNAL, 0,	0.0f);
+							     false, battery_status_s::BATTERY_SOURCE_EXTERNAL, 0,	0.0f);
 				_battery.publish();; // report lost connection to battery
 			}
+
 			_enabled = false;
 		}
 	}
@@ -589,18 +603,18 @@ void BATT_PAC17::vehicle_control_mode_poll()
 	vehicle_control_mode_s vstatus;
 	bool vcontrol_mode_updated;
 	orb_check(_sub_status, &vcontrol_mode_updated);
-	if (vcontrol_mode_updated)
-	{
+
+	if (vcontrol_mode_updated) {
 		orb_copy(ORB_ID(vehicle_control_mode), _sub_status, &vstatus);
-		if(_armed != (vstatus.flag_armed>0))
-		{
-			if(vstatus.flag_armed>0)
-			{
+
+		if (_armed != (vstatus.flag_armed > 0)) {
+			if (vstatus.flag_armed > 0) {
 				_time_arm = hrt_absolute_time();
 				_discharged_mah_armed = _battery.getDischarged();
 			}
 		}
-		_armed = vstatus.flag_armed>0;
+
+		_armed = vstatus.flag_armed > 0;
 	}
 }
 
@@ -613,8 +627,8 @@ batt_pac17_usage()
 	PX4_INFO("options:");
 	PX4_INFO("    -b i2cbus (%d)", BATT_PAC17_I2C_BUS);
 	PX4_INFO("    -a addr (0x%x)", BATT_PAC17_ADDR);
-	PX4_INFO("    -r sense resistor (%.2fmOhm)",(double)BATT_PAC17_SENS_R);
-	PX4_INFO("    -s full range sense voltage (%imV) 10,20,40,80",BATT_PAC17_SENS_RANGE);
+	PX4_INFO("    -r sense resistor (%.2fmOhm)", (double)BATT_PAC17_SENS_R);
+	PX4_INFO("    -s full range sense voltage (%imV) 10,20,40,80", BATT_PAC17_SENS_RANGE);
 }
 
 
@@ -631,6 +645,7 @@ batt_pac17xx_main(int argc, char *argv[])
 	const char *myoptarg = nullptr;
 
 	int ch;
+
 	while ((ch = px4_getopt(argc, argv, "a:b:r:s:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
 		case 'a':
@@ -665,10 +680,10 @@ batt_pac17xx_main(int argc, char *argv[])
 	const char *verb = argv[myoptind];
 
 	if (!strcmp(verb, "start")) {
-		if(resistor>0.0f && range>0)
-		{
-			PX4_INFO("max. %.1fA", (double)(range/resistor));
+		if (resistor > 0.0f && range > 0) {
+			PX4_INFO("max. %.1fA", (double)(range / resistor));
 		}
+
 		if (g_batt_pac17 != nullptr) {
 			PX4_ERR("already started");
 			return 1;
@@ -712,11 +727,11 @@ batt_pac17xx_main(int argc, char *argv[])
 	}
 
 	if (!strcmp(verb, "search")) {
-		if(g_batt_pac17->search()==OK)
-		{
+		if (g_batt_pac17->search() == OK) {
 			//g_batt_pac17->dumpreg();
 			return 0;
 		}
+
 		return 1;
 	}
 

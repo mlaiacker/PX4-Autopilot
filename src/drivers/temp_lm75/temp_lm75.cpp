@@ -75,7 +75,7 @@
 class TEMP_LM75 : public device::I2C
 {
 public:
-	TEMP_LM75(int bus = TEMP_LM75_I2C_BUS, uint16_t temp_lm75_addr = TEMP_LM75_ADDR, const char* name=NULL);
+	TEMP_LM75(int bus = TEMP_LM75_I2C_BUS, uint16_t temp_lm75_addr = TEMP_LM75_ADDR, const char *name = NULL);
 	virtual ~TEMP_LM75();
 
 	/**
@@ -168,7 +168,7 @@ private:
 #define MAX_LM75_INST 4 // max instances
 namespace
 {
-TEMP_LM75* g_temp_lm75[MAX_LM75_INST] = {};	///< device handle
+TEMP_LM75 *g_temp_lm75[MAX_LM75_INST] = {};	///< device handle
 }
 
 void temp_lm75_usage();
@@ -176,8 +176,8 @@ void temp_lm75_usage();
 extern "C" __EXPORT int temp_lm75_main(int argc, char *argv[]);
 
 
-TEMP_LM75::TEMP_LM75(int bus, uint16_t temp_lm75_addr, const char* name) :
-	I2C(DeviceBusType_I2C,"temp_lm75", bus, temp_lm75_addr, 400000),
+TEMP_LM75::TEMP_LM75(int bus, uint16_t temp_lm75_addr, const char *name) :
+	I2C(DeviceBusType_I2C, "temp_lm75", bus, temp_lm75_addr, 400000),
 	_enabled(false),
 	_last_report{},
 	_temp_topic(nullptr),
@@ -187,19 +187,20 @@ TEMP_LM75::TEMP_LM75(int bus, uint16_t temp_lm75_addr, const char* name) :
 	// capture startup time
 	_start_time = hrt_absolute_time();
 	_startupDelay = 100;
-	memset(_name,0,sizeof(_name));
-	if(name)
-	{
+	memset(_name, 0, sizeof(_name));
+
+	if (name) {
 		size_t len = strlen(name);
-		if(len>sizeof(_name))
-		{
+
+		if (len > sizeof(_name)) {
 			len = sizeof(_name);
 		}
-		memcpy(_name, name,len);
-		_name[sizeof(_name)-1] = 0;
-	} else
-	{
-		snprintf(_name,sizeof(_name),"temp0x%02x",temp_lm75_addr);
+
+		memcpy(_name, name, len);
+		_name[sizeof(_name) - 1] = 0;
+
+	} else {
+		snprintf(_name, sizeof(_name), "temp0x%02x", temp_lm75_addr);
 	}
 }
 
@@ -207,8 +208,8 @@ TEMP_LM75::~TEMP_LM75()
 {
 	// make sure we are truly inactive
 	stop();
-	if(_temp_topic!=nullptr)
-	{
+
+	if (_temp_topic != nullptr) {
 		orb_unadvertise(_temp_topic);
 	}
 }
@@ -258,54 +259,64 @@ int
 TEMP_LM75::dumpreg()
 {
 
-	for(uint8_t addr = 0;addr<0x03;addr++)
-	{
-		uint16_t reg=0;
+	for (uint8_t addr = 0; addr < 0x03; addr++) {
+		uint16_t reg = 0;
+
 		if (read_reg(addr, reg) == OK) {
 			PX4_INFO("%i=0x%x", addr, reg);
 		}
+
 		usleep(1);
 	}
+
 	return 0;
 }
 
 bool
 TEMP_LM75::identify()
 {
-	uint16_t reg=0;
-	bool result=false;
+	uint16_t reg = 0;
+	bool result = false;
+
 	if (read_reg(TEMP_LM75_REG_TEMPERATURE, reg) == OK) {
-		if(reg!=0){
+		if (reg != 0) {
 			PX4_INFO("LM75 temp: %i 0x%x", reg, reg);
-			uint16_t reg2=0;
+			uint16_t reg2 = 0;
+
 			if (read(reg2) == OK) {
-				result = (reg==reg2);
+				result = (reg == reg2);
 				PX4_INFO("LM75 temp: %i 0x%x", reg2, reg2);
 			}
-			uint8_t reg_config=0;
+
+			uint8_t reg_config = 0;
+
 			if (read_reg8(TEMP_LM75_REG_CONFIG, reg_config) == OK) {
-				if((reg_config&0xe0)!=0) // config[7:5] should be 0
-				{
+				if ((reg_config & 0xe0) != 0) { // config[7:5] should be 0
 					result = false;
 				}
+
 				PX4_INFO("LM75 config: 0x%x", reg_config);
 			}
+
 			if (read_reg(2, reg) == OK) {
 				PX4_INFO("LM75 Thyst: %i 0x%x", reg, reg);
 			}
+
 			if (read_reg(3, reg) == OK) {
 				PX4_INFO("LM75 Tos: %i 0x%x", reg, reg);
 			}
-			if(result)
-			{
+
+			if (result) {
 				PX4_INFO("LM75 found at 0x%x", get_device_address());
 			}
+
 			return result;
-		} else
-		{
+
+		} else {
 			PX4_INFO("unknown at 0x%x", get_device_address());
 		}
 	}
+
 	return result;
 }
 
@@ -318,11 +329,12 @@ TEMP_LM75::search()
 	// search through all valid SMBus addresses
 	for (uint8_t i = TEMP_LM75_ADDR_MIN; i < TEMP_LM75_ADDR_MAX; i++) {
 		set_device_address(i);
-		if(identify())
-		{
+
+		if (identify()) {
 			found_slave = true;
 			break;
 		}
+
 		usleep(1);
 	}
 
@@ -371,22 +383,27 @@ TEMP_LM75::cycle_trampoline(void *arg)
 	dev->cycle();
 }
 bool
-TEMP_LM75::try_read_data(debug_key_value_s &new_report, uint64_t now){
+TEMP_LM75::try_read_data(debug_key_value_s &new_report, uint64_t now)
+{
 	uint16_t reg;
+
 	if (read_reg(TEMP_LM75_REG_TEMPERATURE, reg) == OK) {
 		int16_t temp_125c;
-		if(0x8000&reg){// sign bit, negative
-			temp_125c = 0xf800 | (reg>>5);
-		} else
-		{
-			temp_125c = (reg>>5);
+
+		if (0x8000 & reg) { // sign bit, negative
+			temp_125c = 0xf800 | (reg >> 5);
+
+		} else {
+			temp_125c = (reg >> 5);
 		}
-		_temperature_C = temp_125c*0.125;
+
+		_temperature_C = temp_125c * 0.125;
 		new_report.timestamp = now;
 		new_report.value = _temperature_C;
 		memcpy(new_report.key, _name, sizeof(new_report.key));
 		return true;
 	}
+
 	return false;
 }
 
@@ -396,23 +413,24 @@ TEMP_LM75::cycle()
 	// get current time
 	uint64_t now = hrt_absolute_time();
 
-	if(1)
-	{
+	if (1) {
 		struct debug_key_value_s new_report = {};
-		if(try_read_data(new_report, now)){
+
+		if (try_read_data(new_report, now)) {
 			// publish to orb
-			if(_startupDelay<=0)
-			{
+			if (_startupDelay <= 0) {
 				if (_temp_topic != nullptr) {
-						orb_publish(_temp_orb_id, _temp_topic, &new_report);
+					orb_publish(_temp_orb_id, _temp_topic, &new_report);
+
 				} else {
 					_temp_topic = orb_advertise(_temp_orb_id, &new_report);
+
 					if (_temp_topic == nullptr) {
 						PX4_ERR("ADVERT FAIL");
 					}
 				}
-			} else
-			{
+
+			} else {
 				_startupDelay--;
 			}
 
@@ -436,7 +454,7 @@ TEMP_LM75::read_reg(uint8_t reg, uint16_t &val)
 	// read from register
 	int ret = transfer(&reg, 1, buff, 2);
 
-	val = (((uint16_t)buff[0])<<8)|(uint16_t)buff[1];
+	val = (((uint16_t)buff[0]) << 8) | (uint16_t)buff[1];
 
 	// return success or failure
 	return ret;
@@ -446,11 +464,11 @@ int
 TEMP_LM75::read(uint16_t &val)
 {
 	uint8_t buff[2];
-	uint8_t reg=0;
+	uint8_t reg = 0;
 	// read from register
 	int ret = transfer(&reg, 0, buff, 2);
 
-	val = (((uint16_t)buff[0])<<8)|(uint16_t)buff[1];
+	val = (((uint16_t)buff[0]) << 8) | (uint16_t)buff[1];
 
 	// return success or failure
 	return ret;
@@ -460,7 +478,7 @@ int
 TEMP_LM75::read_reg8(uint8_t reg, uint8_t &val)
 {
 	// read from register
-	int ret = transfer(&reg, 1, (uint8_t*)&val, 1);
+	int ret = transfer(&reg, 1, (uint8_t *)&val, 1);
 
 	// return success or failure
 	return ret;
@@ -472,14 +490,16 @@ TEMP_LM75::write_reg(uint8_t reg, uint16_t val)
 	uint8_t buff[3];  // reg + 1 bytes of data
 
 	buff[0] = reg;
-	buff[1] = (uint8_t)(val>>8);
-	buff[2] = (uint8_t)(val&0xff);
+	buff[1] = (uint8_t)(val >> 8);
+	buff[2] = (uint8_t)(val & 0xff);
 
 	// write bytes to register
 	int ret = transfer(buff, 3, nullptr, 0);
+
 	if (ret != OK) {
 		PX4_ERR("Reg 0x%x write error", reg);
 	}
+
 	// return success or failure
 	return ret;
 }
@@ -519,13 +539,14 @@ temp_lm75_main(int argc, char *argv[])
 	int temp_lm75adr = TEMP_LM75_ADDR; // 7bit address
 
 	unsigned int instance = 0;
-	int myoptind=1;
+	int myoptind = 1;
 	const char *myoptarg = nullptr;
-	const char* name = NULL;
+	const char *name = NULL;
 
-	for(instance=0;g_temp_lm75[instance]!=nullptr && instance<MAX_LM75_INST;instance++);
+	for (instance = 0; g_temp_lm75[instance] != nullptr && instance < MAX_LM75_INST; instance++);
 
 	int ch;
+
 	while ((ch = px4_getopt(argc, argv, "a:b:n:i:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
 		case 'a':
@@ -549,9 +570,9 @@ temp_lm75_main(int argc, char *argv[])
 			return 0;
 		}
 	}
-	if(instance>=MAX_LM75_INST)
-	{
-		instance = MAX_LM75_INST-1;
+
+	if (instance >= MAX_LM75_INST) {
+		instance = MAX_LM75_INST - 1;
 	}
 
 	if (myoptind >= argc) {
@@ -563,8 +584,8 @@ temp_lm75_main(int argc, char *argv[])
 
 	if (!strcmp(verb, "start")) {
 		TEMP_LM75 *drv = g_temp_lm75[instance];
-		if(drv==nullptr)
-		{
+
+		if (drv == nullptr) {
 			// create new global object
 			drv = new TEMP_LM75(i2cdevice, temp_lm75adr, name);
 
@@ -578,17 +599,20 @@ temp_lm75_main(int argc, char *argv[])
 				PX4_ERR("init failed");
 				return 1;
 			}
-			PX4_INFO("%d started",instance);
+
+			PX4_INFO("%d started", instance);
 			g_temp_lm75[instance] = drv;
+
 		} else {
-			PX4_ERR("%d already started",instance);
+			PX4_ERR("%d already started", instance);
 			return 1;
 		}
+
 		return 0;
 	}
 
 	// need the driver past this point
-	if (g_temp_lm75[instance]==nullptr) {
+	if (g_temp_lm75[instance] == nullptr) {
 		PX4_INFO("%d not started", instance);
 		temp_lm75_usage();
 		return 1;
@@ -605,18 +629,18 @@ temp_lm75_main(int argc, char *argv[])
 	}
 
 	if (!strcmp(verb, "stop")) {
-		TEMP_LM75* drv=g_temp_lm75[instance];
+		TEMP_LM75 *drv = g_temp_lm75[instance];
 		delete drv;
 		g_temp_lm75[instance] = nullptr;
 		return 0;
 	}
 
 	if (!strcmp(verb, "search")) {
-		if(g_temp_lm75[instance]->search()==OK)
-		{
+		if (g_temp_lm75[instance]->search() == OK) {
 			//g_temp_lm75->dumpreg();
 			return 0;
 		}
+
 		return 1;
 	}
 

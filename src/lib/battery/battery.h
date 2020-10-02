@@ -120,7 +120,7 @@ public:
 	/*
 	 * for hil
 	 */
-	void rechargeBattery(){ _discharged_mah=0.f; _remaining=1.0; _battery_initialized = false;};
+	void rechargeBattery() { _discharged_mah = 0.f; _remaining = 1.0; _battery_initialized = false;};
 
 protected:
 	struct {
@@ -235,9 +235,9 @@ private:
 	hrt_abstime _last_timestamp;
 
 	void estimateRemainingTime();
-	hrt_abstime _time_armed=0;
+	hrt_abstime _time_armed = 0;
 	float _discharged_mah_armed = 0.f;
 	float _startRemaining = -1.f; ///< estimated percent remaining based on voltage at start
-	float _capacity_mah=0.0f; ///< estimated capacity left in battery at first boot
+	float _capacity_mah = 0.0f; ///< estimated capacity left in battery at first boot
 	AlphaFilter<float> _current_filter_average_a;
 };
