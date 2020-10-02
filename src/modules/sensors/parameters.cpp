@@ -146,6 +146,10 @@ void update_parameters(const ParameterHandles &parameter_handles, Parameters &pa
 	param_get(parameter_handles.air_tube_diameter_mm, &parameters.air_tube_diameter_mm);
 
 	param_get(parameter_handles.air_gain, &parameters.air_gain);
+	if(parameters.air_gain<=0.0f)
+	{
+		parameters.air_gain = 1.0f;
+	}
 }
 
 } /* namespace sensors */
