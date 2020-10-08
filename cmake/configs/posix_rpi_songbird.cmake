@@ -53,6 +53,7 @@ set(config_module_list
 	modules/local_position_estimator
 	modules/landing_target_estimator
 	modules/ekf2
+	modules/wind_estimator
 
 	#
 	# Vehicle Control
@@ -89,6 +90,8 @@ set(config_module_list
 	drivers/pwm_out_sim
 	drivers/rpi_rc_in
 
+	# GD module
+	modules/gd_payload
 )
 
 #

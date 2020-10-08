@@ -58,6 +58,7 @@ Land::on_activation()
 	/* convert mission item to current setpoint */
 	struct position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
 	pos_sp_triplet->previous.valid = false;
+
 	mission_apply_limitation(_mission_item);
 	mission_item_to_position_setpoint(_mission_item, &pos_sp_triplet->current);
 	pos_sp_triplet->next.valid = false;
@@ -78,6 +79,14 @@ Land::on_active()
 		pos_sp_triplet->current.lon = _navigator->get_global_position()->lon;
 		_navigator->set_position_setpoint_triplet_updated();
 	}
+	if (_navigator->get_vstatus()->is_vtol && _navigator->get_vstatus()->in_transition_mode != _in_transition && !_navigator->get_vstatus()->in_transition_mode) {
+		// turn nose into wind for landing
+		struct position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
+		pos_sp_triplet->current.yaw = MissionBlock::getWindYaw(pos_sp_triplet->current.yaw);
+		_navigator->set_position_setpoint_triplet_updated();
+		PX4_INFO("LAND yaw set to wind %f ", (double)pos_sp_triplet->current.yaw*180/M_PI);
+	}
+	_in_transition = _navigator->get_vstatus()->in_transition_mode;
 
 
 	if (is_mission_item_reached() && !_navigator->get_mission_result()->finished) {

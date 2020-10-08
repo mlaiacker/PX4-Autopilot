@@ -345,6 +345,8 @@ Navigator::run()
 
 				rep->current.loiter_radius = get_loiter_radius();
 				rep->current.loiter_direction = 1;
+//				PX4_INFO("REPOS. %f %f %f %f %f %f %f",
+//						(double)cmd.param1, (double)cmd.param2, (double)cmd.param3, (double)cmd.param4 , (double)cmd.param5, (double)cmd.param6 , (double)cmd.param7);
 				if(fabsf(cmd.param3)>10.0f && PX4_ISFINITE(cmd.param3) && fabsf(cmd.param3)<1000.0f) /* valid loiter radius */
 				{
 					rep->current.loiter_radius = fabsf(cmd.param3);
@@ -358,10 +360,12 @@ Navigator::run()
 
 				// Go on and check which changes had been requested
 				if (PX4_ISFINITE(cmd.param4)) {
-					rep->current.yaw = cmd.param4;
-
+					// set yaw
+					rep->current.yaw = matrix::wrap_pi(math::radians(cmd.param4));
+					rep->current.yaw_valid = true;
 				} else {
 					rep->current.yaw = NAN;
+					rep->current.yaw_valid = false;
 				}
 
 				if (PX4_ISFINITE(cmd.param5) && PX4_ISFINITE(cmd.param6)) {
@@ -371,9 +375,11 @@ Navigator::run()
 					rep->current.lon = (cmd.param6 < 1000) ? cmd.param6 : cmd.param6 / (double)1e7;
 
 					if (PX4_ISFINITE(cmd.param7)) {
+						// change altitude
 						rep->current.alt = cmd.param7;
-
-					} else {
+						rep->current.alt_valid = true;
+					} else if (!PX4_ISFINITE(rep->current.alt) || !rep->current.alt_valid) { /* GD: only change altitude setpoint if we don't have already one */
+						// use current altitude
 						rep->current.alt = get_global_position()->alt;
 					}
 
@@ -385,12 +391,14 @@ Navigator::run()
 					rep->current.lat = curr->current.lat;
 					rep->current.lon = curr->current.lon;
 					rep->current.alt = cmd.param7;
+					rep->current.alt_valid = true;
 
 				} else {
 					// All three set to NaN - hold in current position
 					rep->current.lat = get_global_position()->lat;
 					rep->current.lon = get_global_position()->lon;
 					rep->current.alt = get_global_position()->alt;
+					rep->current.alt_valid = true;
 				}
 
 				rep->previous.valid = true;
@@ -750,8 +758,9 @@ Navigator::run()
 			//
 			// FIXME: a better solution would be to add reset where they are needed and remove
 			//        this general reset here.
-			if (!(_navigation_mode == &_takeoff &&
-			      navigation_mode_new == &_loiter)) {
+			if (!((_navigation_mode == &_takeoff &&
+			      navigation_mode_new == &_loiter) ||
+				  (navigation_mode_new == &_mission && rtl_type()==RTL::RTL_LAND))) { // don't reset current wp so we go in a line to the rtl land point
 				reset_triplets();
 			}
 		}

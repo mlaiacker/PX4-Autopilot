@@ -240,7 +240,7 @@ Battery::estimateRemaining(float voltage_v, float current_a, float throttle, boo
 	_remaining_voltage = math::gradual(cell_voltage, _v_empty.get(), _v_charged.get(), 0.f, 1.f);
 
 	// choose which quantity we're using for final reporting
-	if (_capacity.get() > 0.f) {
+	if (_capacity_mah > 0.f) {
 		// if battery capacity is known, fuse voltage measurement with used capacity
 		if (!_battery_initialized) {
 			// initialization of the estimation state
@@ -251,7 +251,7 @@ Battery::estimateRemaining(float voltage_v, float current_a, float throttle, boo
 //			const float weight_v = 3e-4f * (1 - _remaining_voltage);
 //			_remaining = (1 - weight_v) * _remaining + weight_v * _remaining_voltage;
 			// directly apply current capacity slope calculated using current
-			_remaining = 1.0f - (_discharged_mah / _capacity.get());
+			_remaining = 1.0f - (_discharged_mah / _capacity_mah);
 			_remaining = math::max(_remaining, 0.f);
 			if(_startRemaining>=0.0f && _startRemaining<=1.0f)
 			{
