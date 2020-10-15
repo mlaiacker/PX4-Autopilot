@@ -416,7 +416,7 @@ void UartMerio::run()
 			}while(nbytes>0);
 			usleep(20000);
 		}
-		if(hrt_elapsed_time(&second_timer)>=1e6) /* every 10 seconds*/
+		if(hrt_elapsed_time(&second_timer)>=1e6) /* every second*/
 		{
 			update_time = true;
 			_rate = n/1; /* update rate */
