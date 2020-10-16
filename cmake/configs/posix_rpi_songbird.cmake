@@ -92,6 +92,8 @@ set(config_module_list
 
 	# GD module
 	modules/gd_payload
+	modules/uart_phaseone
+	modules/uart_merio
 )
 
 #
