@@ -193,6 +193,10 @@ typedef enum{
 		uint8_t	Apeture_value_denom;
 	}ix_apeture_t;
 
+	typedef struct{ // #29
+		int8_t	Exposure_Compensation_value_num;
+		uint8_t	Exposure_Compensation_value_denom;
+	}ix_exposure_t;
 
 #pragma pack(pop)
 

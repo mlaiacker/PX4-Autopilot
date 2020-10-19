@@ -77,7 +77,9 @@ private:
 	ix_local_storage_status_t _p1_storage;
 	ix_shutter_speed_t	_p1_shutter;
 	ix_iso_t			_p1_iso;
-	ix_apeture_t		_p1_apeture;
+	ix_apeture_t		_p1_aperture;
+	ix_exposure_t		_p1_exposure;
+	ix_system_info_t	_p1_system_info;
 
 	bool init();
 
@@ -88,6 +90,7 @@ private:
 
 	int ixSendMessage(uint8_t ix_cmd, uint8_t ix_size, void *ix_data);
 	static int ixParseData(uint8_t byte, ix_reply_t* reply);
+	void parseReply( ix_reply_t *reply);
 	/**
 	 * Check for parameter changes and update them if needed.
 	 * @param parameter_update_sub uorb subscription to parameter_update
@@ -397,6 +400,8 @@ int UartPhaseOne::ixSendMessage(uint8_t ix_cmd, uint8_t ix_size, void *ix_data)
 	header.version = 1;
 	header.cmd_id = ix_cmd;
 
+	PX4_INFO("ixSend %i", ix_cmd);
+
 	written += write(_uart_fd, &header, sizeof(header));
 	uint8_t cs = ixChecksum(2 ,&header.version);
 	if(ix_size>0 && ix_size<IX_MAX_SIZE && ix_data!= nullptr){
@@ -450,16 +455,18 @@ int UartPhaseOne::ixParseData(uint8_t byte, ix_reply_t* reply)
 		reply->parse_state++;
 		break;
 	default:
-		if((reply->parse_state-5<IX_MAX_SIZE) && (reply->parse_state-5<reply->msg_size))
+		if((reply->parse_state-5<IX_MAX_SIZE) && (reply->parse_state-2 < reply->msg_size))
 		{
 			reply->cmd_data[reply->parse_state-5] = byte;
 			reply->parse_state++;
-		} else if(reply->parse_state-5 == reply->msg_size) { // checksum
-			uint8_t cs = ixChecksum(reply->msg_size+3, &(reply->version));
+		} else if(reply->parse_state-2 == reply->msg_size) { // checksum
+			uint8_t cs = ixChecksum(reply->msg_size, &(reply->version));
+			reply->parse_state = 0;
 			if (cs==byte){
 				return reply->cmd_id;
 			} else {
 				PX4_INFO("cmd(%i) CS error %i != %i", reply->cmd_id, cs , byte);
+				return reply->cmd_id;
 			}
 		}
 		break;
@@ -468,32 +475,105 @@ int UartPhaseOne::ixParseData(uint8_t byte, ix_reply_t* reply)
 	return 0;
 }
 
+void UartPhaseOne::parseReply( ix_reply_t *reply)
+{
+	switch(reply->cmd_id){
+	case IX_CMD_ID::GET_SYSTEM_INFO:
+		memcpy(&_p1_system_info, reply->cmd_data, sizeof(_p1_system_info));
+		_p1_system_info.Camera_name[15]=0; // to be sure
+		_p1_system_info.Lens_name[31]=0;
+		if(_debug_flag){
+			PX4_INFO("Camera:%s id:%i Lens:%s (%imm)",
+					_p1_system_info.Camera_name, _p1_system_info.Camera_model_id, _p1_system_info.Lens_name, _p1_system_info.Lens_focal_length);
+		}
+		break;
+	case IX_CMD_ID::GET_EXT_SYSTEM_STATUS:
+		memcpy(&_p1_sys_status, reply->cmd_data, sizeof(_p1_sys_status));
+		if(_debug_flag){
+			PX4_INFO("status:%i remaining %i successfull %i",
+					_p1_sys_status.System_status, _p1_sys_status.Remaining_captures, _p1_sys_status.Successful_captures_counter);
+		}
+		break;
+	case IX_CMD_ID::GET_SYSTEM_STATUS:
+		memcpy(&_p1_sys_status.System_status, reply->cmd_data, sizeof(_p1_sys_status.System_status));
+		if(_debug_flag){
+			PX4_INFO("status:%i", _p1_sys_status.System_status);
+		}
+		break;
+	case IX_CMD_ID::GET_LOCAL_STORAGE_STATUS:
+		memcpy(&_p1_storage, reply->cmd_data, sizeof(_p1_storage));
+		if(_debug_flag){
+			PX4_INFO("storage: type %i  status %i capacity %li",
+					_p1_storage.Local_storage_type, _p1_storage.Local_storage_status, _p1_storage.Local_storage_capacity);
+		}
+		break;
+	case IX_CMD_ID::GET_APERTURE:
+		memcpy(&_p1_aperture, reply->cmd_data, sizeof(_p1_aperture));
+		if(_debug_flag){
+			double aperture  = 0;
+			if(_p1_aperture.Apeture_value_denom!=0)
+			{
+				aperture = _p1_aperture.Apeture_value_num/_p1_aperture.Apeture_value_denom;
+			}
+			PX4_INFO("aperture:%f", aperture);
+		}
+		break;
+	case IX_CMD_ID::GET_ISO:
+		memcpy(&_p1_iso, reply->cmd_data, sizeof(_p1_iso));
+		if(_debug_flag){
+			double iso  = 0;
+			if(_p1_iso.ISO_value_denom!=0)
+			{
+				iso = _p1_iso.ISO_value_num/_p1_iso.ISO_value_denom;
+			}
+			PX4_INFO("iso:%f", iso);
+		}
+		break;
+	case IX_CMD_ID::GET_SHUTTER_SPEED:
+		memcpy(&_p1_shutter, reply->cmd_data, sizeof(_p1_shutter));
+		if(_debug_flag){
+			double shutter  = 0;
+			if(_p1_shutter.Shutter_speed_value_denom!=0)
+			{
+				shutter = _p1_shutter.Shutter_speed_value_num/_p1_shutter.Shutter_speed_value_denom;
+			}
+			PX4_INFO("shutter:%f", shutter);
+		}
+		break;
+	case IX_CMD_ID::GET_EXPOSURE_COMPENSATION:
+		memcpy(&_p1_exposure, reply->cmd_data, sizeof(_p1_exposure));
+		if(_debug_flag){
+			double exposure  = 0;
+			if(_p1_exposure.Exposure_Compensation_value_denom!=0)
+			{
+				exposure = _p1_exposure.Exposure_Compensation_value_num/_p1_exposure.Exposure_Compensation_value_denom;
+			}
+			PX4_INFO("exposure:%f", exposure);
+		}
+		break;
+	default:
+		if(_debug_flag){
+			PX4_INFO("reply cmd id:%i code %i", reply->cmd_id, reply->cmd_completion_code);
+		}
+
+	}
+}
+
 void UartPhaseOne::run()
 {
 	if(!init())
 		return;
 	hrt_abstime second_timer = hrt_absolute_time();
 	ix_reply_t reply;
+	reply.parse_state = 0;
 	int n = 0, n_rx=0;
 	int request_update = 10;
+	bool wait_for_reply = false;
 	if(_debug_flag)
 	{
 		PX4_INFO("Start");
 	}
 	while (!should_exit()) {
-		if(request_update==10) {
-			ixSendMessage(IX_CMD_ID::GET_EXT_SYSTEM_STATUS,0, nullptr);
-		}
-		if(request_update==9) {
-			ixSendMessage(IX_CMD_ID::GET_APERTURE,0, nullptr);
-		}
-		if(request_update==8) {
-			uint8_t storage_type = IX_STORAGE_TYPE::LOCAL_STORAGE_XQD;
-			ixSendMessage(IX_CMD_ID::GET_LOCAL_STORAGE_STATUS,1, &storage_type);
-		}
-		if(request_update>0) {
-			request_update--;
-		}
 		if(readPoll(100000))
 		{
 			n++;
@@ -511,10 +591,16 @@ void UartPhaseOne::run()
 				}
 				if(nbytes>0) /* we got an answer */
 				{
+					/*if(_debug_flag)
+					{
+						printf("%3i, ",rxmsg[0]);
+					}*/
 					int res = ixParseData(rxmsg[0], &reply);
 					if(res>0) // command received
 					{
-						PX4_INFO("got reply for cmd %i", reply.cmd_id);
+						//PX4_INFO("got reply for cmd %i", reply.cmd_id);
+						parseReply(&reply);
+						wait_for_reply = false;
 					}
 					_timeout = 0;
 					n_rx++;
@@ -526,15 +612,62 @@ void UartPhaseOne::run()
 		{
 			_rate = n/1; /* update rate */
 			_rate_rx = n_rx/1;
-			n_rx = 0;
+			//n_rx = 0;
 			second_timer += 1e6;
-			request_update = 10;
+			//request_update = 10;
 			if(n==0 && _timeout==0)
 			{
 				/* lost connection */
 				_timeout = 1;
 			}
 			n=0;
+			if (wait_for_reply) {
+				wait_for_reply = false; // timeout
+			}
+		}
+		if(!wait_for_reply)	{
+			if(request_update==10) {
+				ixSendMessage(IX_CMD_ID::GET_EXT_SYSTEM_STATUS, 0, nullptr);
+				wait_for_reply = true;
+			}
+			if(request_update==9) {
+				ixSendMessage(IX_CMD_ID::GET_APERTURE, 0, nullptr);
+				wait_for_reply = true;
+			}
+			if(request_update==8) {
+				ixSendMessage(IX_CMD_ID::GET_ISO, 0, nullptr);
+				wait_for_reply = true;
+			}
+			if(request_update==7) {
+				ixSendMessage(IX_CMD_ID::GET_SHUTTER_SPEED, 0, nullptr);
+				wait_for_reply = true;
+			}
+/*			if(request_update==6) {
+				uint8_t storage_type = IX_STORAGE_TYPE::LOCAL_STORAGE_XQD;
+				ixSendMessage(IX_CMD_ID::GET_LOCAL_STORAGE_STATUS,1, &storage_type);
+			}*/
+			if(request_update==5) {
+				ixSendMessage(IX_CMD_ID::GET_SYSTEM_INFO, 0, nullptr);
+				wait_for_reply = true;
+			}
+			if(request_update==4) {
+				ixSendMessage(IX_CMD_ID::GET_EXPOSURE_COMPENSATION, 0, nullptr);
+				wait_for_reply = true;
+			}
+			if(request_update==3) {
+				ixSendMessage(IX_CMD_ID::GET_SYSTEM_STATUS, 0, nullptr);
+				wait_for_reply = true;
+			}
+			if(request_update==2) {
+				uint8_t cmd[2] = {IX_STORAGE_TYPE::LOCAL_STORAGE_XQD, IX_STORAGE_ACTION::ENABLE_MASS_STORAGE_MODE};
+				ixSendMessage(IX_CMD_ID::SET_LOCAL_STORAGE_ACTION,2, cmd);
+				wait_for_reply = true;
+			}
+			if(request_update>0) {
+				request_update--;
+			} else {
+				request_update = 10;
+			}
 		}
 	}
 	orb_unsubscribe(_sub_vehicle_cmd);
