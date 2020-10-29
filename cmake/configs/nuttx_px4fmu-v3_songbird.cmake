@@ -138,4 +138,5 @@ set(config_module_list
 	#
 	modules/gd_payload
 	modules/uart_merio
+	modules/uart_phaseone
 )

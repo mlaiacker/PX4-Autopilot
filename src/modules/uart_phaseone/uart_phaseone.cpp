@@ -30,6 +30,12 @@
 #include <drivers/drv_hrt.h>
 #include "uart_phaseone.h"
 
+#ifndef be16toh
+#define be16toh(w)                       __builtin_bswap16((w))
+#define be32toh(w)                       __builtin_bswap32((w))
+#define be64toh(w)                       __builtin_bswap64((w))
+#endif
+
 /* default uart */
 #define UART_PHASEONE_UART "/dev/ttyS2"
 
