@@ -57,7 +57,7 @@ typedef enum{
 	SET_HDMI_EXPOSURE_TIME=120,
 	SET_HDMI_OVERLAY_MODE=127,
 	GET_HDMI_OVERLAY_MODE=128,
-	GET_LOCAL_STORAGE_STATUS=129,
+	GET_LOCAL_STORAGE_STATUS=130,
 	SET_LOCAL_STORAGE_ACTION=131,
 	UNDEFINED_ID=255
 }IX_CMD_ID;
@@ -163,7 +163,8 @@ typedef enum{
 		uint8_t		Camera_brand_id;
 		uint32_t	Camera_model_id;
 		uint8_t		Camera_name[16];
-		uint16_t	Lens_brand_id;
+		uint8_t		Lens_brand_id;
+		uint16_t	Lens_model_id;
 		uint16_t	Lens_focal_length;
 		uint8_t		Lens_name[32];
 	}ix_system_info_t;
