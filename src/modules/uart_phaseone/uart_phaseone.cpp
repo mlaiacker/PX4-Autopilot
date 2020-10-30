@@ -41,7 +41,7 @@
 
 extern "C" __EXPORT int uart_phaseone_main(int argc, char *argv[]);
 
-class UartPhaseOne : public ModuleBase<UartPhaseOne>, public ModuleParams
+class UartPhaseOne : public ModuleBase<UartPhaseOne>
 {
 public:
 	UartPhaseOne(char const *const device, bool debug_flag);
@@ -72,9 +72,7 @@ private:
 	int 	_uart_fd = -1;
 	int 	_rate = 0;
 	int		_rate_rx = 0;
-	int		_timeout = 0;
 	bool	_debug_flag = false;
-	bool		_armed{false};
 	int 	_sub_vehicle_cmd{-1};
 	vehicle_command_s	_v_cmd;
 	orb_advert_t		_vehicle_command_ack_pub = 0;
@@ -119,7 +117,7 @@ int UartPhaseOne::print_usage(const char *reason)
 	PRINT_MODULE_DESCRIPTION(
 		R"DESCR_STR(
 ### Description
-	driver for phaseone camera
+	driver for phaseone ix Protocol
 ### Examples
 CLI usage example:
 $ uart_phaseone start -d <uart device> -v
@@ -142,8 +140,8 @@ int UartPhaseOne::print_status()
 	PX4_INFO("rate:%2i rx:%2i", _rate, _rate_rx);
 	PX4_INFO("p1 status:%2i", _p1_sys_status.System_status);
 	PX4_INFO("Camera:%s Lens:%s (%umm)", _p1_system_info.Camera_name, _p1_system_info.Lens_name, _p1_system_info.Lens_focal_length);
-	PX4_INFO("storage state:%u space:%lu Mb images left:%u mode:%u",
-			_p1_storage.Local_storage_status, _p1_storage.Local_storage_capacity/1024/1024, _p1_storage.Local_storage_image_capacity, _p1_storage.Mass_storage_mode);
+	PX4_INFO("storage state:%u space:%u Mb images left:%u mode:%u",
+			_p1_storage.Local_storage_status, (uint32_t)(_p1_storage.Local_storage_capacity/1024/1024), _p1_storage.Local_storage_image_capacity, _p1_storage.Mass_storage_mode);
 	return 0;
 }
 
@@ -179,8 +177,8 @@ int UartPhaseOne::task_spawn(int argc, char *argv[])
 {
 	_task_id = px4_task_spawn_cmd("uart_phaseone",
 				      SCHED_DEFAULT,
-				      SCHED_PRIORITY_DEFAULT+12, /* reduced pritority */
-				      1024,
+				      SCHED_PRIORITY_DEFAULT-84, /* reduced pritority */
+				      1224,
 				      (px4_main_t)&run_trampoline,
 				      (char *const *)argv);
 
@@ -236,8 +234,7 @@ UartPhaseOne *UartPhaseOne::instantiate(int argc, char *argv[])
 	return instance;
 }
 
-UartPhaseOne::UartPhaseOne(char const *const device, bool debug_flag):
-ModuleParams(nullptr)
+UartPhaseOne::UartPhaseOne(char const *const device, bool debug_flag)
 {
 	if(device)
 	{
@@ -638,16 +635,16 @@ void UartPhaseOne::ixParseReply( ix_reply_t *reply)
 		_p1_storage.Local_storage_capacity = be64toh(_p1_storage.Local_storage_capacity);
 		_p1_storage.Local_storage_image_capacity = be32toh(_p1_storage.Local_storage_image_capacity);
 		if(_debug_flag){
-			PX4_INFO("storage: type %u  status %u capacity %lu",
-					_p1_storage.Local_storage_type, _p1_storage.Local_storage_status, _p1_storage.Local_storage_capacity);
+			PX4_INFO("storage: type %u  status %u capacity %u",
+					_p1_storage.Local_storage_type, _p1_storage.Local_storage_status, (uint32_t)(_p1_storage.Local_storage_capacity/1024/1024));
 		}
 		debug_vect_s storage;
 		snprintf(storage.name, sizeof(storage.name), "PH1_STORE"); // phaseone storage
 		storage.x = (float)_p1_storage.Local_storage_image_capacity;
 		storage.y = (float)(_p1_storage.Local_storage_capacity/1024/1024); // in Mega bytes
 		storage.z = (float)_p1_storage.Local_storage_status;
-		storage.timestamp = hrt_absolute_time();
-		storage.timestamp_us = hrt_absolute_time();
+		storage.timestamp_us = storage.timestamp = hrt_absolute_time();
+
 		dataPublish(&storage);
 		break;
 	case IX_CMD_ID::GET_APERTURE:
@@ -658,7 +655,7 @@ void UartPhaseOne::ixParseReply( ix_reply_t *reply)
 			{
 				aperture = (float)_p1_aperture.Apeture_value_num/(float)_p1_aperture.Apeture_value_denom;
 			}
-			PX4_INFO("aperture:%f %i/%i", aperture, _p1_aperture.Apeture_value_num, _p1_aperture.Apeture_value_denom);
+			PX4_INFO("aperture:%f %i/%u", aperture, _p1_aperture.Apeture_value_num, _p1_aperture.Apeture_value_denom);
 		}
 		break;
 	case IX_CMD_ID::GET_ISO:
@@ -680,15 +677,21 @@ void UartPhaseOne::ixParseReply( ix_reply_t *reply)
 			{
 				shutter = (float)_p1_shutter.Shutter_speed_value_num/(float)_p1_shutter.Shutter_speed_value_denom;
 			}
-			PX4_INFO("shutter:%f %i/%i", shutter, _p1_shutter.Shutter_speed_value_num/_p1_shutter.Shutter_speed_value_denom);
+			PX4_INFO("shutter:%f %i/%u", shutter, _p1_shutter.Shutter_speed_value_num, _p1_shutter.Shutter_speed_value_denom);
 		}
 		debug_vect_s img_settings;
+		memset(&img_settings, 0 , sizeof(img_settings));
 		sprintf(img_settings.name,"PH1_ASI"); // phaseone apeture iso shutter
-		img_settings.x = (float)_p1_aperture.Apeture_value_num/(float)_p1_aperture.Apeture_value_denom;
-		img_settings.y = (float)_p1_shutter.Shutter_speed_value_num/(float)_p1_shutter.Shutter_speed_value_denom;
-		img_settings.z = (float)_p1_iso.ISO_value_num/(float)_p1_iso.ISO_value_denom;
-		img_settings.timestamp = hrt_absolute_time();
-		img_settings.timestamp_us = hrt_absolute_time();
+		if(_p1_aperture.Apeture_value_denom!=0) {
+			img_settings.x = (float)_p1_aperture.Apeture_value_num/(float)_p1_aperture.Apeture_value_denom;
+		}
+		if (_p1_shutter.Shutter_speed_value_denom!=0){
+			img_settings.y = (float)_p1_shutter.Shutter_speed_value_num/(float)_p1_shutter.Shutter_speed_value_denom;
+		}
+		if (_p1_iso.ISO_value_denom!=0){
+			img_settings.z = (float)_p1_iso.ISO_value_num/(float)_p1_iso.ISO_value_denom;
+		}
+		img_settings.timestamp_us = img_settings.timestamp = hrt_absolute_time();
 		dataPublish(&img_settings);
 		break;
 	case IX_CMD_ID::GET_EXPOSURE_COMPENSATION:
@@ -699,7 +702,7 @@ void UartPhaseOne::ixParseReply( ix_reply_t *reply)
 			{
 				exposure = (float)_p1_exposure.Exposure_Compensation_value_num/(float)_p1_exposure.Exposure_Compensation_value_denom;
 			}
-			PX4_INFO("exposure:%f %i/%i", (double)exposure, _p1_exposure.Exposure_Compensation_value_num, _p1_exposure.Exposure_Compensation_value_denom);
+			PX4_INFO("exposure:%f %i/%u", (double)exposure, _p1_exposure.Exposure_Compensation_value_num, _p1_exposure.Exposure_Compensation_value_denom);
 		}
 		break;
 	default:
@@ -725,9 +728,9 @@ void UartPhaseOne::run()
 		PX4_INFO("Start");
 	}
 	while (!should_exit()) {
-		if(readPoll(20))
+		n++;
+		if(readPoll(200))
 		{
-			n++;
 			updateData();
 			uint8_t rxmsg[1];
 			size_t msgsize;
@@ -748,11 +751,9 @@ void UartPhaseOne::run()
 						ixParseReply(&reply);
 						wait_for_reply = false;
 					}
-					_timeout = 0;
 					n_rx++;
 				}
 			}while(nbytes>0);
-			usleep(10000);
 		}
 		if(hrt_elapsed_time(&second_timer)>=1e6) /* every second*/
 		{
@@ -760,12 +761,6 @@ void UartPhaseOne::run()
 			_rate_rx = n_rx/1;
 			n_rx = 0;
 			second_timer += 1e6;
-			//request_update = 10;
-			if(n==0 && _timeout==0)
-			{
-				/* lost connection */
-				_timeout = 1;
-			}
 			n=0;
 			if (wait_for_reply) {
 				wait_for_reply = false; // timeout
@@ -824,6 +819,9 @@ void UartPhaseOne::run()
 	orb_unsubscribe(_sub_vehicle_cmd);
 	if(_vehicle_command_ack_pub) {
 		orb_unadvertise(_vehicle_command_ack_pub);
+	}
+	if(_pub_debug_vect) {
+		orb_unadvertise(_pub_debug_vect);
 	}
 	close(_uart_fd);
 }

@@ -34,7 +34,7 @@
 px4_add_module(
 	MODULE modules__uart_phaseone
 	MAIN uart_phaseone
-	STACK_MAIN 1024
+	STACK_MAIN 1224
 	SRCS
 		uart_phaseone.cpp
 	DEPENDS
