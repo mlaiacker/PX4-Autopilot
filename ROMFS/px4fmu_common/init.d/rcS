@@ -720,6 +720,7 @@ fi
 		# "set mavlink rates for trip2"
 		# should be used together with SYS_COMPANION 257600
 		# mavlink stream -d /dev/ttyS2 -s RC_CHANNELS -r 10		
+		param set SYS_COMPANION 257600
 		mavlink stream -d ${MAVLINK_COMPANION_DEVICE} -s GLOBAL_POSITION_INT -r 25
 		mavlink stream -d ${MAVLINK_COMPANION_DEVICE} -s ATTITUDE -r 25
 		mavlink stream -d ${MAVLINK_COMPANION_DEVICE} -s VFR_HUD -r 25

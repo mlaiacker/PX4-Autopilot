@@ -94,17 +94,16 @@ then
 	fi
 fi
 
-if param compare SYS_COMPANION 0 
+if param compare MNT_TRIP_MAVLINK 2
 then
-	if param compare MNT_TRIP_MAVLINK 2
-	then
-		uart_merio start
-	fi
+	param set SYS_COMPANION 0
+	uart_merio start
+fi
 	
-	if param compare MNT_TRIP_MAVLINK 3
-	then
-		uart_phaseone start -d /dev/ttyS2
-	fi
+if param compare MNT_TRIP_MAVLINK 3
+then
+	param set SYS_COMPANION 0
+	uart_phaseone start -d /dev/ttyS2
 fi
 
 # /dev/ttyS0		IO debug except v4, there ttyS0 is the wifi

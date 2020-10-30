@@ -406,9 +406,14 @@ void UartPhaseOne::vehicleCmd(vehicle_command_s *vcmd)
 		switch(vcmd->command)
 		{
 		case vehicle_command_s::VEHICLE_CMD_CUSTOM_1:
+			if(_debug_flag){
+				PX4_INFO("VEHICLE_CMD_CUSTOM_1");
+				print_message(*vcmd);
+			}
 			if(((int)vcmd->param2) == 87342)
 			{
 				formatCard();
+				vehicleCommandAck(vcmd);
 			}
 			break;
 		case vehicle_command_s::VEHICLE_CMD_DO_SET_ROI:
