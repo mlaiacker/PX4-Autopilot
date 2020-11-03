@@ -206,10 +206,11 @@ logger start -e -t
 
 #replay trystart
 mavlink stream -r 200 -s HIL_ACTUATOR_CONTROLS -u 14557
+camera_trigger start
 
 #linux_sbus start -d /dev/ttyUSB0
 
-uart_phaseone start -d /dev/ttyUSB0
+uart_phaseone start -d /dev/ttyUSB0 -v
 
 #camera_trigger start
 

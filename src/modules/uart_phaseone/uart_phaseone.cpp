@@ -24,6 +24,7 @@
 #include <uORB/topics/vehicle_command.h>
 #include <uORB/topics/vehicle_command_ack.h>
 #include <uORB/topics/debug_vect.h>
+#include <uORB/topics/camera_trigger.h>
 
 #include <matrix/math.hpp>
 
@@ -74,7 +75,9 @@ private:
 	int		_rate_rx = 0;
 	bool	_debug_flag = false;
 	int 	_sub_vehicle_cmd{-1};
+	int 	_sub_trigger{-1};
 	vehicle_command_s	_v_cmd;
+	camera_trigger_s	_trigger_last;
 	orb_advert_t		_vehicle_command_ack_pub = 0;
 	orb_advert_t		_pub_debug_vect = 0;
 
@@ -100,12 +103,6 @@ private:
 	int ixSendMessage(uint8_t ix_cmd, uint8_t ix_size, void *ix_data);
 	static int ixParseData(uint8_t byte, ix_reply_t* reply);
 	void ixParseReply( ix_reply_t *reply);
-	/**
-	 * Check for parameter changes and update them if needed.
-	 * @param parameter_update_sub uorb subscription to parameter_update
-	 * @param force for a parameter update
-	 */
-	void parameters_update(int parameter_update_sub, bool force = false);
 };
 
 int UartPhaseOne::print_usage(const char *reason)
@@ -177,8 +174,8 @@ int UartPhaseOne::task_spawn(int argc, char *argv[])
 {
 	_task_id = px4_task_spawn_cmd("uart_phaseone",
 				      SCHED_DEFAULT,
-				      SCHED_PRIORITY_DEFAULT-84, /* reduced pritority */
-				      1224,
+				      SCHED_PRIORITY_DEFAULT, /* reduced pritority */
+				      1424,
 				      (px4_main_t)&run_trampoline,
 				      (char *const *)argv);
 
@@ -245,6 +242,7 @@ UartPhaseOne::UartPhaseOne(char const *const device, bool debug_flag)
 
 	_debug_flag = debug_flag;
 	memset(&_v_cmd, 0, sizeof(_v_cmd));
+	memset(&_trigger_last,0 ,sizeof(_trigger_last));
 	memset(&_p1_system_info, 0, sizeof(_p1_system_info));
 	memset(&_p1_storage, 0, sizeof(_p1_storage));
 	memset(&_p1_sys_status, 0, sizeof(_p1_sys_status));
@@ -318,18 +316,25 @@ bool UartPhaseOne::init()
 	if(_sub_vehicle_cmd<0) {
 		result = false;
 	}
-
+	_sub_trigger = orb_subscribe(ORB_ID(camera_trigger));
+	if (_sub_trigger<0) {
+		PX4_ERR("failed to sub to camera_trigger");
+		result = false;
+	}
 	return result;
 }
 
 /* wait tout ms for data available on the serial interface to read */
 bool UartPhaseOne::readPoll(uint32_t tout)
 {
-    struct pollfd uartPoll[2];
+    struct pollfd uartPoll[3];
     uartPoll[0].fd = _uart_fd;
     uartPoll[0].events = POLLIN;
     uartPoll[1].fd = _sub_vehicle_cmd;
     uartPoll[1].events = POLLIN;
+    uartPoll[2].fd = _sub_trigger;
+    uartPoll[2].events = POLLIN;
+
 
     int pollrc = poll(&uartPoll[0], sizeof(uartPoll)/sizeof(uartPoll[0]), tout);
     if (pollrc < 1) return false; /* no data to read */
@@ -409,8 +414,8 @@ void UartPhaseOne::vehicleCmd(vehicle_command_s *vcmd)
 			}
 			if(((int)vcmd->param2) == 87342)
 			{
-				formatCard();
 				vehicleCommandAck(vcmd);
+				formatCard();
 			}
 			break;
 		case vehicle_command_s::VEHICLE_CMD_DO_SET_ROI:
@@ -427,20 +432,20 @@ void UartPhaseOne::vehicleCmd(vehicle_command_s *vcmd)
 			 * | Command Identity
 			 * | Test shot identifier. If set to 1, image will only be captured, but not counted towards internal frame count.|  */
 		case vehicle_command_s::VEHICLE_CMD_DO_DIGICAM_CONTROL:
-			if(_debug_flag){
+			/*if(_debug_flag){
 				PX4_INFO("DO_DIGICAM_CONTROL");
 				print_message(*vcmd);
-			}
+			}*/
 			if(vcmd->param5>0){
 				capture();
 				vehicleCommandAck(vcmd);
 			}
 			break;
 		case vehicle_command_s::VEHICLE_CMD_DO_TRIGGER_CONTROL:
-			if(_debug_flag){
+			/*if(_debug_flag){
 				PX4_INFO("Trigger control");
 				print_message(*vcmd);
-			}
+			}*/
 			break;
 		case vehicle_command_s::VEHICLE_CMD_CUSTOM_0:
 			break;
@@ -484,6 +489,12 @@ void UartPhaseOne::updateData()
 	if(updated) {
 		orb_copy(ORB_ID(vehicle_command), _sub_vehicle_cmd, &_v_cmd);
 		vehicleCmd(&_v_cmd);
+	}
+	camera_trigger_s trigger;
+	orb_copy(ORB_ID(camera_trigger), _sub_trigger, &trigger);
+	if(trigger.seq>_trigger_last.seq){
+		capture();
+		_trigger_last.seq = trigger.seq;
 	}
 }
 
@@ -817,6 +828,7 @@ void UartPhaseOne::run()
 		}
 	}
 	orb_unsubscribe(_sub_vehicle_cmd);
+	orb_unsubscribe(_sub_trigger);
 	if(_vehicle_command_ack_pub) {
 		orb_unadvertise(_vehicle_command_ack_pub);
 	}
