@@ -49,9 +49,7 @@ using namespace time_literals;
 
 Battery::Battery(int index, ModuleParams *parent, const int sample_interval_us) :
 	ModuleParams(parent),
-	_index(index < 1 || index > 9 ? 1 : index),
-	_warning(battery_status_s::BATTERY_WARNING_NONE),
-	_last_timestamp(0)
+	_index(index < 1 || index > 9 ? 1 : index)
 {
 	const float expected_filter_dt = static_cast<float>(sample_interval_us) / 1_s;
 	_voltage_filter_v.setParameters(expected_filter_dt, 1.f);
@@ -108,8 +106,7 @@ Battery::Battery(int index, ModuleParams *parent, const int sample_interval_us) 
 	_current_filter_average_a.setParameters(expected_filter_dt, 120.0f);
 }
 
-void
-Battery::reset()
+void Battery::reset()
 {
 	memset(&_battery_status, 0, sizeof(_battery_status));
 	_battery_status.current_a = -1.f;
@@ -124,13 +121,10 @@ Battery::reset()
 	_battery_status.id = (uint8_t) _index;
 }
 
-void
-Battery::updateBatteryStatus(hrt_abstime timestamp, float voltage_v, float current_a,
-			     bool connected, int source, int priority,
-			     float throttle_normalized)
+void Battery::updateBatteryStatus(const hrt_abstime &timestamp, float voltage_v, float current_a, bool connected,
+				  int source, int priority, float throttle_normalized)
 {
 	reset();
-	_battery_status.timestamp = timestamp;
 
 	if (!_battery_initialized) {
 		_voltage_filter_v.reset(voltage_v);
@@ -175,18 +169,12 @@ Battery::updateBatteryStatus(hrt_abstime timestamp, float voltage_v, float curre
 		}
 	}
 
-	_battery_status.timestamp = timestamp;
-
-	const bool should_publish = (source == _params.source);
-
-	if (should_publish) {
-		_battery_status_pub.publish(_battery_status);
+	if (source == _params.source) {
 		publish();
 	}
 }
 
-void
-Battery::estimateRemainingTime()
+void Battery::estimateRemainingTime()
 {
 
 	if (!_battery_initialized) {
@@ -252,14 +240,13 @@ Battery::estimateRemainingTime()
 	}
 }
 
-void
-Battery::publish()
+void Battery::publish()
 {
+	_battery_status.timestamp = hrt_absolute_time();
 	_battery_status_pub.publish(_battery_status);
 }
 
-void
-Battery::sumDischarged(hrt_abstime timestamp, float current_a)
+void Battery::sumDischarged(const hrt_abstime &timestamp, float current_a)
 {
 	// Not a valid measurement
 	if (!PX4_ISFINITE(current_a)) {
@@ -280,8 +267,7 @@ Battery::sumDischarged(hrt_abstime timestamp, float current_a)
 	_last_timestamp = timestamp;
 }
 
-void
-Battery::estimateRemaining(const float voltage_v, const float current_a, const float throttle)
+void Battery::estimateRemaining(const float voltage_v, const float current_a, const float throttle)
 {
 	// remaining battery capacity based on voltage
 	float cell_voltage = voltage_v / _params.n_cells;
@@ -319,8 +305,7 @@ Battery::estimateRemaining(const float voltage_v, const float current_a, const f
 	}
 }
 
-void
-Battery::determineWarning(bool connected)
+void Battery::determineWarning(bool connected)
 {
 	if (connected) {
 		// propagate warning state only if the state is higher, otherwise remain in current warning state
@@ -339,8 +324,7 @@ Battery::determineWarning(bool connected)
 	}
 }
 
-void
-Battery::computeScale()
+void Battery::computeScale()
 {
 	const float voltage_range = (_params.v_charged - _params.v_empty);
 

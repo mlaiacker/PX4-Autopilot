@@ -52,7 +52,16 @@
 #include <px4_platform_common/board_common.h>
 #include <math.h>
 #include <float.h>
+
+#include <board_config.h>
+#include <px4_platform_common/board_common.h>
+#include <px4_platform_common/module_params.h>
+
+#include <drivers/drv_hrt.h>
+#include <lib/parameters/param.h>
 #include <lib/ecl/AlphaFilter/AlphaFilter.hpp>
+#include <uORB/PublicationMulti.hpp>
+#include <uORB/topics/battery_status.h>
 
 /**
  * BatteryBase is a base class for any type of battery.
@@ -96,7 +105,7 @@ public:
 	 * @param priority: The brick number -1. The term priority refers to the Vn connection on the LTC4417
 	 * @param throttle_normalized: Throttle of the vehicle, between 0 and 1
 	 */
-	void updateBatteryStatus(hrt_abstime timestamp, float voltage_v, float current_a, bool connected,
+	void updateBatteryStatus(const hrt_abstime &timestamp, float voltage_v, float current_a, bool connected,
 				 int source, int priority, float throttle_normalized);
 
 	/**
@@ -145,7 +154,7 @@ protected:
 		param_t v_load_drop_old;
 		param_t r_internal_old;
 		param_t source_old;
-	} _param_handles;
+	} _param_handles{};
 
 	struct {
 		float v_empty;
@@ -169,9 +178,9 @@ protected:
 		float v_load_drop_old;
 		float r_internal_old;
 		int source_old;
-	} _params;
+	} _params{};
 
-	battery_status_s _battery_status;
+	battery_status_s _battery_status{};
 
 	const int _index;
 
@@ -212,32 +221,31 @@ protected:
 		}
 	}
 
-	bool isFloatEqual(float a, float b) { return fabsf(a - b) > FLT_EPSILON; }
+	bool isFloatEqual(float a, float b) const { return fabsf(a - b) > FLT_EPSILON; }
 
 private:
-	void sumDischarged(hrt_abstime timestamp, float current_a);
+	void sumDischarged(const hrt_abstime &timestamp, float current_a);
 	void estimateRemaining(const float voltage_v, const float current_a, const float throttle);
 	void determineWarning(bool connected);
 	void computeScale();
 
 	uORB::PublicationMulti<battery_status_s> _battery_status_pub{ORB_ID(battery_status)};
 
-	bool _battery_initialized = false;
+	bool _battery_initialized{false};
 	AlphaFilter<float> _voltage_filter_v;
 	AlphaFilter<float> _current_filter_a;
 	AlphaFilter<float> _throttle_filter;
-	float _discharged_mah = 0.f;
-	float _discharged_mah_loop = 0.f;
-	float _remaining_voltage = -1.f;		///< normalized battery charge level remaining based on voltage
-	float _remaining = -1.f;			///< normalized battery charge level, selected based on config param
-	float _scale = 1.f;
-	uint8_t _warning;
-	hrt_abstime _last_timestamp;
-
+	float _discharged_mah{0.f};
+	float _discharged_mah_loop{0.f};
+	float _remaining_voltage{-1.f};		///< normalized battery charge level remaining based on voltage
+	float _remaining{-1.f};			///< normalized battery charge level, selected based on config param
+	float _scale{1.f};
+	uint8_t _warning{battery_status_s::BATTERY_WARNING_NONE};
+	hrt_abstime _last_timestamp{0};
 	void estimateRemainingTime();
-	hrt_abstime _time_armed = 0;
-	float _discharged_mah_armed = 0.f;
-	float _startRemaining = -1.f; ///< estimated percent remaining based on voltage at start
-	float _capacity_mah = 0.0f; ///< estimated capacity left in battery at first boot
+	hrt_abstime _time_armed{0};
+	float _discharged_mah_armed{0.f};
+	float _startRemaining{-1.f}; ///< estimated percent remaining based on voltage at start
+	float _capacity_mah{0.0f}; ///< estimated capacity left in battery at first boot
 	AlphaFilter<float> _current_filter_average_a;
 };
