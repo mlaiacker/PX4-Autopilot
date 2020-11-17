@@ -742,7 +742,7 @@ bool  GDPayload::readPayloadAdc()
 		}
 		_battery_sim.updateBatteryStatus(hrt_absolute_time(),
 				sim_voltage_v, sim_current_a,
-				true, 0, 1, ctrl.control[actuator_controls_s::INDEX_THROTTLE]);
+				true, battery_status_s::BATTERY_SOURCE_EXTERNAL, 1, ctrl.control[actuator_controls_s::INDEX_THROTTLE]);
 		_battery_sim.publish();
 		return true;
 	}

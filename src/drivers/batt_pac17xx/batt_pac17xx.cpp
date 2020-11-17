@@ -529,7 +529,7 @@ BATT_PAC17::cycle()
 		if (try_read_data(now)) {
 			// publish to orb
 			if (_startupDelay <= 0) {
-				_battery.publish();
+				//_battery.publish();
 
 			} else {
 				_startupDelay--;
@@ -543,7 +543,7 @@ BATT_PAC17::cycle()
 			if (_enabled) {
 				_battery.updateBatteryStatus(now, _voltage_v, _current_a,
 							     false, battery_status_s::BATTERY_SOURCE_EXTERNAL, 0,	0.0f);
-				_battery.publish();; // report lost connection to battery
+				// report lost connection to battery
 			}
 
 			_enabled = false;
