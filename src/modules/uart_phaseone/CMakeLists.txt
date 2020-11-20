@@ -1,6 +1,6 @@
 ############################################################################
 #
-#   Copyright (c) 2016 PX4 Development Team. All rights reserved.
+#   Copyright (c) 2018 PX4 Development Team. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -32,18 +32,12 @@
 ############################################################################
 
 px4_add_module(
-	MODULE modules__logger
-	MAIN logger
-	PRIORITY "SCHED_PRIORITY_MAX-30"
-	STACK_MAIN 3600
-	COMPILE_FLAGS
-		-Wno-sign-compare # TODO: fix all sign-compare
+	MODULE modules__uart_phaseone
+	MAIN uart_phaseone
+	STACK_MAIN 1624
 	SRCS
-		logger.cpp
-		log_writer.cpp
-		log_writer_file.cpp
-		log_writer_mavlink.cpp
-		watchdog.cpp
+		uart_phaseone.cpp
 	DEPENDS
-		version
+		modules__uORB
 	)
+

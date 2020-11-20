@@ -221,7 +221,7 @@ MissionBlock::is_mission_item_reached()
 			 * Therefore the item is marked as reached once the system reaches the loiter
 			 * radius (+ some margin). Time inside and turn count is handled elsewhere.
 			 */
-			if (dist >= 0.0f && dist <= _navigator->get_acceptance_radius(fabsf(_mission_item.loiter_radius) * 1.2f)
+			if (dist >= 0.0f && dist <= _navigator->get_acceptance_radius(fabsf(_mission_item.loiter_radius) * 2.2f)
 			    && dist_z <= _navigator->get_altitude_acceptance_radius()) {
 
 				_waypoint_position_reached = true;
@@ -556,6 +556,28 @@ MissionBlock::cruising_speed_sp_update()
 	_navigator->set_position_setpoint_triplet_updated();
 }
 
+float
+MissionBlock::getWindYaw(float yaw)
+{
+	float result = yaw;
+	int wind_estimate_sub = orb_subscribe(ORB_ID(wind_estimate));
+	struct wind_estimate_s wind;
+	if(orb_copy(ORB_ID(wind_estimate), wind_estimate_sub, &wind)==0)
+	{
+		/* only when more then 3m/s wind*/
+		if((wind.windspeed_east*wind.windspeed_east + wind.windspeed_north*wind.windspeed_north) > MissionBlock::WIND_THRESHOLD*MissionBlock::WIND_THRESHOLD)
+		{
+			/* set yaw setpoint to point towards wind direction for landing*/
+			result = wrap_pi(atan2f(wind.windspeed_east, wind.windspeed_north) + M_PI_F);
+		}
+	} else
+	{
+		PX4_ERR("failed to get wind estimate for yaw alligment");
+	}
+	orb_unsubscribe(wind_estimate_sub);
+	return result;
+}
+
 bool
 MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, position_setpoint_s *sp)
 {
@@ -607,21 +629,7 @@ MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, posi
 	case NAV_CMD_VTOL_LAND:
 		if(_navigator->get_vstatus()->is_vtol)
 		{
-			int wind_estimate_sub = orb_subscribe(ORB_ID(wind_estimate));
-			struct wind_estimate_s wind;
-			if(orb_copy(ORB_ID(wind_estimate), wind_estimate_sub, &wind)==0)
-			{
-				/* only when more then 3m/s wind*/
-				if((wind.windspeed_east*wind.windspeed_east + wind.windspeed_north*wind.windspeed_north) > 9.0f)
-				{
-					/* set yaw setpoint to point towards wind direction for landing*/
-					sp->yaw = wrap_pi(atan2f(wind.windspeed_east, wind.windspeed_north) + M_PI_F);
-				}
-			} else
-			{
-				PX4_ERR("failed to get wind estimate for landing");
-			}
-			orb_unsubscribe(wind_estimate_sub);
+			sp->yaw = getWindYaw(sp->yaw);
 		}
 		sp->type = position_setpoint_s::SETPOINT_TYPE_LAND;
 		break;
@@ -777,7 +785,7 @@ MissionBlock::set_vtol_transition_item(struct mission_item_s *item, const uint8_
 	if (next_sp.valid) {
 		if(get_distance_to_next_waypoint(_navigator->get_global_position()->lat,
 			    _navigator->get_global_position()->lon,
-			    next_sp.lat, next_sp.lon)>=5.0f) /* only use waypoint for heading when 5m away from current position */
+			    next_sp.lat, next_sp.lon)>=MissionBlock::TAKEOFF_MIN_DIST) /* only use waypoint for heading when xm away from current position */
 		{
 			/* set yaw setpoint to point towards next waypoint so we do the transition in this direction*/
 			item->yaw = get_bearing_to_next_waypoint(_navigator->get_global_position()->lat,

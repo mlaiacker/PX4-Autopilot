@@ -1329,8 +1329,8 @@ MavlinkMissionManager::parse_mavlink_mission_item(const mavlink_mission_item_t *
 			mission_item->nav_cmd = NAV_CMD_LOITER_TIME_LIMIT;
 			mission_item->time_inside = mavlink_mission_item->param1;
 			mission_item->loiter_radius = mavlink_mission_item->param3;
-			mission_item->loiter_exit_xtrack = (mavlink_mission_item->param4 > 0);
 			mission_item->yaw = wrap_pi(math::radians(mavlink_mission_item->param4));
+			mission_item->loiter_exit_xtrack = 0;//(mavlink_mission_item->param4 > 0);
 			break;
 
 		case MAV_CMD_NAV_LAND:
@@ -1381,11 +1381,12 @@ MavlinkMissionManager::parse_mavlink_mission_item(const mavlink_mission_item_t *
 			mission_item->params[6] = mavlink_mission_item->z;
 			break;
 
-		case MAV_CMD_NAV_VTOL_TAKEOFF:
 		case MAV_CMD_NAV_VTOL_LAND:
+			mission_item->params[0] = mavlink_mission_item->param1; // GD feature: autocontinue
+			mission_item->params[1] = mavlink_mission_item->param2; // GD feature: land at arming position
+		case MAV_CMD_NAV_VTOL_TAKEOFF:
 			mission_item->nav_cmd = (NAV_CMD)mavlink_mission_item->command;
 			mission_item->yaw = wrap_pi(math::radians(mavlink_mission_item->param4));
-			mission_item->params[0] = mavlink_mission_item->param1;
 			break;
 
 		case MAV_CMD_NAV_FENCE_RETURN_POINT:
@@ -1621,9 +1622,10 @@ MavlinkMissionManager::format_mavlink_mission_item(const struct mission_item_s *
 			mavlink_mission_item->param4 = mission_item->loiter_exit_xtrack;
 			break;
 
-		case MAV_CMD_NAV_VTOL_TAKEOFF:
 		case MAV_CMD_NAV_VTOL_LAND:
-			mavlink_mission_item->param1 = mission_item->params[0];
+			mavlink_mission_item->param1 = mission_item->params[0]; // GD feature: autocontinue
+			mavlink_mission_item->param2 = mission_item->params[1]; // GD feature: land at arming position
+		case MAV_CMD_NAV_VTOL_TAKEOFF:
 			mavlink_mission_item->param4 = mission_item->yaw * M_RAD_TO_DEG_F;
 			break;
 

@@ -11,9 +11,6 @@ param set BAT_A_PER_V	1.0
 #param set BAT_CAPACITY		10000.0
 param set BAT_CNT_V_CURR		8.0566405E-4
 param set BAT_CNT_V_VOLT		8.0566405E-4
-param set BAT_CRIT_THR		0.07
-param set BAT_EMERGEN_THR		0.05
-param set BAT_LOW_THR		0.15
 param set BAT_R_INTERNAL	1
 param set BAT_SOURCE		1
 param set BAT_V_CHARGED		4.10
@@ -77,6 +74,9 @@ replay tryapplyparams
 
 if param compare SYS_AUTOSTART 0
 then
+    param set BAT_CRIT_THR		0.15
+    param set BAT_EMERGEN_THR		0.10
+    param set BAT_LOW_THR		0.30
 	param set CBRK_AIRSPD_CHK	162128
 	param set CBRK_BUZZER		0
 	param set CBRK_ENGINEFAIL	284953
@@ -139,8 +139,8 @@ then
 	param set VT_FW_MIN_ALT		0.0
 	param set VT_FW_MOT_OFFID	0
 	param set VT_FW_PERM_STAB	0
-	param set VT_FW_QC_P		0
-	param set VT_FW_QC_R		0
+	param set VT_FW_QC_P		70
+	param set VT_FW_QC_R		120
 	param set VT_F_TRANS_DUR	4.0
 	param set VT_F_TRANS_THR	0.85
 	param set VT_F_TR_OL_TM		6.0
@@ -152,10 +152,10 @@ then
 	param set VT_TRANS_MIN_TM	3.0
 	param set VT_TRANS_P2_DUR	1.0
 	param set VT_TRANS_TIMEOUT	15.0
-	param set VT_TYPE			1
-	param set VT_WV_LND_EN		1
-	param set VT_WV_LTR_EN		1
-	param set VT_WV_TKO_EN		1
+	param set VT_TYPE		1
+	param set VT_WV_LND_EN		0
+	param set VT_WV_LTR_EN		0
+	param set VT_WV_TKO_EN		0
 	param set VT_WV_YAWR_SCL	2.0
 	param set SYS_AUTOSTART 13015
 fi
@@ -187,27 +187,30 @@ gd_payload start
 mavlink start -x -u 14556 -r 2000000 
 mavlink start -x -u 14557 -r 2000000 -m onboard -o 14540
 mavlink stream -r 20 -s EXTENDED_SYS_STATE -u 14557
-
-mavlink stream -r 80 -s POSITION_TARGET_LOCAL_NED -u 14556
-mavlink stream -r 80 -s LOCAL_POSITION_NED -u 14556
-mavlink stream -r 80 -s GLOBAL_POSITION_INT -u 14556
-mavlink stream -r 80 -s ATTITUDE -u 14556
-mavlink stream -r 80 -s ATTITUDE_QUATERNION -u 14556
-mavlink stream -r 80 -s ATTITUDE_TARGET -u 14556
-mavlink stream -r 20 -s RC_CHANNELS -u 14556
-#mavlink stream -r 250 -s HIGHRES_IMU -u 14556
-#mavlink stream -r 10 -s OPTICAL_FLOW_RAD -u 14556
-mavlink stream -r 10 -s HIL_ACTUATOR_CONTROLS -u 14556
 mavlink stream -r 100 -s HIL_ACTUATOR_CONTROLS -u 14557
 
-mavlink start -d /dev/serial0 -f
+mavlink stream -r 1 -s POSITION_TARGET_LOCAL_NED -u 14556
+mavlink stream -r 10 -s LOCAL_POSITION_NED -u 14556
+mavlink stream -r 10 -s GLOBAL_POSITION_INT -u 14556
+mavlink stream -r 10 -s ATTITUDE -u 14556
+mavlink stream -r 10 -s ATTITUDE_QUATERNION -u 14556
+mavlink stream -r 10 -s ATTITUDE_TARGET -u 14556
+mavlink stream -r 1 -s RC_CHANNELS -u 14556
+#mavlink stream -r 250 -s HIGHRES_IMU -u 14556
+#mavlink stream -r 10 -s OPTICAL_FLOW_RAD -u 14556
+mavlink stream -r 1 -s HIL_ACTUATOR_CONTROLS -u 14556
+
+#mavlink start -d /dev/serial0 -f
 
 logger start -e -t
 
 #replay trystart
 mavlink stream -r 200 -s HIL_ACTUATOR_CONTROLS -u 14557
+camera_trigger start
 
-linux_sbus start -d /dev/ttyUSB0
+#linux_sbus start -d /dev/ttyUSB0
+
+uart_phaseone start -d /dev/ttyUSB0 -v
 
 #camera_trigger start
 

@@ -56,11 +56,28 @@ MissionFeasibilityChecker::checkMissionWhenArming(const mission_s &mission,
 {
 	struct mission_item_s land_missionitem = {};
 	int land_index = 0;
+	int rtl_index = 0;
 	bool land_found = false;
 	bool rtl_found = false;
 	const ssize_t len = sizeof(struct mission_item_s);
 
-	for (size_t i = 0; i < mission.count; i++) {
+	size_t current_mission_index = 0;
+	mission_s mission_state = {};
+	dm_lock(DM_KEY_MISSION_STATE);
+	/* read current state */
+	int read_res = dm_read(DM_KEY_MISSION_STATE, 0, &mission_state, sizeof(mission_s));
+
+	dm_unlock(DM_KEY_MISSION_STATE);
+
+	if (read_res == sizeof(mission_s)) {
+		current_mission_index = mission_state.current_seq;
+	}
+
+	if((current_mission_index+1)>=mission_state.count) {
+			current_mission_index=0; // go back to start
+	}
+	/* search a landing after the current mission item */
+	for (size_t i = current_mission_index; i < mission.count; i++) {
 		struct mission_item_s missionitem = {};
 
 		if (dm_read((dm_item_t)mission.dataman_id, i, &missionitem, len) != len) {
@@ -68,32 +85,49 @@ MissionFeasibilityChecker::checkMissionWhenArming(const mission_s &mission,
 			return false;
 		}
 
-		// look for a RTL command
+		// look for a RTL command close to a landing
 		if (missionitem.nav_cmd == NAV_CMD_RETURN_TO_LAUNCH) {
-			PX4_INFO("found RTL");
-			rtl_found = true;
+			if(land_index>0 && (i - land_index)==1 ){
+				PX4_INFO("found RTL(%i) after landing",i);
+				rtl_found = true;
+				rtl_index = i;
+				break;
+			}
 		}
-		if((missionitem.nav_cmd == NAV_CMD_VTOL_LAND || missionitem.nav_cmd == NAV_CMD_LAND) && !land_found)
+		if((missionitem.nav_cmd == NAV_CMD_VTOL_LAND || missionitem.nav_cmd == NAV_CMD_LAND))
 		{
+			if(missionitem.nav_cmd == NAV_CMD_VTOL_LAND &&
+			   fabsf(missionitem.params[1]-1.0f)<FLT_EPSILON && // GD feature: land at take off
+			   !rtl_found ) {
+				missionitem.lat = lat;
+				missionitem.lon = lon;
+				rtl_found = true; // only update one item
+				PX4_INFO("updating landing pos.");
+				if (dm_write((dm_item_t)mission.dataman_id, i, DM_PERSIST_POWER_ON_RESET, &missionitem, len) != len) {
+					/* not supposed to happen unless the datamanager can't access the SD card, etc. */
+					PX4_INFO("failed to write mission");
+					return false;
+				}
+				mavlink_log_info(_navigator->get_mavlink_log_pub(), "Mission: update land(%i) to cur. pos.",i);
+			}
 			land_index = i;
 			land_missionitem = missionitem;
 			land_found = true;
 		}
 	}
 
-	if(rtl_found && land_found)
+	if(rtl_found && land_found && rtl_index>0)
 	{
 		land_missionitem.lat = lat;
 		land_missionitem.lon = lon;
 		PX4_INFO("updating landing pos.");
-
 		if (dm_write((dm_item_t)mission.dataman_id, land_index, DM_PERSIST_POWER_ON_RESET, &land_missionitem, len) != len) {
 			/* not supposed to happen unless the datamanager can't access the SD card, etc. */
 			PX4_INFO("failed to write mission");
 			return false;
 		}
 
-		mavlink_log_info(_navigator->get_mavlink_log_pub(), "Mission: land at cur. position");
+		mavlink_log_info(_navigator->get_mavlink_log_pub(), "Mission: update land(%i) to cur. pos. RTL",land_index);
 		return true;
 	}
 	// all checks have passed
@@ -525,6 +559,11 @@ MissionFeasibilityChecker::checkDistanceToFirstWaypoint(const mission_s &mission
 		return true;
 	}
 
+	float min_distance = 0.0f;
+	if (_navigator->get_vstatus()->is_vtol)	{
+		min_distance = MissionBlock::TAKEOFF_MIN_DIST;
+	}
+
 	size_t current_mission_index = 0;
 	mission_s mission_state = {};
 	dm_lock(DM_KEY_MISSION_STATE);
@@ -561,13 +600,30 @@ MissionFeasibilityChecker::checkDistanceToFirstWaypoint(const mission_s &mission
 		float dist_to_1wp = get_distance_to_next_waypoint(
 					    mission_item.lat, mission_item.lon,
 					    _navigator->get_home_position()->lat, _navigator->get_home_position()->lon);
+		if (_navigator->get_vstatus()->is_vtol){
+			// warn if we are a vtol but selected waypoint is not a vtol take off mission item, but we will still allow it
+			if(mission_item.nav_cmd != NAV_CMD_VTOL_TAKEOFF)
+			{
+				mavlink_log_critical(_navigator->get_mavlink_log_pub(),
+						     "First wp(%i) is not a VTOL takeoff.",i+1);
+				_navigator->get_mission_result()->warning = true;
+			}
+			// waypoint too close for good yaw aligment for transition
+			if((min_distance > 0.0f) && (dist_to_1wp < min_distance))
+			{
+				mavlink_log_critical(_navigator->get_mavlink_log_pub(),
+						     "First wp(%i) too close: %d meters.",i+1, (int)dist_to_1wp);
+				_navigator->get_mission_result()->warning = true;
+				return false;
+			}
+		}
 
 		if (dist_to_1wp < max_distance) {
 
 			if (dist_to_1wp > ((max_distance * 2) / 3)) {
 				/* allow at 2/3 distance, but warn */
 				mavlink_log_critical(_navigator->get_mavlink_log_pub(),
-						     "First wp(%i) far away: %d meters.",i, (int)dist_to_1wp);
+						     "First wp(%i) far away: %d meters.",i+1, (int)dist_to_1wp);
 
 				_navigator->get_mission_result()->warning = true;
 			}
@@ -578,11 +634,12 @@ MissionFeasibilityChecker::checkDistanceToFirstWaypoint(const mission_s &mission
 			/* item is too far from home */
 			mavlink_log_critical(_navigator->get_mavlink_log_pub(),
 					     "First wp(%i) too far away: %d meters, %d max.",
-					     i, (int)dist_to_1wp, (int)max_distance);
+					     i+1, (int)dist_to_1wp, (int)max_distance);
 
 			_navigator->get_mission_result()->warning = true;
 			return false;
 		}
+
 	}
 
 	/* no waypoints found in mission, then we will not fly far away */
@@ -629,7 +686,7 @@ MissionFeasibilityChecker::checkDistancesBetweenWaypoints(const mission_s &missi
 				if (dist_between_waypoints > ((max_distance * 2) / 3)) {
 					/* allow at 2/3 distance, but warn */
 					mavlink_log_critical(_navigator->get_mavlink_log_pub(),
-							     "Distance between waypoints very far: %d meters.", (int)dist_between_waypoints);
+							     "Distance between WP(%i-%i) very far: %dm.",i, i+1, (int)dist_between_waypoints);
 
 					_navigator->get_mission_result()->warning = true;
 				}
@@ -637,8 +694,8 @@ MissionFeasibilityChecker::checkDistancesBetweenWaypoints(const mission_s &missi
 			} else {
 				/* item is too far from home */
 				mavlink_log_critical(_navigator->get_mavlink_log_pub(),
-						     "Distance between waypoints too far: %d meters, %d max.",
-						     (int)dist_between_waypoints, (int)max_distance);
+						     "Distance between WP(%i-%i) too far: %dm, %d max.",
+						     i, i+1, (int)dist_between_waypoints, (int)max_distance);
 
 				_navigator->get_mission_result()->warning = true;
 				return false;

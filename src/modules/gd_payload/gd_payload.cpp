@@ -341,8 +341,8 @@ int GDPayload::task_spawn(int argc, char *argv[])
 {
 	_task_id = px4_task_spawn_cmd("gd_payload",
 				      SCHED_DEFAULT,
-					  SCHED_PRIORITY_MIN, /* reduced pritority */
-				      1512,
+					  SCHED_PRIORITY_MIN+15, /* reduced pritority */
+				      1400,
 				      (px4_main_t)&run_trampoline,
 				      (char *const *)argv);
 

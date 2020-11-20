@@ -307,6 +307,20 @@ Mission::set_current_offboard_mission_index(uint16_t index)
 			_navigator->get_position_setpoint_triplet()->next.valid = false;
 
 			set_mission_items();
+		} else {
+			if(PX4_ISFINITE(_navigator->get_global_position()->lat) &&
+					PX4_ISFINITE(_navigator->get_global_position()->lon) &&
+					PX4_ISFINITE(_navigator->get_global_position()->alt) &&
+					!_navigator->get_vstatus()->is_rotary_wing){
+				PX4_INFO("following \"previous - current\" line");
+				// use current position so we go along a line to next waypoint
+				_navigator->get_position_setpoint_triplet()->previous.lat = _navigator->get_global_position()->lat;
+				_navigator->get_position_setpoint_triplet()->previous.lon = _navigator->get_global_position()->lon;
+				_navigator->get_position_setpoint_triplet()->previous.alt = _navigator->get_global_position()->alt;
+				_navigator->get_position_setpoint_triplet()->previous.alt_valid  =true;
+				_navigator->get_position_setpoint_triplet()->previous.position_valid = true;
+				_navigator->get_position_setpoint_triplet()->previous.valid = true;
+			}
 		}
 
 		return true;
@@ -325,14 +339,15 @@ void
 Mission::set_execution_mode(const uint8_t mode)
 {
 	if (_mission_execution_mode != mode) {
+		PX4_INFO("set_execution_mode(%i)", mode);
 		_execution_mode_changed = true;
 		_navigator->get_mission_result()->execution_mode = mode;
 
 
-		switch (_mission_execution_mode) {
+		switch (_mission_execution_mode) { // old mode was
 		case mission_result_s::MISSION_EXECUTION_MODE_NORMAL:
 		case mission_result_s::MISSION_EXECUTION_MODE_FAST_FORWARD:
-			if (mode == mission_result_s::MISSION_EXECUTION_MODE_REVERSE) {
+			if (mode == mission_result_s::MISSION_EXECUTION_MODE_REVERSE) { // new mode is reverse
 				// command a transition if in vtol mc mode
 				if (_navigator->get_vstatus()->is_rotary_wing &&
 				    _navigator->get_vstatus()->is_vtol &&
@@ -381,7 +396,7 @@ Mission::set_execution_mode(const uint8_t mode)
 
 		}
 
-		_mission_execution_mode = mode;
+		_mission_execution_mode = mode; // safe new mode
 	}
 }
 
@@ -453,13 +468,12 @@ Mission::update_offboard_mission()
 {
 
 	bool failed = true;
-
 	/* reset triplets */
 	_navigator->reset_triplets();
 	if(PX4_ISFINITE(_navigator->get_global_position()->lat) &&
 			PX4_ISFINITE(_navigator->get_global_position()->lon) &&
-			PX4_ISFINITE(_navigator->get_global_position()->alt) &&
-			_navigator->is_planned_mission()){
+			PX4_ISFINITE(_navigator->get_global_position()->alt)/* &&
+			_navigator->is_planned_mission()*/){
 		// use current position so we go along a line to next waypoint
 		_navigator->get_position_setpoint_triplet()->current.lat = _navigator->get_global_position()->lat;
 		_navigator->get_position_setpoint_triplet()->current.lon = _navigator->get_global_position()->lon;
@@ -802,6 +816,7 @@ Mission::set_mission_items()
 				    && new_work_item_type == WORK_ITEM_TYPE_DEFAULT
 				    && !_navigator->get_land_detected()->landed) {
 
+					PX4_INFO("move to land wp as fixed wing");
 					new_work_item_type = WORK_ITEM_TYPE_MOVE_TO_LAND;
 
 					/* use current mission item as next position item */
@@ -1245,6 +1260,13 @@ Mission::heading_sp_update()
 		}
 
 	} else {
+		if((_mission_item.nav_cmd == NAV_CMD_LOITER_UNLIMITED ||
+				_mission_item.nav_cmd == NAV_CMD_LOITER_TIME_LIMIT ||
+				_mission_item.nav_cmd == NAV_CMD_LOITER_TO_ALT) &&
+				PX4_ISFINITE(_mission_item.yaw))
+		{
+			pos_sp_triplet->current.yaw = _mission_item.yaw;
+		} else
 		/* set yaw angle for the waypoint if a loiter time has been specified */
 		if (_waypoint_position_reached && get_time_inside(_mission_item) > FLT_EPSILON) {
 			// XXX: should actually be param4 from mission item
@@ -1297,6 +1319,11 @@ Mission::heading_sp_update()
 					pos_sp_triplet->current.yaw = _mission_item.yaw;
 
 				} else {
+					// if vtol and copter, we will not care about yaw. let the wind do it
+					if(_navigator->get_vstatus()->is_vtol && _navigator->get_vstatus()->is_rotary_wing)
+					{
+						yaw = NAN;
+					}
 					_mission_item.yaw = yaw;
 					pos_sp_triplet->current.yaw = _mission_item.yaw;
 				}
