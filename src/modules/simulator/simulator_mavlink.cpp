@@ -243,7 +243,7 @@ void Simulator::update_sensors(const hrt_abstime &time, const mavlink_hil_sensor
 
 	// baro
 	if ((sensors.fields_updated & SensorSource::BARO) == SensorSource::BARO && !_param_sim_baro_block.get()) {
-		_px4_baro.update(time, sensors.abs_pressure);
+		_px4_baro.update(time, sensors.abs_pressure + (static_cast<float>(rand()) / static_cast<float>(RAND_MAX))*0.1f );
 	}
 
 	// differential pressure
