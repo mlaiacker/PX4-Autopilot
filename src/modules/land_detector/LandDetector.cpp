@@ -77,7 +77,7 @@ void LandDetector::Run()
 
 		_total_flight_time = static_cast<uint64_t>(_param_total_flight_time_high.get()) << 32;
 		_total_flight_time |= static_cast<uint32_t>(_param_total_flight_time_low.get());
-		_total_flight_count = _param_total_flight_count.get();
+		_total_flight_count = static_cast<uint32_t>(_param_total_flight_count.get());
 	}
 
 	actuator_armed_s actuator_armed;
@@ -146,6 +146,9 @@ void LandDetector::Run()
 			_total_flight_count += 1;
 			_param_total_flight_count.set(_total_flight_count);
 			_param_total_flight_count.commit_no_notification();
+			PX4_ERR("counted %d", _total_flight_count);
+		} else {
+			PX4_ERR("not counted %d", _total_flight_count);
 		}
 
 		_total_flight_time += now_us - _takeoff_time;
