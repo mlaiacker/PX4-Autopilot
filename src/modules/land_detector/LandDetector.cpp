@@ -148,7 +148,7 @@ void LandDetector::Run()
 			_param_total_flight_count.commit_no_notification();
 			PX4_ERR("counted %d", _total_flight_count);
 		} else {
-			PX4_ERR("not counted %d", _total_flight_count);
+			PX4_ERR("not counted %d %ldus", _total_flight_count, last_flight_duration_us);
 		}
 
 		_total_flight_time += now_us - _takeoff_time;
