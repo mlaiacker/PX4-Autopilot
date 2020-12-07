@@ -45,9 +45,8 @@
 #include <string.h>
 #include <ecl/geo/geo.h>
 
-#include <drivers/device/Device.hpp>
+#include <drivers/device/i2c.h>
 #include <mathlib/mathlib.h>
-#include <perf/perf_counter.h>
 #include <px4_platform_common/module.h>
 #include <px4_platform_common/getopt.h>
 #include <px4_platform_common/i2c_spi_buses.h>
@@ -92,19 +91,19 @@
 #define BATT_PAC17_REG_MID		0xfe // should be 0x5d
 #define BATT_PAC17_REG_REVISION	0xff // should be 0x81
 
-class BATT_PAC17 : public ModuleParams, public I2CSPIDriver<BATT_PAC17>
+class BATT_PAC17 : public device::I2C, public ModuleParams, public I2CSPIDriver<BATT_PAC17>
 {
 public:
-	BATT_PAC17(device::I2C *Device, I2CSPIBusOption bus_option, int bus, uint8_t batt_pac17_addr, float sens_resistor, uint16_t sens_range);
+	BATT_PAC17(I2CSPIBusOption bus_option, int bus, uint8_t batt_pac17_addr, float sens_resistor, uint16_t sens_range);
 	~BATT_PAC17();
 
 	static I2CSPIDriverBase *instantiate(const BusCLIArguments &cli, const BusInstanceIterator &iterator,
 					     int runtime_instance);
 	static void print_usage();
 
-	void RunImpl();
+	void 		RunImpl();
 
-	void custom_method(const BusCLIArguments &cli) override;
+	void 		custom_method(const BusCLIArguments &cli) override;
 
 	/**
 	 * Initialize device
@@ -113,46 +112,41 @@ public:
 	 *
 	 * @return 0 on success, error code on failure
 	 */
-	virtual int		init();
+	int 		init() override;
 
 	/**
-	 * Test device
-	 *
-	 * @return 0 on success, error code on failure
-	 */
-	virtual int		test();
+	* Diagnostics - print some basic information about the driver.
+	*/
+	void      	print_status() override;
 
 	/**
 	 * Search all possible slave addresses for a smart battery
 	 */
-	int			search();
+	//int			search();
 
 	int			dumpreg();
-
-	bool		identify();
-
-	void 		suspend();
-
-	void 		resume();
 
 protected:
 	/**
 	 * Check if the device can be contacted
 	 */
-	virtual int		probe();
+	int	  		probe() override;
 
 private:
 	/**
-	 * static function that is called by worker queue
-	 */
-	static void		cycle_trampoline(void *arg);
+	* Initialise the automatic measurement state machine and start it.
+	*
+	* @note This function is called at open and error time.  It might make sense
+	*       to make it more aggressive about resetting the bus in case of errors.
+	*/
+	void		start();
 
 	/**
 	 * perform a read from the battery
 	 */
-	void			cycle();
+	int			collect();
 
-	bool			try_read_data(uint64_t now);
+	bool		try_read_data(uint64_t now);
 	/**
 	 * Read a word from specified register
 	 */
@@ -169,10 +163,11 @@ private:
 	 */
 	uint16_t	convert_twos_comp(uint16_t val);
 
-	void 			vehicle_control_mode_poll();
+	void 		vehicle_control_mode_poll();
 
 	// internal variables
-	device::I2C*	_interface;
+	unsigned        _measure_interval{0};
+
 	bool			_enabled;	///< true if we have successfully connected to battery
 
 	float			_discharged_mah_armed; ///< value when we last armed to calc avg current
@@ -201,18 +196,13 @@ private:
 	Battery				_battery;	/**< Helper lib to publish battery_status topic. */
 };
 
-namespace
-{
-BATT_PAC17 *g_batt_pac17;	///< device handle. For now, we only support one BATT_PAC17 device
-}
-
 extern "C" __EXPORT int batt_pac17xx_main(int argc, char *argv[]);
 
 
-BATT_PAC17::BATT_PAC17(I2CSPIBusOption bus_option, const int bus, SMBus *interface) :
+BATT_PAC17::BATT_PAC17(I2CSPIBusOption bus_option, int bus, uint8_t batt_pac17_addr, float sens_resistor, uint16_t sens_range) :
+	I2C(DRV_POWER_DEVTYPE_PAC17, MODULE_NAME, bus, batt_pac17_addr, 400000),
 	ModuleParams(nullptr),
-	I2CSPIDriver(MODULE_NAME, px4::device_bus_to_wq(interface->get_device_id()), bus_option, bus),
-	_interface(interface),
+	I2CSPIDriver(MODULE_NAME, px4::device_bus_to_wq(get_device_id()), bus_option, bus, batt_pac17_addr),
 	_enabled(false),
 	_sens_full_scale(BATT_PAC17_SENS_RANGE),
 	_sens_sample_reg(0x53),
@@ -220,10 +210,7 @@ BATT_PAC17::BATT_PAC17(I2CSPIBusOption bus_option, const int bus, SMBus *interfa
 	_startRemaining(0),
 	_battery(1, this, BATT_PAC17_MEASUREMENT_INTERVAL_US)
 {
-	// capture startup time
 	_startupDelay = 10;
-	float sens_resistor = BATT_PAC17_SENS_R;
-	int sens_range = BATT_PAC17_SENS_RANGE;
 	if (sens_resistor > 0) {
 		_sens_resistor = sens_resistor;
 	}
@@ -254,26 +241,26 @@ BATT_PAC17::BATT_PAC17(I2CSPIBusOption bus_option, const int bus, SMBus *interfa
 	_current_a = 0.0f;
 	_armed = false;
 	_dev_id = PAC17_DEV_E::NONE;
-	_interface->init();
+
+	PX4_INFO("range %dmV %fmOhm max %fA", _sens_full_scale, (double)_sens_resistor, (double)(_sens_full_scale/sens_resistor));
 }
 
 BATT_PAC17::~BATT_PAC17()
 {
-	if (_interface != nullptr) {
-		delete _interface;
-	}
 	orb_unsubscribe(_sub_status);
 }
 
 int
 BATT_PAC17::init()
 {
-	int ret = 0;
+	int ret = PX4_ERROR;
 
-	// attempt to initialise I2C bus
-	_interface->init();
+	/* do I2C init (and probe) first */
+	if (I2C::init() != PX4_OK) {
+		return ret;
+	}
 		//Find the ic on the bus
-		identify();
+		//probe();
 
 		/* needed to read arming status */
 		_sub_status = orb_subscribe(ORB_ID(vehicle_control_mode));
@@ -283,36 +270,39 @@ BATT_PAC17::init()
 		}
 		_time_arm = hrt_absolute_time();
 		_discharged_mah_armed = 0;
-
+		start();
+		ret = 0;
 	return ret;
 }
 
-
-void BATT_PAC17::suspend()
+void
+BATT_PAC17::start()
 {
 	ScheduleClear();
+
+	_measure_interval = BATT_PAC17_MEASUREMENT_INTERVAL_US;
+
+	/* schedule a cycle to start things */
+	ScheduleDelayed(_measure_interval);
 }
 
-void BATT_PAC17::resume()
-{
-	ScheduleOnInterval(BATT_PAC17_MEASUREMENT_INTERVAL_US);
-}
-
-int
-BATT_PAC17::test()
+void
+BATT_PAC17::print_status()
 {
 //	uint64_t start_time = hrt_absolute_time();
 	PX4_INFO("armed=%i", _armed);
-	PX4_INFO("armed_t=%f", (double)_time_arm * 1e-6);
+//	PX4_INFO("armed_t=%f", (double)_time_arm * 1e-6);
 	PX4_INFO("armed_mAh=%f", (double)_discharged_mah_armed);
-	//print_message(_last_report);
+//	print_message(_last_report);
+	PX4_INFO("current=%fA", (double)_current_a_filtered);
+	PX4_INFO("voltage=%fV", (double)_voltage_v_filtered);
+
 	/*	// loop for 3 seconds
 		while ((hrt_absolute_time() - start_time) < 3000000) {
 			print_message(_last_report);
 			// sleep for 0.2 seconds
 			usleep(200000);
 		}*/
-	return OK;
 }
 
 int
@@ -331,8 +321,8 @@ BATT_PAC17::dumpreg()
 	return 0;
 }
 
-bool
-BATT_PAC17::identify()
+int
+BATT_PAC17::probe()
 {
 	uint8_t reg = 0;
 
@@ -344,27 +334,25 @@ BATT_PAC17::identify()
 				if (manufacturer == 0x5d) { //microchip?
 					if (reg == 0x57) {
 						_dev_id = PAC17_DEV_E::PAC1720;
-						PX4_INFO("PAC1720 found at 0x%x", _interface->get_device_address());
-						return true;
+						PX4_INFO("PAC1720 found at 0x%x", get_device_address());
+						return PX4_OK;
 					}
 
 					if (reg == 0x58) {
 						_dev_id = PAC17_DEV_E::PAC1710;
-						PX4_INFO("PAC1710 found at 0x%x", _interface->get_device_address());
-						return true;
+						PX4_INFO("PAC1710 found at 0x%x", get_device_address());
+						return PX4_OK;
 					}
 				}
 			}
 
-		} else {
-			PX4_INFO("dev found at 0x%x PID=0x%x", _interface->get_device_address(), reg);
-			//dumpreg();
 		}
 	}
 
-	return false;
+	return -1;
 }
 
+/*
 int
 BATT_PAC17::search()
 {
@@ -380,8 +368,7 @@ BATT_PAC17::search()
 			//break;
 		}
 
-		usleep(1);
-
+		usleep(10);
 	}
 
 	if (found_slave == false) {
@@ -399,7 +386,7 @@ BATT_PAC17::search()
 
 	return OK;
 }
-
+*/
 
 bool
 BATT_PAC17::try_read_data(uint64_t now)
@@ -463,7 +450,7 @@ BATT_PAC17::RunImpl()
 	vehicle_control_mode_poll();
 
 	if (_dev_id == PAC17_DEV_E::NONE) {
-		identify();
+		probe();
 	}
 
 	if (_dev_id != PAC17_DEV_E::NONE) {
@@ -508,7 +495,7 @@ BATT_PAC17::read_reg(uint8_t reg, uint8_t &val)
 	uint8_t buff[2];	// 2 bytes of data
 
 	// read from register
-	int ret = _interface->transfer(&reg, 1, buff, 2);
+	int ret = transfer(&reg, 1, buff, 2);
 
 	val = buff[0];
 	// return success or failure
@@ -524,7 +511,7 @@ BATT_PAC17::write_reg(uint8_t reg, uint8_t val)
 	buff[1] = (uint8_t)val;
 
 	// write bytes to register
-	int ret = _interface->transfer(buff, 2, nullptr, 0);
+	int ret = transfer(buff, 2, nullptr, 0);
 	// return success or failure
 	return ret;
 }
@@ -583,11 +570,8 @@ $ batt_pac17xx -X start -r 0.2 -s 40
 	PRINT_MODULE_USAGE_PARAMS_I2C_SPI_DRIVER(true, false);
 	PRINT_MODULE_USAGE_PARAMS_I2C_ADDRESS(BATT_PAC17_ADDR);
 
-	PRINT_MODULE_USAGE_COMMAND_DESCR("suspend", "Suspends the driver from rescheduling the cycle.");
-	PRINT_MODULE_USAGE_COMMAND_DESCR("resume", "Resumes the driver from suspension.");
-	PRINT_MODULE_USAGE_COMMAND_DESCR("search", "looks on the bus");
-	PRINT_MODULE_USAGE_PARAM_FLOAT("r", BATT_PAC17_SENS_R, 0.01f, 1000.0f,"sense resistor in mOhm", true);
-	PRINT_MODULE_USAGE_PARAM_INT("s", BATT_PAC17_SENS_RANGE, 10, 80,"full range sense voltage 10,20,40,80mV", true);
+	PRINT_MODULE_USAGE_PARAM_FLOAT('r', BATT_PAC17_SENS_R, 0.01f, 1000.0f, "sense resistor in mOhm", true);
+	PRINT_MODULE_USAGE_PARAM_INT('s', BATT_PAC17_SENS_RANGE, 10, 80, "full range sense voltage 10,20,40,80mV", true);
 
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 /*
@@ -603,25 +587,20 @@ $ batt_pac17xx -X start -r 0.2 -s 40
 I2CSPIDriverBase *BATT_PAC17::instantiate(const BusCLIArguments &cli, const BusInstanceIterator &iterator,
 				      int runtime_instance)
 {
-	SMBus *interface = new SMBus(iterator.bus(), cli.i2c_address);
-	if (interface == nullptr) {
-		PX4_ERR("alloc failed");
-		return nullptr;
-	}
-	BATT_PAC17 *instance = new BATT_PAC17(iterator.configuredBusOption(), iterator.bus(), interface);
+	BATT_PAC17 *instance = new BATT_PAC17(iterator.configuredBusOption(), iterator.bus(), cli.i2c_address,
+			cli.custom1, cli.custom2/10.0f);
 
 	if (instance == nullptr) {
 		PX4_ERR("alloc failed");
 		return nullptr;
 	}
 
-	int result = instance->get_startup_info();
-
-	if (result != PX4_OK) {
+	if (instance->init() != PX4_OK) {
+		PX4_INFO("Failed to init PAC17 on bus %d, but will try again periodically.", iterator.bus());
 		delete instance;
 		return nullptr;
 	}
-	instance->ScheduleOnInterval(BATT_PAC17_MEASUREMENT_INTERVAL_US);
+
 	return instance;
 }
 
@@ -637,15 +616,24 @@ BATT_PAC17::custom_method(const BusCLIArguments &cli)
 int
 batt_pac17xx_main(int argc, char *argv[])
 {
-//	int i2cdevice = BATT_PAC17_I2C_BUS;
-//	int batt_pac17adr = BATT_PAC17_ADDR; // 7bit address
-	float	resistor = 0;
-	int range = 0;
+	int ch;
 
 	using ThisDriver = BATT_PAC17;
 	BusCLIArguments cli{true, false};
-	cli.default_i2c_frequency = 100000;
+	cli.default_i2c_frequency = 400000;
 	cli.i2c_address = BATT_PAC17_ADDR;
+
+	while ((ch = cli.getopt(argc, argv, "r:s:")) != EOF) {
+		switch (ch) {
+		case 's': // sens range mV
+			cli.custom1 = (int)strtol(cli.optarg(), NULL, 0);;
+			break;
+
+		case 'r': // sens resistor mOhm
+			cli.custom2 = (int)strtol(cli.optarg(), NULL, 0)*10;
+			break;
+		}
+	}
 
 	const char *verb = cli.parseDefaultArguments(argc, argv);
 	if (!verb) {
