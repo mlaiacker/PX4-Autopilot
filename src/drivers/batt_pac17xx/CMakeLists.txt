@@ -37,4 +37,6 @@ px4_add_module(
 	SRCS
 		batt_pac17xx.cpp
 	DEPENDS
+		battery
+		px4_work_queue
 	)

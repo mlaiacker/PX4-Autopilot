@@ -103,8 +103,6 @@ public:
 
 	void 		RunImpl();
 
-	void 		custom_method(const BusCLIArguments &cli) override;
-
 	/**
 	 * Initialize device
 	 *
@@ -200,7 +198,7 @@ extern "C" __EXPORT int batt_pac17xx_main(int argc, char *argv[]);
 
 
 BATT_PAC17::BATT_PAC17(I2CSPIBusOption bus_option, int bus, uint8_t batt_pac17_addr, float sens_resistor, uint16_t sens_range) :
-	I2C(DRV_POWER_DEVTYPE_PAC17, MODULE_NAME, bus, batt_pac17_addr, 400000),
+	I2C(DRV_POWER_DEVTYPE_PAC17, MODULE_NAME, bus, batt_pac17_addr, 100000),
 	ModuleParams(nullptr),
 	I2CSPIDriver(MODULE_NAME, px4::device_bus_to_wq(get_device_id()), bus_option, bus, batt_pac17_addr),
 	_enabled(false),
@@ -208,7 +206,7 @@ BATT_PAC17::BATT_PAC17(I2CSPIBusOption bus_option, int bus, uint8_t batt_pac17_a
 	_sens_sample_reg(0x53),
 	_sens_resistor(BATT_PAC17_SENS_R),
 	_startRemaining(0),
-	_battery(1, this, BATT_PAC17_MEASUREMENT_INTERVAL_US)
+	_battery(0, this, BATT_PAC17_MEASUREMENT_INTERVAL_US)
 {
 	_startupDelay = 10;
 	if (sens_resistor > 0) {
@@ -243,7 +241,16 @@ BATT_PAC17::BATT_PAC17(I2CSPIBusOption bus_option, int bus, uint8_t batt_pac17_a
 	_dev_id = PAC17_DEV_E::NONE;
 
 	PX4_INFO("range %dmV %fmOhm max %fA", _sens_full_scale, (double)_sens_resistor, (double)(_sens_full_scale/sens_resistor));
-}
+	// We need to publish immediately, to guarantee that the first instance of the driver publishes to uORB instance 0
+	_battery.updateBatteryStatus(
+		hrt_absolute_time(),
+		0.0,
+		0.0,
+		false,
+		battery_status_s::BATTERY_SOURCE_POWER_MODULE,
+		0,
+		0.0
+	);}
 
 BATT_PAC17::~BATT_PAC17()
 {
@@ -257,10 +264,11 @@ BATT_PAC17::init()
 
 	/* do I2C init (and probe) first */
 	if (I2C::init() != PX4_OK) {
+		PX4_ERR("i2c init failed");
 		return ret;
 	}
 		//Find the ic on the bus
-		//probe();
+		probe();
 
 		/* needed to read arming status */
 		_sub_status = orb_subscribe(ORB_ID(vehicle_control_mode));
@@ -348,7 +356,7 @@ BATT_PAC17::probe()
 
 		}
 	}
-
+	PX4_INFO("PAC17xx not found at 0x%x", get_device_address());
 	return -1;
 }
 
@@ -451,6 +459,8 @@ BATT_PAC17::RunImpl()
 
 	if (_dev_id == PAC17_DEV_E::NONE) {
 		probe();
+		/* schedule a fresh cycle call when the measurement is done */
+		ScheduleDelayed(BATT_PAC17_MEASUREMENT_INTERVAL_US*10);
 	}
 
 	if (_dev_id != PAC17_DEV_E::NONE) {
@@ -478,13 +488,15 @@ BATT_PAC17::RunImpl()
 
 		} else {
 			if (_enabled) {
+				// report lost connection to battery
 				_battery.updateBatteryStatus(now, _voltage_v, _current_a,
 							     false, battery_status_s::BATTERY_SOURCE_EXTERNAL, 0,	0.0f);
-				// report lost connection to battery
 			}
 
 			_enabled = false;
 		}
+		/* schedule a fresh cycle call when the measurement is done */
+		ScheduleDelayed(BATT_PAC17_MEASUREMENT_INTERVAL_US);
 	}
 }
 
@@ -553,7 +565,8 @@ void BATT_PAC17::vehicle_control_mode_poll()
 
 ///////////////////////// shell functions ///////////////////////
 
-void BATT_PAC17::print_usage()
+void
+BATT_PAC17::print_usage()
 {
 	PRINT_MODULE_DESCRIPTION(
 		R"DESCR_STR(
@@ -596,7 +609,7 @@ I2CSPIDriverBase *BATT_PAC17::instantiate(const BusCLIArguments &cli, const BusI
 	}
 
 	if (instance->init() != PX4_OK) {
-		PX4_INFO("Failed to init PAC17 on bus %d, but will try again periodically.", iterator.bus());
+		PX4_INFO("Failed to init PAC17 on bus %d.", iterator.bus());
 		delete instance;
 		return nullptr;
 	}
@@ -604,15 +617,6 @@ I2CSPIDriverBase *BATT_PAC17::instantiate(const BusCLIArguments &cli, const BusI
 	return instance;
 }
 
-void
-BATT_PAC17::custom_method(const BusCLIArguments &cli)
-{
-	switch(cli.custom1) {
-		case 1: {
-		}
-		break;
-	}
-}
 int
 batt_pac17xx_main(int argc, char *argv[])
 {
@@ -620,7 +624,7 @@ batt_pac17xx_main(int argc, char *argv[])
 
 	using ThisDriver = BATT_PAC17;
 	BusCLIArguments cli{true, false};
-	cli.default_i2c_frequency = 400000;
+	cli.default_i2c_frequency = 100000;
 	cli.i2c_address = BATT_PAC17_ADDR;
 
 	while ((ch = cli.getopt(argc, argv, "r:s:")) != EOF) {
@@ -641,7 +645,7 @@ batt_pac17xx_main(int argc, char *argv[])
 		return -1;
 	}
 
-	BusInstanceIterator iterator(MODULE_NAME, cli, DRV_BAT_DEVTYPE_SMBUS);
+	BusInstanceIterator iterator(MODULE_NAME, cli, DRV_POWER_DEVTYPE_PAC17);
 
 	if (!strcmp(verb, "start")) {
 		return ThisDriver::module_start(cli, iterator);

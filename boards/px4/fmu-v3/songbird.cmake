@@ -45,10 +45,10 @@ px4_add_board(
 		magnetometer # all available magnetometer drivers
 		mkblctrl
 		#optical_flow # all available optical flow drivers
-		optical_flow/px4flow
+		#optical_flow/px4flow
 		#osd
 		#pca9685
-		#power_monitor/ina226
+		power_monitor/ina226
 		#protocol_splitter
 		pwm_input
 		pwm_out_sim
@@ -56,7 +56,7 @@ px4_add_board(
 		px4io
 		#roboclaw
 		#tap_esc
-		telemetry # all available telemetry drivers
+		#telemetry # all available telemetry drivers
 		test_ppm
 		tone_alarm
 		#uavcan

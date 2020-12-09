@@ -42,18 +42,18 @@ px4_add_board(
 		lights/rgbled_ncp5623c
 		magnetometer # all available magnetometer drivers
 		mkblctrl
-		optical_flow # all available optical flow drivers
+		#optical_flow # all available optical flow drivers
 		#osd
 		pca9685
-		#power_monitor/ina226
+		power_monitor/ina226
 		#protocol_splitter
 		pwm_out_sim
 		pwm_out
 		px4io
 		#roboclaw
 		rpm
-		tap_esc
-		telemetry # all available telemetry drivers
+		#tap_esc
+		#telemetry # all available telemetry drivers
 		test_ppm
 		tone_alarm
 		uavcan
