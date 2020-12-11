@@ -197,7 +197,8 @@ private:
 extern "C" __EXPORT int batt_pac17xx_main(int argc, char *argv[]);
 
 
-BATT_PAC17::BATT_PAC17(I2CSPIBusOption bus_option, int bus, uint8_t batt_pac17_addr, float sens_resistor, uint16_t sens_range) :
+BATT_PAC17::BATT_PAC17(I2CSPIBusOption bus_option, int bus, uint8_t batt_pac17_addr,
+		float sens_resistor, uint16_t sens_range) :
 	I2C(DRV_POWER_DEVTYPE_PAC17, MODULE_NAME, bus, batt_pac17_addr, 100000),
 	ModuleParams(nullptr),
 	I2CSPIDriver(MODULE_NAME, px4::device_bus_to_wq(get_device_id()), bus_option, bus, batt_pac17_addr),
@@ -206,7 +207,7 @@ BATT_PAC17::BATT_PAC17(I2CSPIBusOption bus_option, int bus, uint8_t batt_pac17_a
 	_sens_sample_reg(0x53),
 	_sens_resistor(BATT_PAC17_SENS_R),
 	_startRemaining(0),
-	_battery(0, this, BATT_PAC17_MEASUREMENT_INTERVAL_US)
+	_battery(1, this, BATT_PAC17_MEASUREMENT_INTERVAL_US)
 {
 	_startupDelay = 10;
 	if (sens_resistor > 0) {
@@ -240,7 +241,6 @@ BATT_PAC17::BATT_PAC17(I2CSPIBusOption bus_option, int bus, uint8_t batt_pac17_a
 	_armed = false;
 	_dev_id = PAC17_DEV_E::NONE;
 
-	PX4_INFO("range %dmV %fmOhm max %fA", _sens_full_scale, (double)_sens_resistor, (double)(_sens_full_scale/sens_resistor));
 	// We need to publish immediately, to guarantee that the first instance of the driver publishes to uORB instance 0
 	_battery.updateBatteryStatus(
 		hrt_absolute_time(),
@@ -250,7 +250,8 @@ BATT_PAC17::BATT_PAC17(I2CSPIBusOption bus_option, int bus, uint8_t batt_pac17_a
 		battery_status_s::BATTERY_SOURCE_POWER_MODULE,
 		0,
 		0.0
-	);}
+	);
+}
 
 BATT_PAC17::~BATT_PAC17()
 {
@@ -298,6 +299,7 @@ void
 BATT_PAC17::print_status()
 {
 //	uint64_t start_time = hrt_absolute_time();
+	PX4_INFO("range %dmV %.1fmOhm max %.1fA", _sens_full_scale, (double)_sens_resistor, (double)(_sens_full_scale/_sens_resistor));
 	PX4_INFO("armed=%i", _armed);
 //	PX4_INFO("armed_t=%f", (double)_time_arm * 1e-6);
 	PX4_INFO("armed_mAh=%f", (double)_discharged_mah_armed);
@@ -583,25 +585,17 @@ $ batt_pac17xx -X start -r 0.2 -s 40
 	PRINT_MODULE_USAGE_PARAMS_I2C_SPI_DRIVER(true, false);
 	PRINT_MODULE_USAGE_PARAMS_I2C_ADDRESS(BATT_PAC17_ADDR);
 
-	PRINT_MODULE_USAGE_PARAM_FLOAT('r', BATT_PAC17_SENS_R, 0.01f, 1000.0f, "sense resistor in mOhm", true);
-	PRINT_MODULE_USAGE_PARAM_INT('s', BATT_PAC17_SENS_RANGE, 10, 80, "full range sense voltage 10,20,40,80mV", true);
+	PRINT_MODULE_USAGE_PARAM_FLOAT('R', BATT_PAC17_SENS_R, 0.1f, 1000.0f, "sense resistor in mOhm", true);
+	PRINT_MODULE_USAGE_PARAM_INT('r', BATT_PAC17_SENS_RANGE, 10, 80, "full range sense voltage 10,20,40,80mV", true);
 
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
-/*
-	PX4_INFO("missing command: try 'start', 'test', 'stop', 'search'");
-	PX4_INFO("options:");
-	PX4_INFO("    -b i2cbus (%d)", BATT_PAC17_I2C_BUS);
-	PX4_INFO("    -a addr (0x%x)", BATT_PAC17_ADDR);
-	PX4_INFO("    -r sense resistor (%.2fmOhm)", (double)BATT_PAC17_SENS_R);
-	PX4_INFO("    -s full range sense voltage (%imV) 10,20,40,80", BATT_PAC17_SENS_RANGE);
-	*/
 }
 
 I2CSPIDriverBase *BATT_PAC17::instantiate(const BusCLIArguments &cli, const BusInstanceIterator &iterator,
 				      int runtime_instance)
 {
 	BATT_PAC17 *instance = new BATT_PAC17(iterator.configuredBusOption(), iterator.bus(), cli.i2c_address,
-			cli.custom1, cli.custom2/10.0f);
+			cli.custom2*0.1, cli.custom1);
 
 	if (instance == nullptr) {
 		PX4_ERR("alloc failed");
@@ -627,14 +621,14 @@ batt_pac17xx_main(int argc, char *argv[])
 	cli.default_i2c_frequency = 100000;
 	cli.i2c_address = BATT_PAC17_ADDR;
 
-	while ((ch = cli.getopt(argc, argv, "r:s:")) != EOF) {
+	while ((ch = cli.getopt(argc, argv, "r:R:")) != EOF) {
 		switch (ch) {
-		case 's': // sens range mV
-			cli.custom1 = (int)strtol(cli.optarg(), NULL, 0);;
+		case 'r': // sens range mV
+			cli.custom1 = (int)strtol(cli.optarg(), NULL, 10);
 			break;
 
-		case 'r': // sens resistor mOhm
-			cli.custom2 = (int)strtol(cli.optarg(), NULL, 0)*10;
+		case 'R': // sens resistor mOhm
+			cli.custom2 = (int)(strtof(cli.optarg(), NULL)*10);
 			break;
 		}
 	}

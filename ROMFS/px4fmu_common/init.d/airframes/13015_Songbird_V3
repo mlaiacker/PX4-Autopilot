@@ -99,8 +99,8 @@ set PWM_AUX_RATE 50
 
 set MAV_TYPE 21
 
-# batt_pac on I2C bus 2
-batt_pac17xx start -X -r 0.2 -s 80
+# batt_pac power monitor
+batt_pac17xx start -X -R 0.2 -r 80
 
 #temp_lm75 start -n tempPDB
 
