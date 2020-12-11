@@ -242,7 +242,7 @@ private:
 	float _scale{1.f};
 	uint8_t _warning{battery_status_s::BATTERY_WARNING_NONE};
 	hrt_abstime _last_timestamp{0};
-	void estimateRemainingTime();
+	void estimateRemainingTime(const hrt_abstime &timestamp);
 	hrt_abstime _time_armed{0};
 	float _discharged_mah_armed{0.f};
 	float _startRemaining{-1.f}; ///< estimated percent remaining based on voltage at start

@@ -139,7 +139,7 @@ void Battery::updateBatteryStatus(const hrt_abstime &timestamp, float voltage_v,
 	estimateRemaining(_voltage_filter_v.getState(), _current_filter_a.getState(), _throttle_filter.getState());
 	computeScale();
 
-	estimateRemainingTime();
+	estimateRemainingTime(timestamp);
 
 	if (_battery_initialized) {
 		determineWarning(connected);
@@ -174,12 +174,12 @@ void Battery::updateBatteryStatus(const hrt_abstime &timestamp, float voltage_v,
 	}
 }
 
-void Battery::estimateRemainingTime()
+void Battery::estimateRemainingTime(const hrt_abstime &timestamp)
 {
 
-	if (!_battery_initialized) {
+	if (!_battery_initialized || _time_armed==0) {
 		_current_filter_average_a.reset(_current_filter_a.getState());
-		_time_armed = _battery_status.timestamp;
+		_time_armed = timestamp;
 		_discharged_mah_armed = _discharged_mah;
 		_startRemaining = -1.0f;
 
@@ -197,7 +197,7 @@ void Battery::estimateRemainingTime()
 
 	_current_filter_average_a.update(_current_filter_a.getState());
 
-	float duration_flight_s = (_battery_status.timestamp - _time_armed) * 1.0e-6f;
+	float duration_flight_s = (timestamp - _time_armed) * 1.0e-6f;
 
 	if (duration_flight_s > 10.0f && _battery_initialized) {
 
