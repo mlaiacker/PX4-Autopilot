@@ -119,10 +119,16 @@ int BusCLIArguments::getopt(int argc, char *argv[], const char *options)
 	while ((ch = px4_getopt(argc, argv, _options, &_optind, &_optarg)) != EOF) {
 		switch (ch) {
 		case 'X':
+			if (!_i2c_support) {
+				return ch;
+			}
 			bus_option = I2CSPIBusOption::I2CExternal;
 			break;
 
 		case 'I':
+			if (!_i2c_support) {
+				return ch;
+			}
 			bus_option = I2CSPIBusOption::I2CInternal;
 			break;
 
@@ -135,14 +141,23 @@ int BusCLIArguments::getopt(int argc, char *argv[], const char *options)
 			break;
 
 		case 'S':
+			if (!_spi_support) {
+				return ch;
+			}
 			bus_option = I2CSPIBusOption::SPIExternal;
 			break;
 
 		case 's':
+			if (!_spi_support) {
+				return ch;
+			}
 			bus_option = I2CSPIBusOption::SPIInternal;
 			break;
 
 		case 'c':
+			if (!_spi_support) {
+				return ch;
+			}
 			chipselect_index = atoi(_optarg);
 			break;
 
@@ -155,6 +170,9 @@ int BusCLIArguments::getopt(int argc, char *argv[], const char *options)
 			break;
 
 		case 'm':
+			if (!_spi_support) {
+				return ch;
+			}
 			spi_mode = (spi_mode_e)atoi(_optarg);
 			break;
 
