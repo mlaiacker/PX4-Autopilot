@@ -55,7 +55,7 @@ px4_add_board(
 		uuv_att_control
 
 		gd_payload
-		
+		uart_phaseone
 	SYSTEMCMDS
 		#dumpfile
 		dyn

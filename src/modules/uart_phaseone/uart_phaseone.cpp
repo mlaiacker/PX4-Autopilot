@@ -6,18 +6,25 @@
  * @author Maximilian Laiacker <post@mlaiacker.de>
  */
 
-#include <px4_getopt.h>
+#include <px4_platform_common/module.h>
+#include <px4_platform_common/getopt.h>
 #include <px4_log.h>
-#include <px4_posix.h>
-#include <px4_module.h>
-#include <px4_module_params.h>
+#include <px4_platform_common/module.h>
+#include <px4_platform_common/module_params.h>
+#include <px4_platform_common/tasks.h>
 
 #include <sys/types.h>
 #include <sys/ioctl.h>
+#include <fcntl.h>
 
 #include <termios.h>
+#include <poll.h>
+#include <errno.h>
 
+#ifdef __PX4_NUTTX
+#include <nuttx/arch.h>
 #include <arch/board/board.h>
+#endif
 
 #include <uORB/topics/camera_trigger.h>
 #include <uORB/topics/camera_capture.h>
@@ -613,7 +620,6 @@ void UartPhaseOne::ixParseReply( ix_reply_t *reply)
 		cam_lens.y = (float)_p1_system_info.Lens_brand_id;
 		cam_lens.z = (float)_p1_system_info.Lens_focal_length;
 		cam_lens.timestamp = hrt_absolute_time();
-		cam_lens.timestamp_us = hrt_absolute_time();
 		dataPublish(&cam_lens);
 		break;
 	case IX_CMD_ID::GET_EXT_SYSTEM_STATUS:
@@ -631,7 +637,6 @@ void UartPhaseOne::ixParseReply( ix_reply_t *reply)
 		sys_status.y = _p1_sys_status.Successful_captures_counter;
 		sys_status.z = _p1_sys_status.Missed_captures_counter;
 		sys_status.timestamp = hrt_absolute_time();
-		sys_status.timestamp_us = hrt_absolute_time();
 		dataPublish(&sys_status);
 		break;
 	case IX_CMD_ID::GET_SYSTEM_STATUS:
@@ -654,7 +659,7 @@ void UartPhaseOne::ixParseReply( ix_reply_t *reply)
 		storage.x = (float)_p1_storage.Local_storage_image_capacity;
 		storage.y = (float)(_p1_storage.Local_storage_capacity/1024/1024); // in Mega bytes
 		storage.z = (float)_p1_storage.Local_storage_status;
-		storage.timestamp_us = storage.timestamp = hrt_absolute_time();
+		storage.timestamp = hrt_absolute_time();
 
 		dataPublish(&storage);
 		break;
@@ -702,7 +707,7 @@ void UartPhaseOne::ixParseReply( ix_reply_t *reply)
 		if (_p1_iso.ISO_value_denom!=0){
 			img_settings.z = (float)_p1_iso.ISO_value_num/(float)_p1_iso.ISO_value_denom;
 		}
-		img_settings.timestamp_us = img_settings.timestamp = hrt_absolute_time();
+		img_settings.timestamp = hrt_absolute_time();
 		dataPublish(&img_settings);
 		break;
 	case IX_CMD_ID::GET_EXPOSURE_COMPENSATION:

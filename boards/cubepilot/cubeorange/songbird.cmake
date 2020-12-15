@@ -92,6 +92,7 @@ px4_add_board(
 		vmount
 		vtol_att_control
 		gd_payload
+		uart_phaseone
 	SYSTEMCMDS
 		bl_update
 		dmesg
