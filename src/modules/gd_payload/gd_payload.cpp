@@ -411,6 +411,7 @@ _pub_battery(nullptr)
 	_used_mAh = 0.0f;
 	_voltage_v = 0.0f;
 	_current_a = 0.0f;
+	param_find("MNT_TRIP_MAVLINK");
 #ifndef __PX4_NUTTX
 	_battery_sim.rechargeBattery();
 #endif

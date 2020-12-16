@@ -33,7 +33,7 @@ then
 	param set BAT_V_CHARGED	4.100
 	param set BAT_A_PER_V	1.000
 	param set BAT_SOURCE	1
-	param set CAL_AIR_GAIN	1.0
+	param set CAL_AIR_GAIN	0.8
 	param set CBRK_IO_SAFETY	22027
 	param set COM_ARM_CHK_ESCS	0
 	param set COM_FLTMODE1	3
@@ -44,7 +44,7 @@ then
 	param set COM_FLTMODE6	8
 	param set COM_POWER_COUNT	1
 	param set COM_PREARM_MODE	2
-	param set EKF2_BARO_NOISE	10.0
+	param set EKF2_BARO_NOISE	15.0
 
 	param set PWM_AUX_DIS1	1500
 	param set PWM_AUX_DIS2	1500
@@ -80,7 +80,8 @@ then
 	param set TRIG_INTERFACE	4
 	param set TRIG_MODE	4
 	param set TRIG_PINS	56
-
+	
+	param set MNT_TRIP_MAVLINK 0
 
 #TODO: copy default parameter
 	param set VT_TYPE 1
@@ -105,6 +106,32 @@ batt_pac17xx start -X -R 0.2 -r 80
 #temp_lm75 start -n tempPDB
 
 gd_payload start
+
+if param compare MNT_TRIP_MAVLINK 1
+then
+	#enable forward
+	param set MAV_0_FORWARD	1
+	param set MAV_1_CONFIG	102
+	param set MAV_1_FORWARD	1
+	param set MAV_1_MODE	2
+	param set MAV_1_RADIO_CTL	0
+	param set MAV_1_RATE	0
+	
+fi
+
+if param compare MNT_TRIP_MAVLINK 2
+then
+	# disable mavlink on telemetry port
+	param set MAV_1_CONFIG	0
+	uart_merio start
+fi
+	
+if param compare MNT_TRIP_MAVLINK 3
+then
+	# disable mavlink on telemetry port
+	param set MAV_1_CONFIG	0
+#	uart_phaseone start -d /dev/ttyS2
+fi
 
 
 # /dev/ttyS0		IO debug except v4, there ttyS0 is the wifi

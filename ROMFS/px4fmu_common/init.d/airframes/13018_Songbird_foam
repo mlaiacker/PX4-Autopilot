@@ -49,7 +49,7 @@ then
 	param set COM_FLTMODE6	8
 	param set COM_POWER_COUNT	1
 	param set COM_PREARM_MODE	2
-	param set EKF2_BARO_NOISE	10.0
+	param set EKF2_BARO_NOISE	15.0
 
 	param set FW_PR_FF	1.2
 	param set FW_PR_I	0.009999999776482582
