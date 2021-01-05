@@ -84,11 +84,12 @@ then
 	param set MNT_TRIP_MAVLINK 0
 
 #TODO: copy default parameter
-	param set VT_TYPE 1
-	param set VT_MOT_COUNT 4
 
 	param set VT_IDLE_PWM_MC 1170
 fi
+# vt_type: 3=songbird
+param set VT_TYPE 3 
+param set VT_MOT_COUNT 4
 
 set MIXER SBV3
 set PWM_OUT 1234
