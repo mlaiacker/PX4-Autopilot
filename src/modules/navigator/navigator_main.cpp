@@ -294,7 +294,7 @@ Navigator::run()
 
 					// Go on and check which changes had been requested
 					if (PX4_ISFINITE(cmd.param4)) {
-						rep->current.yaw = cmd.param4;
+						rep->current.yaw = math::radians(cmd.param4);
 						rep->current.yaw_valid = true;
 
 					} else {
