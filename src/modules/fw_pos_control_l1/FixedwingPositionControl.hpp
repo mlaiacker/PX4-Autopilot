@@ -423,6 +423,9 @@ private:
 		(ParamFloat<px4::params::NAV_LOITER_RAD>) _param_nav_loiter_rad
 
 	)
+	int _loiter8_state{0};
+	float _loiter8_bearing{0};
+	Vector2f _loiter8_switch_pos, _loiter8_wp;
 
 };
 
