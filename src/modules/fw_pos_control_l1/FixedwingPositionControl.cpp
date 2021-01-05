@@ -742,7 +742,6 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 					if(dist_line4>dist_line2) {
 						_loiter8_state = 4;
 					}
-					PX4_INFO("start line%i %fdeg",_loiter8_state, (double)(pos_sp_curr.yaw*180.0f/M_PI_F));
 					_loiter8_switch_pos = curr_pos;
 				} else if(_loiter8_state==1)
 				{
@@ -752,7 +751,6 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 					curr_wp(1) = new_lon;
 					if(fabsf(matrix::wrap_pi(((M_PI_F-LOITER8_ANGLE) +_loiter8_bearing) - _l1_control.nav_bearing())) < 0.1f && _l1_control.circle_mode())
 					{
-						PX4_INFO("line2 %f", (double)math::degrees(_l1_control.nav_bearing()));
 						_loiter8_state=2;
 						_loiter8_switch_pos = curr_pos;
 					}
@@ -774,7 +772,6 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 						{
 							_loiter8_bearing = pos_sp_curr.yaw + M_PI_2_F;
 						}
-						PX4_INFO("loiter3 %f", (double)math::degrees(pos_sp_curr.yaw));
 						_loiter8_state=3;
 					}
 				} else if(_loiter8_state==3)
@@ -786,7 +783,6 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 					curr_wp(1) = new_lon;
 					if(fabsf(matrix::wrap_pi((LOITER8_ANGLE+_loiter8_bearing) - _l1_control.nav_bearing())) <0.1f && _l1_control.circle_mode())
 					{
-						PX4_INFO("line4 %f", (double)math::degrees(_l1_control.nav_bearing()));
 						_loiter8_state=4;
 						_loiter8_switch_pos = curr_pos;
 					}
@@ -807,7 +803,6 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 						{
 							_loiter8_bearing = pos_sp_curr.yaw + M_PI_2_F;
 						}
-						PX4_INFO("loiter1 %f", (double)math::degrees(pos_sp_curr.yaw));
 						_loiter8_state=1;
 					}
 				}

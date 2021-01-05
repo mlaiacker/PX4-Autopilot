@@ -53,7 +53,7 @@ Songbird::Songbird(VtolAttitudeControl *attc) :
 */
 void Songbird::fill_actuator_outputs()
 {
-	float tilt_pitch_rad = 0.0f; // tilt angle offset to fly forwards in mc mode
+	//float tilt_pitch_rad = 0.0f; // tilt angle offset to fly forwards in mc mode
 	float tilt_angle_rad = 0.0f; // combined angle from transition and attitude control, used for mc mixing
 	// Multirotor output
 	_actuators_out_0->timestamp = hrt_absolute_time();
@@ -76,14 +76,14 @@ void Songbird::fill_actuator_outputs()
 		_actuators_out_0->control[actuator_controls_s::INDEX_THROTTLE] =
 			_actuators_mc_in->control[actuator_controls_s::INDEX_THROTTLE] * _mc_throttle_weight;
 		/* use output of  mc_att control for _tilt based on pitch cmd*/
-		tilt_pitch_rad = (PX4_ISFINITE(_actuators_mc_in->control[4])) ? _actuators_mc_in->control[4] : 0.0f;
+	//	tilt_pitch_rad = (PX4_ISFINITE(_actuators_mc_in->control[4])) ? _actuators_mc_in->control[4] : 0.0f;
 	}
 
 	// Fixed wing output
 	_actuators_out_1->timestamp = hrt_absolute_time();
 	_actuators_out_1->timestamp_sample = _actuators_fw_in->timestamp_sample;
 	// _tilt_control is between 0 and 1 so mapping to 0 and 90 degrees
-	tilt_angle_rad = _tilt_control * 90.0f * M_PI_F / 180.0f - tilt_pitch_rad; // 0 : up pi/2 : forward
+	tilt_angle_rad = _tilt_control *M_PI_F*0.5f;// + tilt_pitch_rad; // 0 : up pi/2 : forward
 
 	_actuators_out_1->control[4] = acosf(1.0f - (tilt_angle_rad) * 4.0f / M_PI_F) /
 				       M_PI_F; /* nonlinear map from tilt angle to servo angle*/;
