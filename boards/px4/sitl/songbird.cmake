@@ -56,6 +56,7 @@ px4_add_board(
 
 		gd_payload
 		uart_phaseone
+		uart_merio
 	SYSTEMCMDS
 		#dumpfile
 		dyn
