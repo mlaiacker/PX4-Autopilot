@@ -707,10 +707,13 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 
 			}
 			int8_t loiter_dir = loiter_direction;
-			float LOITER8_ANGLE = M_PI_F/2.0f+0.4f;
-			float r = pos_sp_curr.loiter_radius/2.0f;
-			if(pos_sp_curr.yaw_valid && pos_sp_curr.loiter_direction==1)
-			{
+			const float loiter_radius_ratio = 0.38f; // ratio to overall radius, must be smaller than 0.5
+			const float C = pos_sp_curr.loiter_radius*(1.0f - loiter_radius_ratio); // dist to center of edge loiter radius
+			const float R = pos_sp_curr.loiter_radius*loiter_radius_ratio; // radius of the loiter
+			const float X0 = R*R/(-C) + C; // x position of tangent point, 90 deg to loiter yaw (right)
+			const float Y0 = -sqrt(R*R - (C-X0)*(C-X0)); // y position of tangent point, in loiter yaw dir
+			const float B_rad = atan2(-Y0, X0-C); // angle of the tangent point
+			if(pos_sp_curr.yaw_valid && pos_sp_curr.loiter_direction==1 && pos_sp_curr.loiter_radius > 80.0f) {
 				if(_loiter8_wp != curr_wp) // loiter point has changed
 				{
 					_loiter8_state=0; // reset loiter state
@@ -718,24 +721,24 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 				}
 				if(_loiter8_state==0)
 				{
-					_loiter8_bearing = _l1_control.nav_bearing() + M_PI_2_F;
+					_loiter8_bearing = _l1_control.nav_bearing() + M_PI_2_F; // 90 deg to the left of loiter yaw
 					if(pos_sp_curr.yaw_valid && PX4_ISFINITE(pos_sp_curr.yaw))
 					{
 						_loiter8_bearing = pos_sp_curr.yaw + M_PI_2_F;
 					}
 					float dist_line2=0, dist_line4=0;
 					{
-						/* get distance to end of line 2 */
+						/* get distance to end of line 2 , tangent point on lower right*/
 						double new_lat, new_lon, circle_lat, circle_lon;
-						waypoint_from_heading_and_distance(curr_wp(0), curr_wp(1), _loiter8_bearing, r, &circle_lat, &circle_lon);
-						waypoint_from_heading_and_distance(circle_lat, circle_lon, _loiter8_bearing+(M_PI_F-LOITER8_ANGLE), r, &new_lat, &new_lon);
+						waypoint_from_heading_and_distance(_loiter8_wp(0), _loiter8_wp(1), _loiter8_bearing, C, &circle_lat, &circle_lon);
+						waypoint_from_heading_and_distance(circle_lat, circle_lon, _loiter8_bearing + B_rad, R, &new_lat, &new_lon);
 						dist_line2 = get_distance_to_next_waypoint(curr_pos(0), curr_pos(1), new_lat, new_lon);
 					}
 					{
-						/* get distance to end of line 4 */
+						/* get distance to end of line 4 , tangent point on lower left*/
 						double new_lat, new_lon, circle_lat, circle_lon;
-						waypoint_from_heading_and_distance(curr_wp(0), curr_wp(1), _loiter8_bearing + M_PI_F, r, &circle_lat, &circle_lon);
-						waypoint_from_heading_and_distance(circle_lat, circle_lon, _loiter8_bearing + LOITER8_ANGLE, r, &new_lat, &new_lon);
+						waypoint_from_heading_and_distance(_loiter8_wp(0), _loiter8_wp(1), _loiter8_bearing + M_PI_F, C, &circle_lat, &circle_lon);
+						waypoint_from_heading_and_distance(circle_lat, circle_lon, _loiter8_bearing + B_rad-M_PI_2_F, R, &new_lat, &new_lon);
 						dist_line4 = get_distance_to_next_waypoint(curr_pos(0), curr_pos(1), new_lat, new_lon);
 					}
 					_loiter8_state = 2;
@@ -746,27 +749,25 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 				} else if(_loiter8_state==1)
 				{
 					double new_lat, new_lon;
-					waypoint_from_heading_and_distance(curr_wp(0), curr_wp(1), _loiter8_bearing + M_PI_F, r, &new_lat, &new_lon);
+					waypoint_from_heading_and_distance(_loiter8_wp(0), _loiter8_wp(1), _loiter8_bearing + M_PI_F, C, &new_lat, &new_lon);
 					curr_wp(0) = new_lat; /* center of loiter to the left */
 					curr_wp(1) = new_lon;
-					if(fabsf(matrix::wrap_pi(((M_PI_F-LOITER8_ANGLE) +_loiter8_bearing) - _l1_control.nav_bearing())) < 0.1f && _l1_control.circle_mode())
+					// _l1_control.nav_bearing() points toward center of circle
+					if(fabsf(matrix::wrap_pi((_loiter8_bearing+B_rad) - _l1_control.nav_bearing())) < 0.1f && _l1_control.circle_mode())
 					{
 						_loiter8_state=2;
 						_loiter8_switch_pos = curr_pos;
 					}
-				} else if(_loiter8_state==2)
+				} else if(_loiter8_state==2) // tangent point on lower right
 				{
 					prev_wp = _loiter8_switch_pos;
 					loiter_dir = 0;
-					double new_lat, new_lon;
-					waypoint_from_heading_and_distance(curr_wp(0), curr_wp(1), _loiter8_bearing, r, &new_lat, &new_lon);
-					curr_wp(0) = new_lat; /* center of loiter to the right*/
+					double new_lat, new_lon, circle_lat, circle_lon;
+					waypoint_from_heading_and_distance(_loiter8_wp(0), _loiter8_wp(1), _loiter8_bearing, C, &circle_lat, &circle_lon);
+					waypoint_from_heading_and_distance(circle_lat, circle_lon, _loiter8_bearing + B_rad, R, &new_lat, &new_lon);
+					curr_wp(0) = new_lat;
 					curr_wp(1) = new_lon;
-					waypoint_from_heading_and_distance(curr_wp(0), curr_wp(1), _loiter8_bearing+(M_PI_F-LOITER8_ANGLE), r, &new_lat, &new_lon);
-					curr_wp(0) = new_lat; /* intersection of line with right loiter */
-					curr_wp(1) = new_lon;
-
-					if(get_distance_to_next_waypoint(curr_pos(0), curr_pos(1), curr_wp(0), curr_wp(1)) <= (r/5.0f))
+					if(get_distance_to_next_waypoint(curr_pos(0), curr_pos(1), curr_wp(0), curr_wp(1)) <= (R/4.0f))
 					{
 						if(pos_sp_curr.yaw_valid && PX4_ISFINITE(pos_sp_curr.yaw))
 						{
@@ -774,30 +775,28 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 						}
 						_loiter8_state=3;
 					}
-				} else if(_loiter8_state==3)
+				} else if(_loiter8_state==3) // loiter on right
 				{
 					loiter_dir*=-1;
-					double new_lat, new_lon;
-					waypoint_from_heading_and_distance(curr_wp(0), curr_wp(1), _loiter8_bearing, r, &new_lat, &new_lon);
-					curr_wp(0) = new_lat;  /* center of loiter to the right*/
-					curr_wp(1) = new_lon;
-					if(fabsf(matrix::wrap_pi((LOITER8_ANGLE+_loiter8_bearing) - _l1_control.nav_bearing())) <0.1f && _l1_control.circle_mode())
+					double circle_lat, circle_lon;
+					waypoint_from_heading_and_distance(_loiter8_wp(0), _loiter8_wp(1), _loiter8_bearing, C, &circle_lat, &circle_lon);
+					curr_wp(0) = circle_lat;
+					curr_wp(1) = circle_lon;
+					// _l1_control.nav_bearing() points toward center of circle
+					if(fabsf(matrix::wrap_pi(_loiter8_bearing + (M_PI_F - B_rad) - _l1_control.nav_bearing())) <0.1f && _l1_control.circle_mode())
 					{
 						_loiter8_state=4;
 						_loiter8_switch_pos = curr_pos;
 					}
-				} else if(_loiter8_state==4)
+				} else if(_loiter8_state==4) //  tangent point on lower left
 				{
 					prev_wp = _loiter8_switch_pos;
 					loiter_dir = 0;
-					double new_lat, new_lon;
-					waypoint_from_heading_and_distance(curr_wp(0), curr_wp(1), _loiter8_bearing + M_PI_F, pos_sp_curr.loiter_radius/2.0f, &new_lat, &new_lon);
-					curr_wp(0) = new_lat; /* center of loiter to the left */
+					double new_lat, new_lon, circle_lat, circle_lon;
+					waypoint_from_heading_and_distance(_loiter8_wp(0), _loiter8_wp(1), _loiter8_bearing + M_PI_F, C, &circle_lat, &circle_lon);
+					waypoint_from_heading_and_distance(circle_lat, circle_lon, _loiter8_bearing + B_rad-M_PI_2_F, R, &new_lat, &new_lon);					curr_wp(0) = new_lat;
 					curr_wp(1) = new_lon;
-					waypoint_from_heading_and_distance(curr_wp(0), curr_wp(1), _loiter8_bearing+LOITER8_ANGLE, pos_sp_curr.loiter_radius/2.0f, &new_lat, &new_lon);
-					curr_wp(0) = new_lat;
-					curr_wp(1) = new_lon;
-					if(get_distance_to_next_waypoint(curr_pos(0), curr_pos(1), curr_wp(0), curr_wp(1)) <= (r/5.0f))
+					if(get_distance_to_next_waypoint(curr_pos(0), curr_pos(1), curr_wp(0), curr_wp(1)) <= (R/4.0f))
 					{
 						if(pos_sp_curr.yaw_valid && PX4_ISFINITE(pos_sp_curr.yaw))
 						{
@@ -814,7 +813,7 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 			{
 				if(_loiter8_state!=0) {
 					/* 8 shape loiter*/
-					_l1_control.navigate_loiter(curr_wp, curr_pos, r,
+					_l1_control.navigate_loiter(curr_wp, curr_pos, R,
 											loiter_dir, nav_speed_2d);
 				} else{
 					/* waypoint is a loiter waypoint */
