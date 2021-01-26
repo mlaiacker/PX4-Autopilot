@@ -767,7 +767,9 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 					waypoint_from_heading_and_distance(circle_lat, circle_lon, _loiter8_bearing + B_rad, R, &new_lat, &new_lon);
 					curr_wp(0) = new_lat;
 					curr_wp(1) = new_lon;
-					if(get_distance_to_next_waypoint(curr_pos(0), curr_pos(1), curr_wp(0), curr_wp(1)) <= (R/4.0f))
+					if(get_distance_to_next_waypoint(curr_pos(0), curr_pos(1), curr_wp(0), curr_wp(1)) <= (R/4.0f) ||
+					   get_distance_to_next_waypoint(curr_pos(0), curr_pos(1), circle_lat, circle_lon) < R*1.10f) // to next circle center
+
 					{
 						if(pos_sp_curr.yaw_valid && PX4_ISFINITE(pos_sp_curr.yaw))
 						{
@@ -796,7 +798,8 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 					waypoint_from_heading_and_distance(_loiter8_wp(0), _loiter8_wp(1), _loiter8_bearing + M_PI_F, C, &circle_lat, &circle_lon);
 					waypoint_from_heading_and_distance(circle_lat, circle_lon, _loiter8_bearing + B_rad-M_PI_2_F, R, &new_lat, &new_lon);					curr_wp(0) = new_lat;
 					curr_wp(1) = new_lon;
-					if(get_distance_to_next_waypoint(curr_pos(0), curr_pos(1), curr_wp(0), curr_wp(1)) <= (R/4.0f))
+					if(get_distance_to_next_waypoint(curr_pos(0), curr_pos(1), curr_wp(0), curr_wp(1)) <= (R/4.0f) ||
+					   get_distance_to_next_waypoint(curr_pos(0), curr_pos(1), circle_lat, circle_lon) < R*1.10f) // to next circle center
 					{
 						if(pos_sp_curr.yaw_valid && PX4_ISFINITE(pos_sp_curr.yaw))
 						{
