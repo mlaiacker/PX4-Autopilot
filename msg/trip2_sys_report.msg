@@ -19,3 +19,15 @@ uint8 system_mode
 uint8 laser_status
 uint16 tracker_roix # X offset of the center of the tracker ROI, measured from the top left corner of the frame.
 uint16 tracker_rioy # Y offset of the center of the tracker ROI, measured from the top left corner of the frame.
+float32 single_yaw_cmd #Single Yaw command recommendation, float 
+uint8 snapshot_status # 1=busy
+float32 cpu_temperature
+float32 camera_version
+float32 trip2_version
+uint16  bit_report
+uint8  status_flag0
+uint8  camera_type
+float32 roll_rate
+float32 pitch_rate
+float32 camera_temperature
+float32 roll_derotation_angle
