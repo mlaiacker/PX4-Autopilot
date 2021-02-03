@@ -56,6 +56,7 @@ RTL::RTL(Navigator *navigator) :
 
 void RTL::on_inactivation()
 {
+	PX4_INFO("RTL inactivation");
 	if (_navigator->get_precland()->is_activated()) {
 		_navigator->get_precland()->on_inactivation();
 	}
@@ -90,6 +91,7 @@ void RTL::find_RTL_destination()
 
 	// set destination to home per default, then check if other valid landing spot is closer
 	_destination.set(home_landing_position);
+	_destination.alt += _param_rtl_return_alt.get(); // add return alt
 
 	// get distance to home position
 	double dlat = home_landing_position.lat - global_position.lat;
@@ -183,11 +185,12 @@ void RTL::find_RTL_destination()
 			break;
 		}
 	}
-
+	//PX4_INFO("RTL destination alt %dm home %dm", (int)ceilf(_destination.alt) , (int)ceilf(home_landing_position.alt));
 }
 
 void RTL::on_activation()
 {
+	PX4_INFO("RTL activation");
 
 	// output the correct message, depending on where the RTL destination is
 	switch (_destination.type) {
@@ -205,12 +208,14 @@ void RTL::on_activation()
 	}
 
 	const vehicle_global_position_s &global_position = *_navigator->get_global_position();
+//	const home_position_s &home = *_navigator->get_home_position();
+//	const float home_dist = get_distance_to_next_waypoint(home.lat, home.lon, global_position.lat, global_position.lon);
 
 	if (_navigator->get_vstatus()->vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING) {
 		_rtl_alt = calculate_return_alt_from_cone_half_angle((float)_param_rtl_cone_half_angle_deg.get());
 
 	} else {
-		_rtl_alt = math::max(global_position.alt, _destination.alt + _param_rtl_return_alt.get());
+		_rtl_alt = math::max(global_position.alt, _destination.alt);
 	}
 
 	if (_navigator->get_land_detected()->landed) {
@@ -220,15 +225,22 @@ void RTL::on_activation()
 	} else if ((_destination.type == RTL_DESTINATION_MISSION_LANDING) && _navigator->on_mission_landing()) {
 		// RTL straight to RETURN state, but mission will takeover for landing.
 
-	} else /*if ((global_position.alt < _destination.alt + _param_rtl_return_alt.get()) || _rtl_alt_min) */{
+	} else /*if ((global_position.alt < home.alt + _param_rtl_return_alt.get()) || _rtl_alt_min) */{
 
 		// If lower than return altitude, climb up first.
 		// If rtl_alt_min is true then forcing altitude change even if above.
 		_rtl_state = RTL_STATE_CLIMB;
+		PX4_INFO("RTL on activation to Climb %fm %fm %fm", (double)_rtl_alt, (double)_destination.alt, (double)_param_rtl_return_alt.get());
 		// GD: allways do that if we are lower then return alt, we will not descent
-	} /*else {
+	}/* else if (_navigator->get_vstatus()->is_vtol &&
+			_navigator->get_vstatus()->vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING &&
+			home_dist > _param_rtl_min_dist.get()*5){
+		_rtl_state = RTL_STATE_TRANSITION_TO_FW;
+		PX4_INFO("RTL on activation to FW");
+	} else	{
 		// Otherwise go straight to return
 		_rtl_state = RTL_STATE_RETURN;
+		PX4_INFO("RTL on activation to return");
 	}*/
 
 	set_rtl_item();
@@ -236,6 +248,8 @@ void RTL::on_activation()
 
 void RTL::on_active()
 {
+	//PX4_INFO("RTL active %i %i", _mission_item.nav_cmd, _rtl_state);
+
 	if (_rtl_state != RTL_STATE_LANDED && is_mission_item_reached()) {
 		advance_rtl();
 		set_rtl_item();
@@ -252,6 +266,7 @@ void RTL::on_active()
 
 void RTL::set_rtl_item()
 {
+	PX4_INFO("RTL set_rtl_item");
 	// RTL_TYPE: mission landing.
 	// Landing using planned mission landing, fly to DO_LAND_START instead of returning _destination.
 	// After reaching DO_LAND_START, do nothing, let navigator takeover with mission landing.
@@ -267,6 +282,12 @@ void RTL::set_rtl_item()
 					_navigator->get_vstatus()->vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING &&
 					home_dist > _param_rtl_min_dist.get()*5) {
 					set_vtol_transition_item(&_mission_item, vtol_vehicle_status_s::VEHICLE_VTOL_STATE_FW);
+
+					position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
+					pos_sp_triplet->previous = pos_sp_triplet->current;
+					generate_waypoint_from_heading(&pos_sp_triplet->current, _mission_item.yaw);
+					_navigator->set_position_setpoint_triplet_updated();
+
 					mavlink_log_info(_navigator->get_mavlink_log_pub(), "RTL: transition to FW");
 				} else {
 					mavlink_log_info(_navigator->get_mavlink_log_pub(), "RTL: using mission landing");
@@ -295,19 +316,20 @@ void RTL::set_rtl_item()
 	switch (_rtl_state) {
 	case RTL_STATE_CLIMB: {
 
-			_mission_item.nav_cmd = NAV_CMD_WAYPOINT;
+			_mission_item.nav_cmd = NAV_CMD_LOITER_TO_ALT;
 			_mission_item.lat = gpos.lat;
 			_mission_item.lon = gpos.lon;
 			_mission_item.altitude = _rtl_alt;
 			_mission_item.altitude_is_relative = false;
 			_mission_item.yaw = MissionBlock::getWindYaw(_navigator->get_local_position()->heading);
 			_mission_item.acceptance_radius = _navigator->get_acceptance_radius();
+			_mission_item.loiter_radius = _navigator->get_loiter_radius(); // gd: use loiter to climb
 			_mission_item.time_inside = 0.0f;
 			_mission_item.autocontinue = true;
 			_mission_item.origin = ORIGIN_ONBOARD;
 
-			mavlink_log_info(_navigator->get_mavlink_log_pub(), "RTL: climb to %d m (%d m above destination)",
-					 (int)ceilf(_rtl_alt), (int)ceilf(_rtl_alt - _destination.alt));
+			mavlink_log_info(_navigator->get_mavlink_log_pub(), "RTL: climb to %d m (%d m above destination) %d m",
+					 (int)ceilf(_rtl_alt), (int)ceilf(_rtl_alt - _destination.alt), (int)ceilf(gpos.alt));
 			break;
 		}
 
@@ -349,7 +371,10 @@ void RTL::set_rtl_item()
 		}
 	case RTL_STATE_TRANSITION_TO_FW: {
 			set_vtol_transition_item(&_mission_item, vtol_vehicle_status_s::VEHICLE_VTOL_STATE_FW);
-			mavlink_log_info(_navigator->get_mavlink_log_pub(), "RTL: transition to FW");
+			pos_sp_triplet->previous = pos_sp_triplet->current;
+			generate_waypoint_from_heading(&pos_sp_triplet->current, _mission_item.yaw);
+			_navigator->set_position_setpoint_triplet_updated();
+			mavlink_log_info(_navigator->get_mavlink_log_pub(), "RTL: State transition to FW");
 			break;
 		}
 
@@ -483,6 +508,8 @@ void RTL::set_rtl_item()
 
 void RTL::advance_rtl()
 {
+	PX4_INFO("RTL advance from state %i", _rtl_state);
+
 	const home_position_s &home = *_navigator->get_home_position();
 	const vehicle_global_position_s &gpos = *_navigator->get_global_position();
 	const float home_dist = get_distance_to_next_waypoint(home.lat, home.lon, gpos.lat, gpos.lon);
@@ -518,6 +545,7 @@ void RTL::advance_rtl()
 		break;
 
 	case RTL_STATE_TRANSITION_TO_FW:
+		PX4_INFO("RTL trans fw advance to return");
 		_rtl_state = RTL_STATE_RETURN;
 		break;
 
@@ -548,6 +576,7 @@ void RTL::advance_rtl()
 	default:
 		break;
 	}
+	PX4_INFO("RTL to state %i", _rtl_state);
 }
 
 float RTL::calculate_return_alt_from_cone_half_angle(float cone_half_angle_deg)

@@ -81,6 +81,8 @@ public:
 
 	int rtl_type() const { return _param_rtl_type.get(); }
 
+	bool rtl_ready_for_mission() const { return (_rtl_state==RTL_STATE_RETURN) || (_rtl_state==RTL_STATE_NONE); }
+
 	int rtl_destination();
 
 private:
