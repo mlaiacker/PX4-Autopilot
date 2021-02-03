@@ -91,7 +91,6 @@ void RTL::find_RTL_destination()
 
 	// set destination to home per default, then check if other valid landing spot is closer
 	_destination.set(home_landing_position);
-	_destination.alt += _param_rtl_return_alt.get(); // add return alt
 
 	// get distance to home position
 	double dlat = home_landing_position.lat - global_position.lat;
@@ -215,7 +214,7 @@ void RTL::on_activation()
 		_rtl_alt = calculate_return_alt_from_cone_half_angle((float)_param_rtl_cone_half_angle_deg.get());
 
 	} else {
-		_rtl_alt = math::max(global_position.alt, _destination.alt);
+		_rtl_alt = math::max(global_position.alt, _destination.alt + _param_rtl_return_alt.get());
 	}
 
 	if (_navigator->get_land_detected()->landed) {
@@ -231,6 +230,10 @@ void RTL::on_activation()
 		// If rtl_alt_min is true then forcing altitude change even if above.
 		_rtl_state = RTL_STATE_CLIMB;
 		PX4_INFO("RTL on activation to Climb %fm %fm %fm", (double)_rtl_alt, (double)_destination.alt, (double)_param_rtl_return_alt.get());
+
+		if(_destination.type == RTL_DESTINATION_MISSION_LANDING){
+			_rtl_alt = math::max(global_position.alt, _destination.alt);
+		}
 		// GD: allways do that if we are lower then return alt, we will not descent
 	}/* else if (_navigator->get_vstatus()->is_vtol &&
 			_navigator->get_vstatus()->vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING &&
