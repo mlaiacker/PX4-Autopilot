@@ -270,7 +270,7 @@ Navigator::run()
 					rep->current.loiter_radius = get_loiter_radius();
 					rep->current.loiter_direction = 1;
 
-					/* ML: use param 3 as loiter radius and check vor valid radius valid loiter radius */
+					/* ML: use param 3 as loiter radius and check for valid radius valid loiter radius */
 					if (fabsf(cmd.param3) > 10.0f && PX4_ISFINITE(cmd.param3) && fabsf(cmd.param3) < 1000.0f) {
 						rep->current.loiter_radius = fabsf(cmd.param3);
 
@@ -311,7 +311,11 @@ Navigator::run()
 						if (PX4_ISFINITE(cmd.param7)) {
 							rep->current.alt = cmd.param7;
 
+						} else if(curr->current.alt_valid && PX4_ISFINITE(curr->current.alt)){
+							// gd feature use last commanded altitude
+							rep->current.alt = curr->current.alt;
 						} else {
+							// use current altitude
 							rep->current.alt = get_global_position()->alt;
 						}
 
@@ -574,8 +578,11 @@ Navigator::run()
 					}
 
 					// if RTL is set to use a mission landing and mission has a planned landing, then use MISSION to fly there directly
-					if (on_mission_landing() && !get_land_detected()->landed) {
+					if (on_mission_landing() && !get_land_detected()->landed && _rtl.rtl_ready_for_mission()) {
 						_mission.set_execution_mode(mission_result_s::MISSION_EXECUTION_MODE_FAST_FORWARD);
+						if(_navigation_mode != &_mission) {
+							PX4_INFO("RTL mission active");
+						}
 						navigation_mode_new = &_mission;
 
 					} else {
