@@ -316,7 +316,10 @@ void RTL::set_rtl_item()
 	switch (_rtl_state) {
 	case RTL_STATE_CLIMB: {
 
-			_mission_item.nav_cmd = NAV_CMD_LOITER_TO_ALT;
+			_mission_item.nav_cmd = NAV_CMD_WAYPOINT;
+			if (_navigator->get_vstatus()->vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING) {
+				_mission_item.nav_cmd = NAV_CMD_LOITER_TO_ALT; // GD: use loiter to climb
+			}
 			_mission_item.lat = gpos.lat;
 			_mission_item.lon = gpos.lon;
 			_mission_item.altitude = _rtl_alt;
