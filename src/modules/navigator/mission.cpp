@@ -412,7 +412,11 @@ Mission::find_mission_land_start()
 			// the DO_LAND_START marker contains no position sp, so take them from the previous mission item
 			_landing_lat = missionitem_prev.lat;
 			_landing_lon = missionitem_prev.lon;
-			_landing_alt = missionitem_prev.altitude;
+			if(missionitem_prev.altitude_is_relative){
+				_landing_alt = missionitem_prev.altitude + _navigator->get_home_position()->alt;
+			} else {
+				_landing_alt = missionitem_prev.altitude;
+			}
 			return true;
 
 			// if no DO_LAND_START marker available, also check for VTOL_LAND or normal LAND
@@ -424,7 +428,11 @@ Mission::find_mission_land_start()
 			_land_start_index = i;
 			_landing_lat = missionitem.lat;
 			_landing_lon = missionitem.lon;
-			_landing_alt = missionitem.altitude;
+			if(missionitem.altitude_is_relative){
+				_landing_alt = missionitem.altitude + _navigator->get_home_position()->alt;;
+			} else {
+				_landing_alt = missionitem.altitude;
+			}
 			return true;
 		}
 	}
@@ -1012,7 +1020,6 @@ Mission::set_mission_items()
 				    && _navigator->get_vstatus()->vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING
 				    && !_navigator->get_land_detected()->landed
 				    && has_next_position_item) {
-
 					/* disable weathervane before front transition for allowing yaw to align */
 					pos_sp_triplet->current.disable_weather_vane = true;
 
@@ -1024,6 +1031,8 @@ Mission::set_mission_items()
 					mission_apply_limitation(_mission_item);
 					mission_item_to_position_setpoint(mission_item_next_position, &pos_sp_triplet->current);
 				}
+
+
 
 				/* yaw is aligned now */
 				if (_work_item_type == WORK_ITEM_TYPE_ALIGN &&
@@ -1823,16 +1832,6 @@ Mission::need_to_reset_mission()
 	return false;
 }
 
-void
-Mission::generate_waypoint_from_heading(struct position_setpoint_s *setpoint, float yaw)
-{
-	waypoint_from_heading_and_distance(
-		_navigator->get_global_position()->lat, _navigator->get_global_position()->lon,
-		yaw, 1000000.0f,
-		&(setpoint->lat), &(setpoint->lon));
-	setpoint->type = position_setpoint_s::SETPOINT_TYPE_POSITION;
-	setpoint->yaw = yaw;
-}
 
 int32_t
 Mission::index_closest_mission_item() const

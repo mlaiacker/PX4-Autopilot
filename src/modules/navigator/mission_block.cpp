@@ -72,6 +72,17 @@ MissionBlock::MissionBlock(Navigator *navigator) :
 	_mission_item.origin = ORIGIN_ONBOARD;
 }
 
+void
+MissionBlock::generate_waypoint_from_heading(struct position_setpoint_s *setpoint, float yaw)
+{
+	waypoint_from_heading_and_distance(
+		_navigator->get_global_position()->lat, _navigator->get_global_position()->lon,
+		yaw, 1000000.0f,
+		&(setpoint->lat), &(setpoint->lon));
+	setpoint->type = position_setpoint_s::SETPOINT_TYPE_POSITION;
+	setpoint->yaw = yaw;
+}
+
 bool
 MissionBlock::is_mission_item_reached()
 {

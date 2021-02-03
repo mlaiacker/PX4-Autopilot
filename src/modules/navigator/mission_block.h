@@ -92,6 +92,11 @@ public:
 
 	static float getWindYaw(float yaw);
 
+	/**
+	 * Project current location with heading to far away location and fill setpoint.
+	 */
+	void generate_waypoint_from_heading(struct position_setpoint_s *setpoint, float yaw);
+
 protected:
 	/**
 	 * Check if mission item has been reached
