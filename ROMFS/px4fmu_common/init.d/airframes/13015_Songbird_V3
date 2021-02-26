@@ -124,7 +124,7 @@ if param compare MNT_TRIP_MAVLINK 2
 then
 	# disable mavlink on telemetry port
 	param set MAV_1_CONFIG	0
-	uart_merio start
+	uart_merio start -d /dev/ttyS2
 fi
 	
 if param compare MNT_TRIP_MAVLINK 3
