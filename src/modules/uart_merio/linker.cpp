@@ -3,14 +3,36 @@
 #include <stdio.h>
 #include "linker.h"
 
-#define CRCkey	0x1021
+
+const float Linker::VEL_MAX_RAD_S = 1.996f;
+
+const uint16_t Linker::_CRCtab[256]  = {
+	    0, 4129, 8258,12387,16516,20645,24774,28903,33032,37161,41290,45419,49548,53677,57806,61935, 4657,  528,12915, 8786,21173,17044,29431,25302,37689,33560,45947,41818,54205,50076,62463,58334,
+	 9314,13379, 1056, 5121,25830,29895,17572,21637,42346,46411,34088,38153,58862,62927,50604,54669,13907, 9842, 5649, 1584,30423,26358,22165,18100,46939,42874,38681,34616,63455,59390,55197,51132,
+	18628,22757,26758,30887, 2112, 6241,10242,14371,51660,55789,59790,63919,35144,39273,43274,47403,23285,19156,31415,27286, 6769, 2640,14899,10770,56317,52188,64447,60318,39801,35672,47931,43802,
+	27814,31879,19684,23749,11298,15363, 3168, 7233,60846,64911,52716,56781,44330,48395,36200,40265,32407,28342,24277,20212,15891,11826, 7761, 3696,65439,61374,57309,53244,48923,44858,40793,36728,
+	37256,33193,45514,41451,53516,49453,61774,57711, 4224,  161,12482, 8419,20484,16421,28742,24679,33721,37784,41979,46042,49981,54044,58239,62302,  689, 4752, 8947,13010,16949,21012,25207,29270,
+	46570,42443,38312,34185,62830,58703,54572,50445,13538, 9411, 5280, 1153,29798,25671,21540,17413,42971,47098,34713,38840,59231,63358,50973,55100, 9939,14066, 1681, 5808,26199,30326,17941,22068,
+	55628,51565,63758,59695,39368,35305,47498,43435,22596,18533,30726,26663, 6336, 2273,14466,10403,52093,56156,60223,64286,35833,39896,43963,48026,19061,23124,27191,31254, 2801, 6864,10931,14994,
+	64814,60687,56684,52557,48554,44427,40424,36297,31782,27655,23652,19525,15522,11395, 7392, 3265,61215,65342,53085,57212,44955,49082,36825,40952,28183,32310,20053,24180,11923,16050, 3793, 7920};
 
 Linker::Linker()
 {
-    initCRCtab();
+/*
+	initCRCtab();
+    for(int i=0;i<256;i++)
+    {
+    	if(i%32==0) printf("\n");
+    	printf("%5i,", _CRCtab[i]);
+
+
+    }
+*/
 }
+/*
 void Linker::initCRCtab(void)
 {
+#define CRCkey	0x1021
     int16_t i, j;
     uint16_t crc, c;
     for ( i = 0 ; i < 256 ; i++)
@@ -32,6 +54,7 @@ void Linker::initCRCtab(void)
         _CRCtab[i] = crc;
     }
 }
+*/
 uint16_t Linker::CRC16(uint8_t* buffer, uint16_t len, uint16_t crc)
 {
     uint16_t tmp;
@@ -49,31 +72,11 @@ bool Linker::connectWith(int fd)
 	_serialPort = fd;
     return true;
 }
-/*
-void Linker::disconnectWith()
-{
-    if(_serialPort->isOpen())
-    {
-        disconnect(_serialPort, SIGNAL(readyRead()),
-                   this, SLOT(handleReadyRead()));
-        disconnect(_serialPort, SIGNAL(error(QSerialPort::SerialPortError)),
-                   this, SLOT(handleError(QSerialPort::SerialPortError)));
-        disconnect(_serialPort, SIGNAL(bytesWritten(qint64)),
-                   this, SLOT(handleBytesWritten(qint64)));
-        _serialPort->close();
-        delete _serialPort;
-    }
-}
-*/
+
+
+
 bool Linker::getConnectStatus()
 {
-	/*
-    std::cout<<"Connection ";
-    if(_isConnected)
-        std::cout << "True\n";
-    else
-        std::cout << "False\n";
-*/
     return _isConnected;
 }
 
@@ -92,10 +95,12 @@ void Linker::addBlocGENPAYLOAD(uint8_t blocId)
             _sendBuffer[_sendPtr++] = B_SN;
             _sendBuffer[_sendPtr++] = B_PN;
             _sendBuffer[_sendPtr++] = B_SOFTMAIN;
+            _sendBuffer[_sendPtr++] = B_GIMBALCONFIG;
+            _sendBuffer[_sendPtr++] = B_MODELCAMDAY;
+            _sendBuffer[_sendPtr++] = B_MODELCAMIR;
         }
-        addLEN();
         break;
-
+/*
     case B_POSITION:
         _sendBuffer[_lenPos] = 8;
         X32ToInt16(_posRefAzi,0.005729577951300823); //scall_isConnecteding modified to convert degree to rad
@@ -117,15 +122,16 @@ void Linker::addBlocGENPAYLOAD(uint8_t blocId)
         }
         addLEN(); // should be 3
         break;
-    case B_NUC: /* no payload (LEN=2)*/
+    case B_NUC: // no payload (LEN=2)
     	addLEN();
         break;
-    case B_IRPOLARITY:/* no payload (LEN=2)*/
+    case B_IRPOLARITY:// no payload (LEN=2)
     	addLEN();
         break;
-    case B_ACK:/* no payload (LEN=2)*/
+    case B_ACK:// no payload (LEN=2)
     	addLEN();
         break;
+        */
     }
 }
 
@@ -139,21 +145,7 @@ uint8_t Linker::addLEN()
 	}
 	return len;
 }
-/*
-// ========= Reading Blocs
-void Linker::handleReadyRead()
-{
 
-    isReading = true;
-    readData.append(_serialPort->readAll());
-    for (int i = 0; i < readData.size() ; i++)
-    {
-        receive(readData.at(i));
-    }
-    readData.resize(0);
-    isReading = false;
-}
-*/
 void Linker::receive(uint8_t data)
 {
     _isReading = true;
@@ -203,9 +195,9 @@ void Linker::decode(uint8_t data, int16_t status)
     }
     else if(_state == LEN)
     {
-        _len = (int16_t)data;
+        _len = data;
         _buffer[_ptr++] = _len;
-        if ((_len == 0) || (_len > 253))
+        if ((_len == 0) || (_len > sizeof(_buffer)))
         {
             _state = START;
         }
@@ -240,6 +232,7 @@ void Linker::decode(uint8_t data, int16_t status)
             }
             else
             {
+            	_errors_crc++;
 //                qDebug() << "CHECKSUM ERROR";
             }
         }
@@ -254,7 +247,6 @@ void Linker::reader(uint8_t* data, int16_t len)
 //    qDebug() << "len : " << len;
     if (id == 0)
     {
-        _sendPtr = 2;
         data++;
         while (ptr < (len-1))
         {
@@ -276,51 +268,77 @@ void Linker::reader(uint8_t* data, int16_t len)
 }
 void Linker::unbloc(uint8_t* buffer)
 {
-    uint8_t len = buffer[0];
-    uint8_t classe = buffer[1];
-    uint8_t id = buffer[2];
+	Header *header = (Header*)&buffer[0];
     uint8_t *payload = &buffer[3];
-    char str[64];
 
-    printf("unbloc class-id 0x%02X- 0x%02X\n",classe, id);
-    switch(id)
+    setBlocReceived(header->ID);
+    //printf("unbloc class-id 0x%02X- 0x%02X\n",classe, id);
+    switch(header->ID)
     {
     case B_SN:
         _isConnected = true;
-        readString(&payload[0], str);
-        printf("Serial Number: %s\n",str);
+        readString(&payload[0], _SN);
+//        printf("Serial Number: %s\n",str);
         break;
     case B_PN:
-        readString(&payload[0], str);
-    	printf("Part Number : %s\n",str);
+        readString(&payload[0], _PN);
+//    	printf("Part Number : %s\n",str);
         break;
     case B_SOFTMAIN:
-        readString(&payload[0], str);
-    	printf("Software : %s\n",str);
+        readString(&payload[0], _SWmain);
+//    	printf("Software : %s\n",str);
+        break;
+    case B_MODELCAMDAY:
+        //readString(&payload[0], _cameraDay);
+        break;
+    case B_MODELCAMIR:
+        //readString(&payload[0], _cameraIR);
         break;
     case B_STATUS:
-    {
-        int gimbalModeStatus = (payload[9] >> 5)&0x07;
-        printf("Mode Status : %i",gimbalModeStatus);
-        bool icrOnOff = readBitfromByte(&payload[11],5);
-        if(icrOnOff)
-        {
-        	printf("ICR Status : ON\n");
-        }
-        else
-        {
-        	printf("ICR Status : OFF\n");
-        }
-    }
+    	if(header->LEN == (sizeof(_status)+sizeof(Header)-1)){
+			memcpy(&_status, payload, sizeof(_status));
+    	}
+        break;
+    case B_TEMPERATURE:
+    	if(header->LEN == (sizeof(_temperature)+sizeof(Header)-1)){
+			memcpy(&_temperature, payload, sizeof(_temperature));
+    	}
+        break;
+    case B_LLHTARGET:
+    	if(header->LEN == (sizeof(_target)+sizeof(Header)-1)){
+			memcpy(&_target, payload, sizeof(_target));
+	    	//printf("traget %i, %i, %im\n", _target.lat_rad, _target.lon_rad, _target.alt_m);
+    	}
+        break;
+    case B_LLHTARGETREF:
+    	if(header->LEN == (sizeof(_target_ref)+sizeof(Header)-1)){
+			memcpy(&_target_ref, payload, sizeof(_target_ref));
+	    	//printf("traget ref %i, %i, %im\n", _target_ref.lat_rad, _target_ref.lon_rad, _target_ref.alt_m);
+    	}
+        break;
+    case B_LLHUAV:
+    	if(header->LEN == (sizeof(_llh_uav)+sizeof(Header)-1)){
+			memcpy(&_llh_uav, payload, sizeof(_llh_uav));
+    	}
+        break;
+    case B_EULERUAV:
+    	if(header->LEN == (sizeof(_euler_uav)+sizeof(Header)-1)){
+			memcpy(&_euler_uav, payload, sizeof(_euler_uav));
+    	}
+        break;
+    case B_GIMBALCONFIG:
+    	if(header->LEN == (sizeof(_config)+sizeof(Header)-1)){
+			memcpy(&_config, payload, sizeof(_config));
+    	}
         break;
     default:
-    	printf("Received Unhandled Bloc of ID :%i and size: %i\n", id, len);
+    	//printf("Received Unhandled Bloc of ID :%i and size: %i\n", header->ID, header->LEN);
         break;
     }
 
 }
 
-// ========= Writing Blocs
+// ========= Writing Blocs must call addLen after each addBloc
 void Linker::addBloc(uint8_t blocClass, uint8_t blocId)
 {
     switch(blocClass)
@@ -332,7 +350,7 @@ void Linker::addBloc(uint8_t blocClass, uint8_t blocId)
         /*addBlockLRFPAYLOAD(blockId);*/
         break;
     default:
-        printf("Classe non implémentée\n");
+        //printf("Classe non implémentée\n");
         break;
     }
 }
@@ -341,7 +359,7 @@ void Linker::sendProtocol()
     int16_t i;
     uint16_t checksum;
     send(0xAA);
-    _sendBuffer[0] = _sendPtr - 1;
+    _sendBuffer[0] = _sendPtr - 1; // length of all blocs
     _sendBuffer[1] = 0x00;	// payload id, fixed to 0x00
     for ( i = 0 ; i < _sendPtr ; i++)
     {
@@ -350,7 +368,16 @@ void Linker::sendProtocol()
     checksum = CRC16(_sendBuffer, _sendPtr, 0x00);
     sendByte(checksum & 0xff);
     sendByte(checksum >> 8);
-    _sendPtr=2;
+#ifndef __PX4_NUTTX
+    if(_socket !=-1){
+    	int len = sendto(_socket, _socketBuffer, _socketBufferSize , 0 , (struct sockaddr *) &_si_remote, sizeof(_si_remote));
+        if(len!= (int)_socketBufferSize) {
+        	_isConnected = false;
+        }
+		_socketBufferSize = 0;
+    }
+#endif
+    _sendPtr=2; // because of start and len
 }
 void Linker::sendByte(uint8_t data)
 {
@@ -379,12 +406,22 @@ void Linker::send(uint8_t data)
         	_isConnected = false;
         }
     }
+#ifndef __PX4_NUTTX
+    if(_socket !=-1 && _socketBufferSize<sizeof(_socketBuffer)){
+    	_socketBuffer[_socketBufferSize] = data;
+    	_socketBufferSize++;
+    }
+#endif
 }
 
 
 // ========= Data to Bytes/ Bytes to data
 //-Write Byte
 void Linker::fillUInt8(uint8_t data)
+{
+    _sendBuffer[_sendPtr++] = (uint8_t)(data &0xff);
+}
+void Linker::fillInt8(int8_t data)
 {
     _sendBuffer[_sendPtr++] = (int8_t)(data &0xff);
 }
@@ -412,6 +449,7 @@ void Linker::fillUInt32(uint32_t data)
     _sendBuffer[_sendPtr++] = (uint8_t)((data >> 16)&0xff);
     _sendBuffer[_sendPtr++] = (uint8_t)((data >> 24)&0xff);
 }
+/*
 void Linker::fillX32(float data)
 {
     static unsigned char buffer[4];
@@ -565,16 +603,18 @@ bool Linker::readBitfromByte(uint8_t *data, int bit)
       }
       return tmp;
 }
+*/
 void Linker::readString(uint8_t *data, char* str)
 {
     int i = 0;
-    while(data[i] != 0)
+    while(data[i] != 0 && i<15)
     {
     	str[i]+= data[i];
         i++;
     }
     str[i]=0;
 }
+/*
 int8_t Linker::readInt8(uint8_t *data)
 {
     int8_t tmp = data[0];
@@ -622,3 +662,4 @@ float Linker::readX32(uint8_t *data)
 
     return floatReaded;
 }
+*/
