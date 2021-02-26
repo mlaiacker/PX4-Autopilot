@@ -119,6 +119,11 @@
 #include <uORB/topics/vtol_vehicle_status.h>
 #include <uORB/topics/wind_estimate.h>
 
+
+#include <uORB/topics/trip2_gnd_report.h>
+#include <uORB/topics/trip2_los_report.h>
+#include <uORB/topics/trip2_sys_report.h>
+
 using matrix::Vector3f;
 using matrix::wrap_2pi;
 
@@ -5243,6 +5248,189 @@ protected:
 	}
 };
 
+class MavlinkStreamTrip2Sys : public MavlinkStream
+{
+public:
+	const char *get_name() const
+	{
+		return MavlinkStreamTrip2Sys::get_name_static();
+	}
+
+	static const char *get_name_static()
+	{
+		return "TRIP2_SYS";
+	}
+
+	static uint16_t get_id_static()
+	{
+		return MAVLINK_MSG_ID_V2_EXTENSION;
+	}
+
+	uint16_t get_id()
+	{
+		return get_id_static();
+	}
+
+	static MavlinkStream *new_instance(Mavlink *mavlink)
+	{
+		return new MavlinkStreamTrip2Sys(mavlink);
+	}
+
+	unsigned get_size()
+	{
+		return _sub_trip2_sys.advertised() ? MAVLINK_MSG_ID_V2_EXTENSION_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES : 0;
+	}
+
+private:
+	uORB::Subscription _sub_trip2_sys{ORB_ID(trip2_sys_report)};
+
+	/* do not allow top copying this class */
+	MavlinkStreamTrip2Sys(MavlinkStreamTrip2Sys &) = delete;
+	MavlinkStreamTrip2Sys &operator = (const MavlinkStreamTrip2Sys &) = delete;
+	MAVPACKED(
+	typedef struct{
+		float roll; // Camera roll angle (deg, -180..+180), float
+		float pitch; // Camera pitch angle (deg, -180..+180), float
+		float FOV; // Camera horizontal FOV in deg, float
+		uint8_t tracker_status; /* Status of the object tracker:
+		0		Tracker is Idle, ready for all tracking	commands
+		1		Crosshair is displayed, ready for track on command
+		2		Tracker is actively tracking an object
+		3		Re-Track crosshair is displayed, movable by the user, ready for track on command
+		4		Tracker is actively tracking an object
+		5		Tracker is actively tracking an object */
+		uint8_t recording_status; /*Status of the video recording:
+		0 Idle, not recording Detected
+		1 Active, video is being recorded Detected
+		2 Disabled Not Detected */
+		uint8_t sensor_active; // 0= Day Sensor, 1=IR Sensor
+		uint8_t sensor_polarity; // o=white hot, 1= black hot
+		uint8_t system_mode;
+		uint8_t laser_status;
+		uint16_t tracker_roix; // X offset of the center of the tracker ROI, measured from the top left corner of the frame.
+		uint16_t tracker_rioy;  // Y offset of the center of the tracker ROI, measured from the top left corner of the frame.
+		float single_yaw_cmd; //Single Yaw command recommendation, float
+		uint8_t snapshot_status; // 1=busy
+		float cpu_temperature;
+		float camera_version;
+		float trip2_version;
+		uint16_t  bit_report;
+		uint8_t  status_flag0;
+		uint8_t  camera_type;
+		float roll_rate;
+		float pitch_rate;
+		float camera_temperature;
+		float roll_derotation_angle;
+	}) v2ext_trip2_sys_report_t;
+
+protected:
+	explicit MavlinkStreamTrip2Sys(Mavlink *mavlink) : MavlinkStream(mavlink)
+	{}
+
+	bool send(const hrt_abstime t)
+	{
+		struct trip2_sys_report_s trip2_sys_report;
+
+		if (_sub_trip2_sys.update(&trip2_sys_report)) {
+
+			mavlink_v2_extension_t msg = {};
+			v2ext_trip2_sys_report_t *msg_v2 = (v2ext_trip2_sys_report_t *)&msg.target_network;
+
+			msg.message_type = 0;
+			//memcpy(&msg.target_network, &(trip2_sys_report.roll), sizeof(trip2_sys_report)-sizeof(trip2_sys_report.timestamp));
+			msg_v2->FOV = trip2_sys_report.fov;
+			msg_v2->roll = trip2_sys_report.roll;
+			msg_v2->pitch = trip2_sys_report.pitch;
+			msg_v2->laser_status = trip2_sys_report.laser_status;
+			msg_v2->recording_status = trip2_sys_report.recording_status;
+			msg_v2->sensor_active = trip2_sys_report.sensor_active;
+			msg_v2->sensor_polarity = trip2_sys_report.sensor_polarity;
+			msg_v2->system_mode = trip2_sys_report.system_mode;
+			msg_v2->tracker_rioy = trip2_sys_report.tracker_rioy;
+			msg_v2->tracker_roix = trip2_sys_report.tracker_roix;
+			msg_v2->tracker_status = trip2_sys_report.tracker_status;
+
+			mavlink_msg_v2_extension_send_struct(_mavlink->get_channel(), &msg);
+
+			return true;
+		}
+
+		return false;
+	}
+};
+
+class MavlinkStreamTrip2Gnd : public MavlinkStream
+{
+public:
+	const char *get_name() const
+	{
+		return MavlinkStreamTrip2Gnd::get_name_static();
+	}
+
+	static const char *get_name_static()
+	{
+		return "TRIP2_GND";
+	}
+
+	static uint16_t get_id_static()
+	{
+		return MAVLINK_MSG_ID_V2_EXTENSION;
+	}
+
+	uint16_t get_id()
+	{
+		return get_id_static();
+	}
+
+	static MavlinkStream *new_instance(Mavlink *mavlink)
+	{
+		return new MavlinkStreamTrip2Gnd(mavlink);
+	}
+
+	unsigned get_size()
+	{
+		return _sub_trip2_gnd.advertised() ? MAVLINK_MSG_ID_V2_EXTENSION_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES : 0;
+	}
+
+private:
+	uORB::Subscription _sub_trip2_gnd{ORB_ID(trip2_gnd_report)};
+
+	/* do not allow top copying this class */
+	MavlinkStreamTrip2Gnd(MavlinkStreamTrip2Gnd &) = delete;
+	MavlinkStreamTrip2Gnd &operator = (const MavlinkStreamTrip2Gnd &) = delete;
+
+	MAVPACKED(
+	typedef struct{
+    float gndCrsLat;
+    float gndCrsLon;
+    float gndCrsAlt;
+    float gndCrsSlantRange;
+	}) v2ext_trip2_gnd_report_t;
+
+protected:
+	explicit MavlinkStreamTrip2Gnd(Mavlink *mavlink) : MavlinkStream(mavlink)
+	{}
+
+	bool send(const hrt_abstime t)
+	{
+		struct trip2_gnd_report_s trip2_gnd_report;
+
+		if (_sub_trip2_gnd.update(&trip2_gnd_report)) {
+
+
+			mavlink_v2_extension_t msg = {};
+			//v2ext_trip2_gnd_report_t* msg_v2 = (v2ext_trip2_gnd_report_t*)&msg.target_network;
+			msg.message_type = 2;
+			memcpy(&msg.target_network, &(trip2_gnd_report.gndcrslat), sizeof(trip2_gnd_report)-sizeof(trip2_gnd_report.timestamp));
+			mavlink_msg_v2_extension_send_struct(_mavlink->get_channel(), &msg);
+
+			return true;
+		}
+
+		return false;
+	}
+};
+
 static const StreamListItem streams_list[] = {
 	create_stream_list_item<MavlinkStreamHeartbeat>(),
 	create_stream_list_item<MavlinkStreamStatustext>(),
@@ -5307,7 +5495,9 @@ static const StreamListItem streams_list[] = {
 	create_stream_list_item<MavlinkStreamProtocolVersion>(),
 	create_stream_list_item<MavlinkStreamFlightInformation>(),
 	create_stream_list_item<MavlinkStreamStorageInformation>(),
-	create_stream_list_item<MavlinkStreamRawRpm>()
+	create_stream_list_item<MavlinkStreamRawRpm>(),
+	create_stream_list_item<MavlinkStreamTrip2Sys>(),
+	create_stream_list_item<MavlinkStreamTrip2Gnd>()
 };
 
 const char *get_stream_name(const uint16_t msg_id)
