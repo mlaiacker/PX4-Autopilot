@@ -60,8 +60,8 @@
 #define TEMP_LM75_ADDR_MIN             0x00	///< lowest possible address
 #define TEMP_LM75_ADDR_MAX             0x7F	///< highest possible address
 
-#define TEMP_LM75_MEASUREMENT_INTERVAL_US	(200000)	///< time in microseconds,
-#define TEMP_LM75_TIMEOUT_US			(10000000)	///< timeout
+#define TEMP_LM75_MEASUREMENT_INTERVAL_US	(1000000)	///< time in microseconds,
+#define TEMP_LM75_TIMEOUT_US				(10000000)	///< timeout
 
 
 #define TEMP_LM75_ADDR			0x4f //default
