@@ -87,4 +87,5 @@ px4_add_romfs_files(
 	SBV3.main.mix
 	SBfoam.main.mix
 	SBfoam.aux.mix
+	talon.main.mix
 )
