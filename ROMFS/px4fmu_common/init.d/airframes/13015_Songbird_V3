@@ -104,7 +104,7 @@ set MAV_TYPE 21
 # batt_pac power monitor
 batt_pac17xx start -X -R 0.2 -r 80
 
-#temp_lm75 start -n tempPDB
+temp_lm75 start -n tempPDB
 
 gd_payload start
 
