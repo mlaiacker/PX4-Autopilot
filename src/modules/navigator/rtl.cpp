@@ -229,7 +229,7 @@ void RTL::on_activation()
 		// If lower than return altitude, climb up first.
 		// If rtl_alt_min is true then forcing altitude change even if above.
 		_rtl_state = RTL_STATE_CLIMB;
-		PX4_INFO("RTL on activation to Climb %fm %fm %fm", (double)_rtl_alt, (double)_destination.alt, (double)_param_rtl_return_alt.get());
+		PX4_INFO("RTL on activation to Climb %.1fm %.1fm %.1fm", (double)_rtl_alt, (double)_destination.alt, (double)_param_rtl_return_alt.get());
 
 		if(_destination.type == RTL_DESTINATION_MISSION_LANDING){
 			_rtl_alt = math::max(global_position.alt, _destination.alt);
@@ -269,7 +269,6 @@ void RTL::on_active()
 
 void RTL::set_rtl_item()
 {
-	PX4_INFO("RTL set_rtl_item");
 	// RTL_TYPE: mission landing.
 	// Landing using planned mission landing, fly to DO_LAND_START instead of returning _destination.
 	// After reaching DO_LAND_START, do nothing, let navigator takeover with mission landing.
@@ -514,8 +513,6 @@ void RTL::set_rtl_item()
 
 void RTL::advance_rtl()
 {
-	PX4_INFO("RTL advance from state %i", _rtl_state);
-
 	const home_position_s &home = *_navigator->get_home_position();
 	const vehicle_global_position_s &gpos = *_navigator->get_global_position();
 	const float home_dist = get_distance_to_next_waypoint(home.lat, home.lon, gpos.lat, gpos.lon);
@@ -582,7 +579,6 @@ void RTL::advance_rtl()
 	default:
 		break;
 	}
-	PX4_INFO("RTL to state %i", _rtl_state);
 }
 
 float RTL::calculate_return_alt_from_cone_half_angle(float cone_half_angle_deg)

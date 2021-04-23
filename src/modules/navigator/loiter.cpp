@@ -140,8 +140,6 @@ Loiter::reposition()
 		memcpy(&pos_sp_triplet->current, &rep->current, sizeof(rep->current));
 		pos_sp_triplet->next.valid = false;
 
-		PX4_INFO("loiter reposition set yaw to %fDeg", (double)(pos_sp_triplet->current.yaw*180.0f/M_PI_F));
-		PX4_INFO("rep yaw valid=%i %fDeg %fm",rep->current.yaw_valid, (double)(rep->current.yaw*180.0f/M_PI_F), (double)rep->current.alt);
 		if(rep->current.yaw_valid && PX4_ISFINITE(rep->current.yaw))
 		{
 			pos_sp_triplet->current.yaw = rep->current.yaw;
