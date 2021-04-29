@@ -83,13 +83,23 @@ void Songbird::fill_actuator_outputs()
 	_actuators_out_1->timestamp = hrt_absolute_time();
 	_actuators_out_1->timestamp_sample = _actuators_fw_in->timestamp_sample;
 	// _tilt_control is between 0 and 1 so mapping to 0 and 90 degrees
-	tilt_angle_rad = _tilt_control *M_PI_F*0.5f;// + tilt_pitch_rad; // 0 : up pi/2 : forward
+	float tilt_cos = 1.0f;
+	float tilt_sin = 0.0f;
+	if(PX4_ISFINITE(_tilt_control)){
+		if(_tilt_control>1.0f) {
+			_tilt_control = 1.0f;
+		}
+		if(_tilt_control<0.0f) {
+			_tilt_control = 0.0f;
+		}
+		tilt_angle_rad = _tilt_control *M_PI_F*0.5f;// + tilt_pitch_rad; // 0 : up pi/2 : forward
 
-	_actuators_out_1->control[4] = acosf(1.0f - (tilt_angle_rad) * 4.0f / M_PI_F) /
-				       M_PI_F; /* nonlinear map from tilt angle to servo angle*/;
+		_actuators_out_1->control[4] = acosf(1.0f - (tilt_angle_rad) * 4.0f / M_PI_F) /
+						   M_PI_F; /* nonlinear map from tilt angle to servo angle*/;
 
-	float tilt_cos = 1.0f / cosf(fminf(M_PI_F * 0.5f, tilt_angle_rad)); // max 45deg tilt compensation
-	float tilt_sin = sinf(fminf(M_PI_F * 0.5f, tilt_angle_rad)) * 0.5f; // compensation for roll <-> yaw coupling
+		tilt_cos = 1.0f / cosf(fminf(M_PI_F * 0.5f, tilt_angle_rad)); // max 45deg tilt compensation
+		tilt_sin = sinf(fminf(M_PI_F * 0.5f, tilt_angle_rad)) * 0.5f; // compensation for roll <-> yaw coupling
+	}
 	// we have to mix
 	_actuators_out_0->control[actuator_controls_s::INDEX_ROLL] = (_actuators_mc_in->control[actuator_controls_s::INDEX_ROLL]
 			* tilt_cos + _actuators_mc_in->control[actuator_controls_s::INDEX_YAW] * tilt_sin) * _mc_roll_weight;
