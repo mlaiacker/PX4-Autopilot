@@ -817,10 +817,16 @@ Mission::set_mission_items()
 					_mission_item.force_heading = true;
 
 					new_work_item_type = WORK_ITEM_TYPE_ALIGN;
-
-					/* set position setpoint to current while aligning */
+					/* dont hold position during allingment t avoid tail wind
+					// set position setpoint to current while aligning
 					_mission_item.lat = _navigator->get_global_position()->lat;
 					_mission_item.lon = _navigator->get_global_position()->lon;
+					*/
+
+					/* set position setpoint to target during the transition
+					 * to start moving in the transition direction to help align yaw*/
+					generate_waypoint_from_heading(&pos_sp_triplet->current, _mission_item.yaw);
+
 				}
 
 				/* heading is aligned now, prepare transition */
@@ -845,7 +851,6 @@ Mission::set_mission_items()
 
 					} else {
 						_mission_item.yaw = _navigator->get_local_position()->heading;
-
 						/* set position setpoint to target during the transition */
 						generate_waypoint_from_heading(&pos_sp_triplet->current, _mission_item.yaw);
 					}
