@@ -33,7 +33,7 @@ then
 	param set BAT_V_CHARGED	4.100
 	param set BAT_A_PER_V	1.000
 	param set BAT_SOURCE	1
-	param set CAL_AIR_GAIN	0.8
+	param set CAL_AIR_GAIN	0.67
 	param set CBRK_IO_SAFETY	22027
 	param set COM_ARM_CHK_ESCS	0
 	param set COM_FLTMODE1	3
@@ -45,7 +45,8 @@ then
 	param set COM_POWER_COUNT	1
 	param set COM_PREARM_MODE	2
 	param set EKF2_BARO_NOISE	15.0
-
+	param set VT_ELEV_MC_LOCK	0
+	
 	param set PWM_AUX_DIS1	1500
 	param set PWM_AUX_DIS2	1500
 	param set PWM_AUX_DIS3	1500
@@ -96,7 +97,7 @@ set PWM_OUT 1234
 set PWM_RATE 400
 
 set MIXER_AUX SBV3
-set PWM_AUX_OUT 12345
+set PWM_AUX_OUT 1234
 set PWM_AUX_RATE 50
 
 set MAV_TYPE 21

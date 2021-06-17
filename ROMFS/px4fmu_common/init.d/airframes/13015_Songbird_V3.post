@@ -56,6 +56,12 @@ then
 #	uart_phaseone start -d /dev/ttyS2
 fi
 
+# Camera capture driver
+if param greater -s CAM_CAP_FBACK 0
+then
+	pwm -d /dev/pwm_output1 arm
+fi
+
 # /dev/ttyS0		IO debug except v4, there ttyS0 is the wifi
 # /dev/ttyS1		TELEM1 flow control serial1, telemetry
 # /dev/ttyS2		TELEM2 flow control serial2, payload
