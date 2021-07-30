@@ -429,8 +429,6 @@ Mission::find_mission_land_start()
 					} else {
 						_landing_alt = missionitem_next.altitude;
 					}
-					PX4_INFO("land start at index %lu (%.3f, %.3f, %.1f)",
-							i+1, _landing_lat, _landing_lon, (double)_landing_alt);
 					return true;
 				}
 			}
