@@ -392,11 +392,9 @@ Mission::find_mission_land_start()
 
 	const dm_item_t dm_current = (dm_item_t)_mission.dataman_id;
 	struct mission_item_s missionitem = {};
-	struct mission_item_s missionitem_prev = {}; //to store mission item before currently checked on, needed to get pos of wp before NAV_CMD_DO_LAND_START
-
-	for (size_t i = 1; i < _mission.count; i++) {
+	/* GD ML: start at current mission item and search for land start not at the beginning */
+	for (size_t i = _mission.current_seq; i < _mission.count; i++) {
 		const ssize_t len = sizeof(missionitem);
-		missionitem_prev = missionitem; // store the last mission item before reading a new one
 
 		if (dm_read(dm_current, i, &missionitem, len) != len) {
 			/* not supposed to happen unless the datamanager can't access the SD card, etc. */
@@ -405,20 +403,37 @@ Mission::find_mission_land_start()
 		}
 
 		// first check for DO_LAND_START marker
-		if ((missionitem.nav_cmd == NAV_CMD_DO_LAND_START) && (missionitem_prev.nav_cmd == NAV_CMD_WAYPOINT)) {
-
-			_land_start_available = true;
-			_land_start_index = i;
-			// the DO_LAND_START marker contains no position sp, so take them from the previous mission item
-			_landing_lat = missionitem_prev.lat;
-			_landing_lon = missionitem_prev.lon;
-			if(missionitem_prev.altitude_is_relative){
-				_landing_alt = missionitem_prev.altitude + _navigator->get_home_position()->alt;
-			} else {
-				_landing_alt = missionitem_prev.altitude;
+		if ((missionitem.nav_cmd == NAV_CMD_DO_LAND_START) && ((i+1) < _mission.count)) {
+			/* serach for the next mission item having a position */
+			for (size_t next_mission_index=i+1; next_mission_index < _mission.count; next_mission_index++){
+				struct mission_item_s missionitem_next = {}; //to store mission item after currently checked on, needed to get pos of wp after NAV_CMD_DO_LAND_START
+				if (dm_read(dm_current, next_mission_index, &missionitem_next, len) != len) {
+					/* not supposed to happen unless the datamanager can't access the SD card, etc. */
+					PX4_ERR("dataman read failure");
+					break;
+				}
+				/* check for a mission item with a position */
+				if((missionitem_next.nav_cmd == NAV_CMD_WAYPOINT)
+						|| (missionitem_next.nav_cmd == NAV_CMD_VTOL_LAND)
+						|| (missionitem_next.nav_cmd == NAV_CMD_LAND)
+						|| (missionitem_next.nav_cmd == NAV_CMD_LOITER_TIME_LIMIT)
+						|| (missionitem_next.nav_cmd == NAV_CMD_LOITER_TO_ALT)
+						|| (missionitem_next.nav_cmd == NAV_CMD_LOITER_UNLIMITED)) {
+					_land_start_available = true;
+					_land_start_index = i;
+					// the DO_LAND_START marker contains no position sp, so take them from the previous mission item
+					_landing_lat = missionitem_next.lat;
+					_landing_lon = missionitem_next.lon;
+					if(missionitem_next.altitude_is_relative){
+						_landing_alt = missionitem_next.altitude + _navigator->get_home_position()->alt;
+					} else {
+						_landing_alt = missionitem_next.altitude;
+					}
+					PX4_INFO("land start at index %lu (%.3f, %.3f, %.1f)",
+							i+1, _landing_lat, _landing_lon, (double)_landing_alt);
+					return true;
+				}
 			}
-			return true;
-
 			// if no DO_LAND_START marker available, also check for VTOL_LAND or normal LAND
 
 		} else if (((missionitem.nav_cmd == NAV_CMD_VTOL_LAND) && _navigator->get_vstatus()->is_vtol) ||
