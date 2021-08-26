@@ -60,6 +60,8 @@
 #include <nuttx/irq.h>
 #include <arch/board/board.h>
 #endif
+// for mavling warning messages
+#include <systemlib/mavlink_log.h>
 
 #include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/topics/vehicle_command.h>
@@ -80,6 +82,10 @@
 #define SW_LIPO	(0xf0|1)
 #define SW_LION	(0xf0|2)
 #define SW_BOTH	(0xf0|3)
+
+#define WARN_INT_S		(10) // min time ins seconds between two warning messages with the same content
+#define PDB_TEMP_NAME	("tempPDB")
+#define PDB_TEMP_WARN	(75.0f) // if we have a PDB temperature sensor we will send a warning message
 
 #ifndef __PX4_NUTTX
 int g_gd_payload_on = 1;
@@ -131,6 +137,8 @@ int GDPayload::print_status()
 	{
 		PX4_INFO("ADC:%02i, %02i=%fV",i, adc_report.channel_id[i], (double)(adc_report.raw_data[i]*adc_report.v_ref/adc_report.resolution));
 	}
+#else
+	PX4_INFO("PDB temp: %.1f", (double)_sim_temp_pdb.value);
 #endif
 	return 0;
 }
@@ -407,13 +415,15 @@ _pub_battery(nullptr)
 {
 	_debug_flag = debug_flag;
 	memset(&_battery_status,0,sizeof(_battery_status));
-	_battery_status.remaining = 1.0f;
+	_battery_status.remaining = 0.0f;
 	_used_mAh = 0.0f;
 	_voltage_v = 0.0f;
 	_current_a = 0.0f;
 	param_find("MNT_TRIP_MAVLINK");
 #ifndef __PX4_NUTTX
 	_battery_sim.rechargeBattery();
+	_sim_temp_pdb.value = 20;
+	snprintf(_sim_temp_pdb.key, sizeof(_sim_temp_pdb.key), "%s", PDB_TEMP_NAME);
 #endif
 }
 
@@ -421,7 +431,15 @@ bool GDPayload::init()
 {
 	bool result = true;
 	_parameters_handles.battery_v_div = param_find("BAT_V_DIV");
+	if(_parameters_handles.battery_v_div==PARAM_INVALID) {
+		_parameters_handles.battery_v_div = param_find("BAT1_V_DIV");
+	}
 	_parameters_handles.battery_a_per_v = param_find("BAT_A_PER_V");
+	if(_parameters_handles.battery_a_per_v == PARAM_INVALID) {
+		_parameters_handles.battery_a_per_v = param_find("BAT1_A_PER_V");
+	}
+
+	_parameters_handles.payload_current_warn_a = param_find("MNT_CURR_WARN");
 
 	// initialize parameters
 	_parameter_update_sub = orb_subscribe(ORB_ID(parameter_update));
@@ -453,13 +471,12 @@ void GDPayload::parameters_update(int parameter_update_sub, bool force)
 		{
 			PX4_DEBUG("param upd");
 		}
+
 		if (param_get(_parameters_handles.battery_v_div, &(_parameters.battery_v_div)) != OK) {
 			PX4_WARN("%s", paramerr);
 			_parameters.battery_v_div = 0.0f;
-
 		} else if (_parameters.battery_v_div <= 0.0f) {
 			/* apply scaling according to defaults if set to default */
-
 			_parameters.battery_v_div = 15.468f; /* 68k and 4k7 ohm voltage divider */
 			param_set_no_notification(_parameters_handles.battery_v_div, &_parameters.battery_v_div);
 		}
@@ -467,12 +484,19 @@ void GDPayload::parameters_update(int parameter_update_sub, bool force)
 		if (param_get(_parameters_handles.battery_a_per_v, &(_parameters.battery_a_per_v)) != OK) {
 			PX4_WARN("%s", paramerr);
 			_parameters.battery_a_per_v = 0.0f;
-
 		} else if (_parameters.battery_a_per_v <= 0.0f) {
 			/* apply scaling according to defaults if set to default */
-
 			_parameters.battery_a_per_v = 1.0f; /* 1V=1A */
 			param_set_no_notification(_parameters_handles.battery_a_per_v, &_parameters.battery_a_per_v);
+		}
+
+		if (param_get(_parameters_handles.payload_current_warn_a, &(_parameters.payload_current_warn_a)) != OK) {
+			PX4_WARN("%s", paramerr);
+			_parameters.payload_current_warn_a = 3.0f;
+		} else if (_parameters.payload_current_warn_a < 0.0f) {
+			/* apply scaling according to defaults if set to default */
+			_parameters.payload_current_warn_a = 3.0f; /* 3A */
+			param_set_no_notification(_parameters_handles.payload_current_warn_a, &_parameters.payload_current_warn_a);
 		}
 	}
 }
@@ -572,7 +596,7 @@ void GDPayload::vehicleCommand(const vehicle_command_s *vcmd)
 	}
 }
 
-/* read arming state */
+/* read arming state and other subs */
 void GDPayload::vehicle_control_mode_poll()
 {
 	if(_sub_vcontrol_mode!=-1)
@@ -666,6 +690,25 @@ void GDPayload::vehicle_control_mode_poll()
 			orb_copy(ORB_ID(vehicle_status), _sub_vehicle_status, &_vstatus);
 		}
 	}
+	struct debug_key_value_s debug_key;
+	if(_sub_debug_key.copy(&debug_key)) {
+		if(strlen(debug_key.key)>0){
+			// check if match
+			if(strcasecmp(debug_key.key, PDB_TEMP_NAME)==0) {
+				// we got the value we waiting for
+				if(debug_key.value>PDB_TEMP_WARN && (hrt_elapsed_time(&_temp_last_warn_time))>=(WARN_INT_S* 1000000ULL)){
+					mavlink_log_critical(&_pub_mavlink_log, "PDB Temp. too high %.1fC", (double)debug_key.value)
+					_temp_last_warn_time = debug_key.timestamp;
+				}
+				// report only once if dropped
+				if(debug_key.value<(PDB_TEMP_WARN*0.6f) && _temp_last_report_c>(PDB_TEMP_WARN*0.6f) && _temp_last_warn_time!=0){
+					mavlink_log_critical(&_pub_mavlink_log, "PDB Temp. normalized %.1fC", (double)debug_key.value)
+					_temp_last_warn_time = 0; // only print if we had the over temperature
+				}
+				_temp_last_report_c = debug_key.value;
+			}
+		}
+	}
 }
 
 /*
@@ -741,9 +784,16 @@ bool  GDPayload::readPayloadAdc()
 				_sim_was_armed = false;
 			}
 		}
+		//_battery_sim._battery_status.temperature = _sim_temp_pdb.value;
 		_battery_sim.updateBatteryStatus(hrt_absolute_time(),
 				sim_voltage_v, sim_current_a,
 				true, battery_status_s::BATTERY_SOURCE_EXTERNAL, 1, ctrl.control[actuator_controls_s::INDEX_THROTTLE]);
+		float dt = 0.1f;
+		// simulate pdb temerature
+		_sim_temp_pdb.value = _sim_temp_pdb.value + sim_current_a*dt*0.005f*3.65f + (20.0f- _sim_temp_pdb.value )*0.0019f;
+		_sim_temp_pdb.timestamp = hrt_absolute_time();
+		_sim_pub_pdb_temp.publish(_sim_temp_pdb);
+
 		return true;
 	}
 	return false;

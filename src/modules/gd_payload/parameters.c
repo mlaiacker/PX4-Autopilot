@@ -36,7 +36,20 @@
  *
  * @reboot_required true
  *
- * @boolean
  * @group Mount
  */
 PARAM_DEFINE_INT32(MNT_TRIP_MAVLINK, 0);
+
+/**
+ * warning thrshold for payload current
+ *
+ * @reboot_required false
+ *
+ * @unit A
+ * @min 0.0
+ * @max 4.0
+ * @decimal 1
+ * @group Mount
+ */
+
+PARAM_DEFINE_FLOAT(MNT_CURR_WARN, 3.5);
