@@ -829,7 +829,7 @@ void GDPayload::run()
 				}
 				_battery_status.timestamp = now;
 				_battery_status.connected = connected;
-				//_battery_status.temperature = ;
+				_battery_status.temperature = _temp_last_report_c;
 				_battery_status.voltage_v = _voltage_v;
 				_battery_status.cell_count = 8;
 				_battery_status.current_a = _current_a;
