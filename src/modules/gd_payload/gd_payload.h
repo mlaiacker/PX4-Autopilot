@@ -39,6 +39,7 @@
 #include <uORB/topics/battery_status.h>
 #include <uORB/topics/adc_report.h>
 #include <uORB/Subscription.hpp>
+#include <uORB/topics/debug_key_value.h>
 
 
 extern "C" __EXPORT int gd_payload_main(int argc, char *argv[]);
@@ -81,10 +82,12 @@ private:
 	struct {
 		float battery_v_div;
 		float battery_a_per_v;
+		float payload_current_warn_a; // current above we should send a warning message
 	} _parameters;
 	struct {
-		param_t battery_v_div;
-		param_t battery_a_per_v;
+		param_t battery_v_div{PARAM_INVALID};
+		param_t battery_a_per_v{PARAM_INVALID};
+		param_t payload_current_warn_a{PARAM_INVALID};
 	} _parameters_handles;
 	int 	_parameter_update_sub{-1};
 
@@ -96,13 +99,22 @@ private:
 	Battery				_battery_sim;
 	int					_sub_actuator_ctrl_0{-1};		/**< attitude controls sub */
 	bool				_sim_was_armed{false};
+	uORB::Publication<debug_key_value_s>	_sim_pub_pdb_temp{ORB_ID(debug_key_value)}; // generate PDB temperature in simulation
+	struct debug_key_value_s _sim_temp_pdb;
 #endif
 
 	orb_advert_t		_pub_battery;
 	orb_advert_t		_vehicle_command_ack_pub;
 
 	battery_status_s	_battery_status;
+	hrt_abstime _payload_last_warn_time{0};
 	float _voltage_v, _current_a, _used_mAh;
+
+	uORB::Subscription  _sub_debug_key{ORB_ID(debug_key_value)};
+	float _temp_last_report_c{0.0f}; // last temperature value in degC
+	hrt_abstime _temp_last_warn_time{0};
+	orb_advert_t _pub_mavlink_log; // for sending messages to GCS
+
 	bool  readPayloadAdc();
 	void updateBatteryDisconnect();
 	void vehicleCommand(const vehicle_command_s *vcmd);
