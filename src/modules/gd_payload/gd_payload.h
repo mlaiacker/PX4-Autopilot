@@ -107,6 +107,7 @@ private:
 	orb_advert_t		_vehicle_command_ack_pub;
 
 	battery_status_s	_battery_status;
+	hrt_abstime _payload_last_warn_time{0};
 	float _voltage_v, _current_a, _used_mAh;
 
 	uORB::Subscription  _sub_debug_key{ORB_ID(debug_key_value)};

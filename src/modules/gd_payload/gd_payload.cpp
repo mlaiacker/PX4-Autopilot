@@ -697,12 +697,12 @@ void GDPayload::vehicle_control_mode_poll()
 			if(strcasecmp(debug_key.key, PDB_TEMP_NAME)==0) {
 				// we got the value we waiting for
 				if(debug_key.value>PDB_TEMP_WARN && (hrt_elapsed_time(&_temp_last_warn_time))>=(WARN_INT_S* 1000000ULL)){
-					mavlink_log_critical(&_pub_mavlink_log, "PDB Temp. too high %.1fC", (double)debug_key.value)
+					mavlink_log_critical(&_pub_mavlink_log, "PDB Temp. too high %.1fC", (double)debug_key.value);
 					_temp_last_warn_time = debug_key.timestamp;
 				}
 				// report only once if dropped
 				if(debug_key.value<(PDB_TEMP_WARN*0.6f) && _temp_last_report_c>(PDB_TEMP_WARN*0.6f) && _temp_last_warn_time!=0){
-					mavlink_log_critical(&_pub_mavlink_log, "PDB Temp. normalized %.1fC", (double)debug_key.value)
+					mavlink_log_critical(&_pub_mavlink_log, "PDB Temp. normalized %.1fC", (double)debug_key.value);
 					_temp_last_warn_time = 0; // only print if we had the over temperature
 				}
 				_temp_last_report_c = debug_key.value;
@@ -833,8 +833,8 @@ void GDPayload::run()
 				_battery_status.voltage_v = _voltage_v;
 				_battery_status.cell_count = 8;
 				_battery_status.current_a = _current_a;
-				_battery_status.voltage_filtered_v = _battery_status.voltage_filtered_v*0.8f + _voltage_v*0.2f; /* override filtered value */
-				_battery_status.current_filtered_a = _battery_status.current_filtered_a*0.8f + _current_a*0.2f;
+				_battery_status.voltage_filtered_v = _battery_status.voltage_filtered_v*0.9f + _voltage_v*0.1f; /* override filtered value */
+				_battery_status.current_filtered_a = _battery_status.current_filtered_a*0.9f + _current_a*0.1f;
 				_battery_status.discharged_mah = _used_mAh;
 				_battery_status.priority = (uint8_t)switchStatus()&0x03;
 				_battery_status.serial_number = 13015; // songbird ID
@@ -848,6 +848,11 @@ void GDPayload::run()
 					{
 						PX4_INFO("pup failed %d", _instance);
 					}
+				}
+				if(_battery_status.current_filtered_a > _parameters.payload_current_warn_a && _parameters.payload_current_warn_a>0.0f
+						&& (hrt_elapsed_time(&_payload_last_warn_time))>=(WARN_INT_S* 1000000ULL) ){
+					mavlink_log_critical(&_pub_mavlink_log, "Payload current: %.1fA", (double)_battery_status.current_filtered_a);
+					_payload_last_warn_time = hrt_absolute_time();
 				}
 		}
 		usleep(100000);
