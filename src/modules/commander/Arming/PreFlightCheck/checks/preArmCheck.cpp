@@ -37,6 +37,7 @@
 #include <systemlib/mavlink_log.h>
 #include <uORB/topics/vehicle_command_ack.h>
 #include <HealthFlags.h>
+#include <lib/ecl/geo/geo.h>
 
 
 #include <uORB/Subscription.hpp>
@@ -57,10 +58,7 @@ checkVTOLLanding(orb_advert_t *mavlink_log_pub, bool gpos_valid, bool report_fai
 	vehicle_global_position_s v_gpos;
 	uORB::Subscription v_gpos_sub(ORB_ID(vehicle_global_position));
 	v_gpos_sub.copy(&v_gpos);
-	/* Go through all mission items and search for a landing waypoint
-	 * if landing waypoint is found: the previous waypoint is checked to be at a feasible distance and altitude given the landing slope */
-
-	bool land_at_arming_found = false;
+	/* Go through all mission items and search for a landing waypoint */
 
 	for (size_t i = 0; i < mission.count; i++) {
 		struct mission_item_s missionitem;
@@ -74,8 +72,8 @@ checkVTOLLanding(orb_advert_t *mavlink_log_pub, bool gpos_valid, bool report_fai
 		}
 
 		if (missionitem.nav_cmd == NAV_CMD_VTOL_LAND &&
-		    fabsf(missionitem.params[1] - 1.0f) < FLT_EPSILON && // GD feature: land at take off
-		    !land_at_arming_found) {
+		    fabsf(missionitem.params[1] - 1.0f) < FLT_EPSILON // GD feature: land at take off
+		    ) {
 			if (!PX4_ISFINITE(v_gpos.lat) ||
 			    !PX4_ISFINITE(v_gpos.lon) ||
 			    !PX4_ISFINITE(v_gpos.alt) ||
@@ -83,20 +81,25 @@ checkVTOLLanding(orb_advert_t *mavlink_log_pub, bool gpos_valid, bool report_fai
 				if (report_fail) { mavlink_log_critical(mavlink_log_pub, "Mission: cant update landing, no gps position"); }
 
 			} else {
-				missionitem.lat = v_gpos.lat;
-				missionitem.lon = v_gpos.lon;
+				float dist_to_land = get_distance_to_next_waypoint(v_gpos.lat, v_gpos.lon, missionitem.lat, missionitem.lon);
+				if(dist_to_land>500) {
+					if (report_fail) { mavlink_log_warning(mavlink_log_pub, "Mission: land(%i) too far away %im", (int)i, (int)dist_to_land); }
+				} else {
+					missionitem.lat = v_gpos.lat;
+					missionitem.lon = v_gpos.lon;
 
-				land_at_arming_found = true; // only update one item
 
-				if (dm_write((dm_item_t)mission.dataman_id, i, DM_PERSIST_POWER_ON_RESET, &missionitem, len) != len) {
-					/* not supposed to happen unless the datamanager can't access the SD card, etc. */
-					PX4_INFO("failed to write mission");
-					return false;
+					if (dm_write((dm_item_t)mission.dataman_id, i, DM_PERSIST_POWER_ON_RESET, &missionitem, len) != len) {
+						/* not supposed to happen unless the datamanager can't access the SD card, etc. */
+						PX4_INFO("failed to write mission");
+						return false;
+					}
+
+					if (report_fail) { mavlink_log_info(mavlink_log_pub, "Mission: update land(%i) to cur. pos.", (int)i); }
+
+					// update all land points
+					//return true;
 				}
-
-				if (report_fail) { mavlink_log_info(mavlink_log_pub, "Mission: update land(%i) to cur. pos.", (int)i); }
-
-				return true;
 			}
 		}
 	}

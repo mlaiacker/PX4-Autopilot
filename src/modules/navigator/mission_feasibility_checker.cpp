@@ -679,7 +679,7 @@ MissionFeasibilityChecker::checkDistanceToFirstWaypoint(const mission_s &mission
 		} else {
 			/* item is too far from home */
 			mavlink_log_critical(_navigator->get_mavlink_log_pub(),
-					     "First waypoint(%i) too far away: %d meters, %d max.",
+					     "First waypoint(%i) too far away: %dm, %dm max.",
 					     (int)i, (int)dist_to_1wp, (int)max_distance);
 
 			_navigator->get_mission_result()->warning = true;
@@ -731,7 +731,7 @@ MissionFeasibilityChecker::checkDistancesBetweenWaypoints(const mission_s &missi
 			if (dist_between_waypoints > max_distance) {
 				/* distance between waypoints is too high */
 				mavlink_log_critical(_navigator->get_mavlink_log_pub(),
-						     "Distance between waypoints too far: %d meters, %d max.",
+						     "Distance between waypoints too far: %dm, %dm max.",
 						     (int)dist_between_waypoints, (int)max_distance);
 
 				_navigator->get_mission_result()->warning = true;
