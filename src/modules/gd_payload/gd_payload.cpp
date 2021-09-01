@@ -415,7 +415,7 @@ _pub_battery(nullptr)
 {
 	_debug_flag = debug_flag;
 	memset(&_battery_status,0,sizeof(_battery_status));
-	_battery_status.remaining = 0.0f;
+	_battery_status.remaining = 1.0f; // must be 1 because mavlink will select the battery with the lowest remainig. since we are not realy a battery we have to set this to 100%
 	_used_mAh = 0.0f;
 	_voltage_v = 0.0f;
 	_current_a = 0.0f;
