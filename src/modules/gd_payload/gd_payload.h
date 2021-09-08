@@ -36,6 +36,7 @@
 #include <px4_platform_common/module.h>
 #include <px4_platform_common/module_params.h>
 #include <battery/battery.h>
+#include <uORB/topics/vehicle_global_position.h>
 #include <uORB/topics/battery_status.h>
 #include <uORB/topics/adc_report.h>
 #include <uORB/Subscription.hpp>
@@ -101,6 +102,7 @@ private:
 	bool				_sim_was_armed{false};
 	uORB::Publication<debug_key_value_s>	_sim_pub_pdb_temp{ORB_ID(debug_key_value)}; // generate PDB temperature in simulation
 	struct debug_key_value_s _sim_temp_pdb;
+	uORB::Subscription	_sub_global_pos{ORB_ID(vehicle_global_position)};
 #endif
 
 	orb_advert_t		_pub_battery;

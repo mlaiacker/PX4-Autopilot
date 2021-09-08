@@ -43,7 +43,6 @@
  *
  * @author Maximilian Laiacker <post@mlaiacker.de>
  */
-
 #include <px4_platform_common/module.h>
 #include <px4_platform_common/getopt.h>
 #include <px4_log.h>
@@ -59,6 +58,8 @@
 #include <nuttx/arch.h>
 #include <nuttx/irq.h>
 #include <arch/board/board.h>
+#else
+#include <signal.h>
 #endif
 // for mavling warning messages
 #include <systemlib/mavlink_log.h>
@@ -83,7 +84,7 @@
 #define SW_LION	(0xf0|2)
 #define SW_BOTH	(0xf0|3)
 
-#define WARN_INT_S		(10) // min time ins seconds between two warning messages with the same content
+#define WARN_INT_S		(20) // min time ins seconds between two warning messages with the same content
 #define PDB_TEMP_NAME	("tempPDB")
 #define PDB_TEMP_WARN	(75.0f) // if we have a PDB temperature sensor we will send a warning message
 
@@ -756,6 +757,8 @@ bool  GDPayload::readPayloadAdc()
 	vehicle_control_mode_poll();
 	if(_vstatus.hil_state == _vstatus.HIL_STATE_ON)
 	{
+		vehicle_global_position_s gpos;
+		_sub_global_pos.copy(&gpos);
 		float sim_current_a=_current_a, sim_voltage_v= _voltage_v;
 		/* needed for the Battery class */
 		if(_sub_actuator_ctrl_0<0){
@@ -779,6 +782,14 @@ bool  GDPayload::readPayloadAdc()
 			sim_voltage_v -= sim_current_a*0.007f;
 			_sim_was_armed = true;
 		} else {
+			if(!PX4_ISFINITE(gpos.alt))
+			{
+				PX4_ERR("alt invalid, exiting...");
+				sleep(1);
+				raise(SIGTERM);
+				sleep(1);
+				system_exit(0);
+			}
 			if(_sim_was_armed) {
 				_battery_sim.rechargeBattery();
 				_sim_was_armed = false;
