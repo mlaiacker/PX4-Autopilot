@@ -526,35 +526,6 @@ void GDPayload::vehicleCommandAck(const vehicle_command_s *cmd)
 
 }
 
-bool GDPayload::cmdTripCordinate(double lat, double lon, float alt){
-	if(_debug_flag)	{
-		PX4_INFO("trip point to %f %f %f", lat, lon, (double)alt);
-	}
-	return true;
-}
-
-bool GDPayload::cmdTripRecord(bool on){
-	if(_debug_flag)	{
-		PX4_INFO("trip record %d", on);
-	}
-	return true;
-}
-
-bool GDPayload::cmdTripSnapshot(){
-	if(_debug_flag)	{
-		PX4_INFO("trip snapshot");
-	}
-	return true;
-}
-
-bool GDPayload::cmdTripMode(int mode){
-	if(_debug_flag)	{
-		PX4_INFO("trip mode %d", mode);
-	}
-	return true;
-}
-
-
 void GDPayload::vehicleCommand(const vehicle_command_s *vcmd)
 {
 	if(_debug_flag)
@@ -568,30 +539,6 @@ void GDPayload::vehicleCommand(const vehicle_command_s *vcmd)
 		writePayloadPower(vcmd->param1>=0.5f);
 		vehicleCommandAck(vcmd);
 		break;
-	case vehicle_command_s::VEHICLE_CMD_DO_SET_ROI:
-	case vehicle_command_s::VEHICLE_CMD_DO_SET_ROI_LOCATION:
-		if(cmdTripCordinate(vcmd->param5,vcmd->param6, vcmd->param7))
-		{
-			vehicleCommandAck(vcmd);
-		}
-		break;
-	case vehicle_command_s::VEHICLE_CMD_SET_CAMERA_MODE:
-	case vehicle_command_s::VEHICLE_CMD_DO_DIGICAM_CONTROL:
-		if((int)vcmd->param1==0) //Set System Mode
-		{
-			cmdTripMode(vcmd->param2);
-		} else if((int)vcmd->param1==1) //Take Snap Shot
-		{
-			cmdTripSnapshot();
-		}  else if((int)vcmd->param1==2) // set rec state
-		{
-			cmdTripRecord(vcmd->param2>0.5f);
-		}
-		break;
-	case vehicle_command_s::VEHICLE_CMD_DO_TRIGGER_CONTROL:
-		cmdTripSnapshot();
-		break;
-
 	default:
 		//print_message(&vcmd);
 		break;

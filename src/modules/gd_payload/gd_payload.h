@@ -110,24 +110,22 @@ private:
 
 	battery_status_s	_battery_status;
 	hrt_abstime _payload_last_warn_time{0};
-	float _voltage_v, _current_a, _used_mAh;
+	float _voltage_v{0.0f};
+	float _current_a{0.0f};
+	float _used_mAh{0.0f};
 
 	uORB::Subscription  _sub_debug_key{ORB_ID(debug_key_value)};
 	float _temp_last_report_c{0.0f}; // last temperature value in degC
 	hrt_abstime _temp_last_warn_time{0};
-	orb_advert_t _pub_mavlink_log; // for sending messages to GCS
+	orb_advert_t _pub_mavlink_log{nullptr}; // for sending messages to GCS
 
 	bool  readPayloadAdc();
 	void updateBatteryDisconnect();
 	void vehicleCommand(const vehicle_command_s *vcmd);
 	void vehicleCommandAck(const vehicle_command_s *cmd);
-	bool cmdTripCordinate(double lat, double lon, float alt);
-	bool cmdTripRecord(bool on);
-	bool cmdTripSnapshot();
-	bool cmdTripMode(int mode);
 
 	bool	_debug_flag = false;
-	int 	_instance;
+	int 	_instance{0};
 	int		_sub_vcontrol_mode{-1};		/**< vehicle control mode subscription */
 	int		_sub_trip2{-1};
 	int 	_sub_vehicle_cmd{-1};
@@ -136,7 +134,7 @@ private:
 
 	bool		_armed{false};
 	bool		_auto_mode{false};
-	uint16_t _cmdold{0};
+	uint16_t 	_cmdold{0};
 
 	struct vehicle_status_s _vstatus {};
 
