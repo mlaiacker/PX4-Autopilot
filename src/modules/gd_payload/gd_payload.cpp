@@ -789,6 +789,7 @@ void GDPayload::run()
 				_battery_status.discharged_mah = _used_mAh;
 				_battery_status.priority = (uint8_t)switchStatus()&0x03;
 				_battery_status.serial_number = 13015; // songbird ID
+				_battery_status.id = 2; // second battery
 				for(int i = 0; i< _battery_status.cell_count; i++)
 				{
 					_battery_status.voltage_cell_v[i] = _battery_status.voltage_filtered_v/_battery_status.cell_count;
