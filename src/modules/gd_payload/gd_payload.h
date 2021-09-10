@@ -98,8 +98,8 @@ private:
 	bool				_sim_was_armed{false};
 #endif
 
-	orb_advert_t		_pub_battery;
-	orb_advert_t		_vehicle_command_ack_pub;
+	orb_advert_t		_pub_battery{nullptr};
+	orb_advert_t		_vehicle_command_ack_pub{nullptr};
 
 	battery_status_s	_battery_status;
 	float _voltage_v, _current_a, _used_mAh;
