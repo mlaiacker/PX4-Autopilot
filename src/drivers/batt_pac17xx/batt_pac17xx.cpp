@@ -52,7 +52,7 @@
 #include <px4_platform_common/i2c_spi_buses.h>
 
 #include <uORB/topics/vehicle_control_mode.h>
-#include <uORB/uORB.h>
+#include <uORB/Subscription.hpp>
 #include <battery/battery.h>
 
 #include <board_config.h>
@@ -166,31 +166,31 @@ private:
 	// internal variables
 	unsigned        _measure_interval{0};
 
-	bool			_enabled;	///< true if we have successfully connected to battery
+	bool			_enabled{false};	///< true if we have successfully connected to battery
 
-	float			_discharged_mah_armed; ///< value when we last armed to calc avg current
-	float			_current_a_filtered;
-	float			_voltage_v;
-	float			_voltage_v_filtered;
-	float			_current_a;
-	float			_voltage2; 	///< for pac1720
-	float			_current2; 	///< for pac1720
+	float			_discharged_mah_armed{0.0f}; ///< value when we last armed to calc avg current
+	float			_current_a_filtered{0.0f};
+	float			_voltage_v{0.0f};
+	float			_voltage_v_filtered{0.0f};
+	float			_current_a{0.0f};
+	float			_voltage2{0.0f}; 	///< for pac1720
+	float			_current2{0.0f}; 	///< for pac1720
 
-	int				_sub_status{-1};		/**< vehicle status*/
-	bool			_armed;
+	uORB::Subscription	_sub_mode{ORB_ID(vehicle_control_mode)};		/**< vehicle status*/
+	bool			_armed{false};
 
-	uint64_t		_time_arm;	///< system time we last armed
-	uint16_t		_sens_full_scale; ///< current sense full range voltage 10,20,40,80 mV
-	uint8_t			_sens_sample_reg; ///< sample scale register value
-	float			_sens_resistor;	///< current sense resistor value in mOhm
-	int 			_startupDelay; ///< prevent publish voltage before filter converged
-	float 			_startRemaining; //< remain estimate based on voltage at beginning
+	uint64_t		_time_arm{0};	///< system time we last armed
+	uint16_t		_sens_full_scale{0}; ///< current sense full range voltage 10,20,40,80 mV
+	uint8_t			_sens_sample_reg{0}; ///< sample scale register value
+	float			_sens_resistor{0.0f};	///< current sense resistor value in mOhm
+	int 			_startupDelay{0}; ///< prevent publish voltage before filter converged
+	float 			_startRemaining{0.0f}; //< remain estimate based on voltage at beginning
 	enum PAC17_DEV_E {
 		NONE = 0,
 		PAC1710,
 		PAC1720,
 	};
-	PAC17_DEV_E			_dev_id;	// PAC1710, PAC1720
+	PAC17_DEV_E			_dev_id{PAC17_DEV_E::NONE};	// PAC1710, PAC1720
 	Battery				_battery;	/**< Helper lib to publish battery_status topic. */
 };
 
@@ -255,7 +255,6 @@ BATT_PAC17::BATT_PAC17(I2CSPIBusOption bus_option, int bus, uint8_t batt_pac17_a
 
 BATT_PAC17::~BATT_PAC17()
 {
-	orb_unsubscribe(_sub_status);
 }
 
 int
@@ -270,13 +269,6 @@ BATT_PAC17::init()
 	}
 		//Find the ic on the bus
 		probe();
-
-		/* needed to read arming status */
-		_sub_status = orb_subscribe(ORB_ID(vehicle_control_mode));
-
-		if (_sub_status < 0) {
-			PX4_ERR("status sub failed");
-		}
 		_time_arm = hrt_absolute_time();
 		_discharged_mah_armed = 0;
 		start();
@@ -547,12 +539,10 @@ BATT_PAC17::convert_twos_comp(uint16_t val)
 /* read arming state */
 void BATT_PAC17::vehicle_control_mode_poll()
 {
-	vehicle_control_mode_s vstatus;
-	bool vcontrol_mode_updated;
-	orb_check(_sub_status, &vcontrol_mode_updated);
 
-	if (vcontrol_mode_updated) {
-		orb_copy(ORB_ID(vehicle_control_mode), _sub_status, &vstatus);
+	if (_sub_mode.updated()) {
+		vehicle_control_mode_s vstatus;
+		_sub_mode.copy(&vstatus);
 
 		if (_armed != (vstatus.flag_armed > 0)) {
 			if (vstatus.flag_armed > 0) {
