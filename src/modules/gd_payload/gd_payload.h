@@ -105,8 +105,8 @@ private:
 	uORB::Subscription	_sub_global_pos{ORB_ID(vehicle_global_position)};
 #endif
 
-	orb_advert_t		_pub_battery;
-	orb_advert_t		_vehicle_command_ack_pub;
+	orb_advert_t		_pub_battery{nullptr};
+	orb_advert_t		_vehicle_command_ack_pub{nullptr};
 
 	battery_status_s	_battery_status;
 	hrt_abstime _payload_last_warn_time{0};
