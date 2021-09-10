@@ -196,7 +196,7 @@ void GDPayload::writePayloadPower(bool on)
 	int fd = open(PX4IO_DEV, O_RDWR);
 
 	if (fd < 0) {
-		PX4_ERR("open fail");
+		PX4_ERR("open io failed");
 		return;
 	}
 
