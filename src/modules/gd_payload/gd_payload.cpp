@@ -455,8 +455,6 @@ bool GDPayload::init()
 	_parameter_update_sub = orb_subscribe(ORB_ID(parameter_update));
 	parameters_update(_parameter_update_sub, true);
 
-	/* needed to read arming status */
-	_sub_vcontrol_mode = orb_subscribe(ORB_ID(vehicle_control_mode));
 	_sub_vehicle_cmd = orb_subscribe(ORB_ID(vehicle_command));
 	_sub_vehicle_status = orb_subscribe(ORB_ID(vehicle_status));
 	_sub_vtol_status = orb_subscribe(ORB_ID(vtol_vehicle_status));
@@ -556,16 +554,6 @@ void GDPayload::vehicleCommand(const vehicle_command_s *vcmd)
 /* read arming state and other subs */
 void GDPayload::vehicle_control_mode_poll()
 {
-	if(_sub_vcontrol_mode!=-1)
-	{
-		bool vcontrol_mode_updated;
-		orb_check(_sub_vcontrol_mode, &vcontrol_mode_updated);
-		if (vcontrol_mode_updated) {
-			struct vehicle_control_mode_s vcontrol_mode;
-			orb_copy(ORB_ID(vehicle_control_mode), _sub_vcontrol_mode, &vcontrol_mode);
-			_armed = vcontrol_mode.flag_armed;
-		}
-	}
 	if(_sub_vehicle_cmd!=-1)
 	{
 		bool updated;
@@ -575,7 +563,6 @@ void GDPayload::vehicle_control_mode_poll()
 			struct vehicle_command_s vcmd;
 			orb_copy(ORB_ID(vehicle_command), _sub_vehicle_cmd, &vcmd);
 			vehicleCommand(&vcmd);
-			_cmdold = vcmd.command;
 		}
 	}
 	if(_sub_vehicle_status!=-1)
@@ -826,7 +813,6 @@ void GDPayload::run()
 		usleep(100000);
 	}
 	updateBatteryDisconnect();
-	orb_unsubscribe(_sub_vcontrol_mode);
 	orb_unsubscribe(_parameter_update_sub);
 	orb_unsubscribe(_sub_vehicle_cmd);
 	orb_unsubscribe(_sub_vehicle_status);
@@ -834,7 +820,7 @@ void GDPayload::run()
 	orb_unadvertise(_pub_battery);
 
 #ifndef __PX4_NUTTX
-	/* needed for the Battery class */
+	/* needed for the Battery class in simulation */
 	orb_unsubscribe(_sub_actuator_ctrl_0);
 #endif
 }

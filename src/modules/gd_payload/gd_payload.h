@@ -81,9 +81,9 @@ public:
 	static  void batGetAll(battery_status_s *lion, battery_status_s *lipo);
 private:
 	struct {
-		float battery_v_div;
-		float battery_a_per_v;
-		float payload_current_warn_a; // current above we should send a warning message
+		float battery_v_div{15.468f};
+		float battery_a_per_v{1.0f};
+		float payload_current_warn_a{3.0f}; // current above we should send a warning message
 	} _parameters;
 	struct {
 		param_t battery_v_div{PARAM_INVALID};
@@ -95,8 +95,9 @@ private:
 #ifdef __PX4_NUTTX
 	adc_report_s _adc_report;
 	uORB::Subscription	_adc_report_sub{ORB_ID(adc_report)};
-	int 	_px4io_fd = -1;
+	int 	_px4io_fd = -1; // needed for payload on/off
 #else
+	// stuff needed for simulation
 	Battery				_battery_sim;
 	int					_sub_actuator_ctrl_0{-1};		/**< attitude controls sub */
 	bool				_sim_was_armed{false};
@@ -125,16 +126,10 @@ private:
 	void vehicleCommandAck(const vehicle_command_s *cmd);
 
 	bool	_debug_flag = false;
-	int 	_instance{0};
-	int		_sub_vcontrol_mode{-1};		/**< vehicle control mode subscription */
-	int		_sub_trip2{-1};
+	int 	_instance{0}; // for battery (payload) publish
 	int 	_sub_vehicle_cmd{-1};
 	int		_sub_vehicle_status{-1};
-	int 	_sub_vtol_status{-1};
-
-	bool		_armed{false};
-	bool		_auto_mode{false};
-	uint16_t 	_cmdold{0};
+	int 	_sub_vtol_status{-1}; // needed for battery switchover
 
 	struct vehicle_status_s _vstatus {};
 
