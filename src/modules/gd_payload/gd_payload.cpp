@@ -58,15 +58,6 @@
 #include <nuttx/arch.h>
 #include <nuttx/irq.h>
 #include <arch/board/board.h>
-
-#ifndef ADC_BATTERY2_VOLTAGE_CHANNEL
-#define ADC_BATTERY2_VOLTAGE_CHANNEL 13 // for cube black
-#endif
-
-#ifndef ADC_BATTERY2_CURRENT_CHANNEL
-#define ADC_BATTERY2_CURRENT_CHANNEL 14 // for cube black
-#endif
-
 #else
 #include <signal.h>
 #endif
@@ -88,6 +79,14 @@
 #include <drivers/drv_pwm_output.h>
 #include <drivers/drv_adc.h>
 #include "gd_payload.h"
+
+#ifndef ADC_BATTERY2_VOLTAGE_CHANNEL
+#define ADC_BATTERY2_VOLTAGE_CHANNEL 13 // for cube black
+#endif
+
+#ifndef ADC_BATTERY2_CURRENT_CHANNEL
+#define ADC_BATTERY2_CURRENT_CHANNEL 14 // for cube black
+#endif
 
 #define SW_LIPO	(0xf0|1)
 #define SW_LION	(0xf0|2)
