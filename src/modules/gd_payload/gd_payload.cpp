@@ -58,6 +58,15 @@
 #include <nuttx/arch.h>
 #include <nuttx/irq.h>
 #include <arch/board/board.h>
+
+#ifndef ADC_BATTERY2_VOLTAGE_CHANNEL
+#define ADC_BATTERY2_VOLTAGE_CHANNEL 13 // for cube black
+#endif
+
+#ifndef ADC_BATTERY2_CURRENT_CHANNEL
+#define ADC_BATTERY2_CURRENT_CHANNEL 14 // for cube black
+#endif
+
 #else
 #include <signal.h>
 #endif
@@ -686,12 +695,12 @@ bool  GDPayload::readPayloadAdc()
 			for (unsigned i = 0; i < sizeof(_adc_report.raw_data)/sizeof(_adc_report.raw_data[0]); i++)
 			{
 				/* look for specific channels and process the raw voltage to measurement data */
-				if (_adc_report.channel_id[i] == 13) /* PC3=adc0 channel 13 */
+				if (_adc_report.channel_id[i] == ADC_BATTERY2_VOLTAGE_CHANNEL) /* PC3=adc0 channel 13 */
 				{
 					/* Voltage in volts */
 					_voltage_v = ((float)_adc_report.raw_data[i]*_adc_report.v_ref/_adc_report.resolution) * _parameters.battery_v_div;
 
-				} else if (_adc_report.channel_id[i] == 14) /* PC4=adc0 channel 14 */
+				} else if (_adc_report.channel_id[i] == ADC_BATTERY2_CURRENT_CHANNEL) /* PC4=adc0 channel 14 */
 				{
 					_current_a = ((float)_adc_report.raw_data[i]*_adc_report.v_ref/_adc_report.resolution) * _parameters.battery_a_per_v;
 				}
