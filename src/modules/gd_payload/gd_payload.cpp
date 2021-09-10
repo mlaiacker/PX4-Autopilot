@@ -134,7 +134,6 @@ int GDPayload::print_status()
 {
 	// print additional runtime information about the state of the module
 	PX4_INFO("inst: %i", _instance);
-//	PX4_INFO("rate: %i", _rate);
 	PX4_INFO("voltage: %.2fV (%f)", (double)_voltage_v, double(_parameters.battery_v_div));
 	PX4_INFO("current: %.3fA (%f)", (double)_current_a, double(_parameters.battery_a_per_v));
 	PX4_INFO("bat used: %.1fmAh", (double)_used_mAh);
@@ -424,13 +423,13 @@ _pub_battery(nullptr)
 {
 	_debug_flag = debug_flag;
 	memset(&_battery_status, 0, sizeof(_battery_status));
-	memset(&_vstatus, 0, sizeof(_vstatus));
 	_battery_status.remaining = 1.0f; // must be 1 because mavlink will select the battery with the lowest remainig. since we are not realy a battery we have to set this to 100%
 	_used_mAh = 0.0f;
 	_voltage_v = 0.0f;
 	_current_a = 0.0f;
 	param_find("MNT_TRIP_MAVLINK");
 #ifndef __PX4_NUTTX
+	memset(&_vstatus, 0, sizeof(_vstatus));
 	_battery_sim.rechargeBattery();
 	_sim_temp_pdb.value = 20;
 	snprintf(_sim_temp_pdb.key, sizeof(_sim_temp_pdb.key), "%s", PDB_TEMP_NAME);
@@ -454,10 +453,6 @@ bool GDPayload::init()
 	// initialize parameters
 	_parameter_update_sub = orb_subscribe(ORB_ID(parameter_update));
 	parameters_update(_parameter_update_sub, true);
-
-	_sub_vehicle_cmd = orb_subscribe(ORB_ID(vehicle_command));
-	_sub_vehicle_status = orb_subscribe(ORB_ID(vehicle_status));
-	_sub_vtol_status = orb_subscribe(ORB_ID(vtol_vehicle_status));
 	return result;
 }
 
@@ -522,14 +517,7 @@ void GDPayload::vehicleCommandAck(const vehicle_command_s *cmd)
 		.target_component = cmd->source_component
 	};
 
-	if (_vehicle_command_ack_pub == nullptr) {
-		_vehicle_command_ack_pub = orb_advertise_queue(ORB_ID(vehicle_command_ack), &vehicle_command_ack,
-					   vehicle_command_ack_s::ORB_QUEUE_LENGTH);
-
-	} else {
-		orb_publish(ORB_ID(vehicle_command_ack), _vehicle_command_ack_pub, &vehicle_command_ack);
-	}
-
+	_command_ack_pub.publish(vehicle_command_ack);
 }
 
 void GDPayload::vehicleCommand(const vehicle_command_s *vcmd)
@@ -554,85 +542,12 @@ void GDPayload::vehicleCommand(const vehicle_command_s *vcmd)
 /* read arming state and other subs */
 void GDPayload::vehicle_control_mode_poll()
 {
-	if(_sub_vehicle_cmd!=-1)
+
+	if (_sub_vehicle_cmd.updated())
 	{
-		bool updated;
-		orb_check(_sub_vehicle_cmd, &updated);
-		if (updated)
-		{
-			struct vehicle_command_s vcmd;
-			orb_copy(ORB_ID(vehicle_command), _sub_vehicle_cmd, &vcmd);
-			vehicleCommand(&vcmd);
-		}
-	}
-	if(_sub_vehicle_status!=-1)
-	{
-		bool updated;
-		orb_check(_sub_vehicle_status, &updated);
-		int switch_status = switchStatus();
-		if(switch_status>=0)
-		{
-			struct vtol_vehicle_status_s vtol_status;
-			orb_copy(ORB_ID(vtol_vehicle_status), _sub_vtol_status, &vtol_status);
-			struct battery_status_s lion={0}, lipo={0};
-			batGetAll(&lion, &lipo);
-			if(!_vstatus.in_transition_mode && !_vstatus.in_transition_to_fw)
-			{
-				if(!vtol_status.vtol_in_rw_mode )/* we are fixed wing */
-				{
-					if((lion.voltage_filtered_v > lipo.voltage_filtered_v || fabsf(lion.current_filtered_a) > 3.0f)
-							&& lion.voltage_filtered_v > lion.cell_count*3.0f
-							)
-					{
-						switchSet(SW_LION);
-						PX4_INFO("LION Activated");
-					}
-				} else /* we are copter */
-				{
-					if((lipo.voltage_filtered_v > lion.voltage_filtered_v || fabsf(lipo.current_filtered_a) > 3.0f)
-							&& lipo.voltage_filtered_v > lipo.cell_count*3.0f
-							){
-						switchSet(SW_LIPO);
-						PX4_INFO("LIPO Activated");
-					}
-				}
-			}
-			if (updated)
-			{
-				struct vehicle_status_s vstatus;
-				orb_copy(ORB_ID(vehicle_status), _sub_vehicle_status, &vstatus);
-				if(_debug_flag) {
-					PX4_INFO("LION(%.1fV,%fA) LIPO(%.1fV,%fA) 0x%x", (double)lion.voltage_filtered_v, (double)lion.current_filtered_a, (double)lipo.voltage_filtered_v, (double)lipo.current_filtered_a, switch_status&0x03);
-				}
-				if(_vstatus.in_transition_mode != vstatus.in_transition_mode && vstatus.in_transition_mode)
-				{
-					switchSet(SW_BOTH);
-				}
-/*				if(_vstatus.in_transition_mode != vstatus.in_transition_mode && !vstatus.in_transition_mode)
-				{
-					PX4_INFO("in transition end");
-				}*/
-				if(_vstatus.in_transition_to_fw != vstatus.in_transition_to_fw && vstatus.in_transition_to_fw)
-				{
-					switchSet(SW_BOTH);
-				}
-/*				if(_vstatus.in_transition_to_fw != vstatus.in_transition_to_fw && !vstatus.in_transition_to_fw)
-				{
-					PX4_INFO("transition to fw finished");
-				}
-				if(_vstatus.is_rotary_wing != vstatus.is_rotary_wing && vstatus.is_rotary_wing)
-				{
-					PX4_INFO("transition copter");
-				}
-				if(_vstatus.is_rotary_wing != vstatus.is_rotary_wing && !vstatus.is_rotary_wing)
-				{
-					PX4_INFO("transition fw");
-				}*/
-				_vstatus = vstatus;
-			}
-		} else {
-			orb_copy(ORB_ID(vehicle_status), _sub_vehicle_status, &_vstatus);
-		}
+		struct vehicle_command_s vcmd;
+		_sub_vehicle_cmd.copy(&vcmd);
+		vehicleCommand(&vcmd);
 	}
 	struct debug_key_value_s debug_key;
 	if(_sub_debug_key.copy(&debug_key)) {
@@ -695,6 +610,7 @@ bool  GDPayload::readPayloadAdc()
 	}
 	return false;
 #else
+	_sub_vehicle_status.copy(&_vstatus);
 	_voltage_v = _battery_sim.cell_count()*_battery_sim.full_cell_voltage() + rand()*0.1f/RAND_MAX;
 	_current_a = (0.83f + rand()*0.2f/RAND_MAX)*g_gd_payload_on;
 	vehicle_control_mode_poll();
@@ -704,14 +620,11 @@ bool  GDPayload::readPayloadAdc()
 		_sub_global_pos.copy(&gpos);
 		float sim_current_a=_current_a, sim_voltage_v= _voltage_v;
 		/* needed for the Battery class */
-		if(_sub_actuator_ctrl_0<0){
-			_sub_actuator_ctrl_0 = orb_subscribe(ORB_ID(actuator_controls_0));
-		}
 		actuator_controls_s ctrl;
-		orb_copy(ORB_ID(actuator_controls_0), _sub_actuator_ctrl_0, &ctrl);
+		_sub_actuator_ctrl_0.copy(&ctrl);
 
 		struct vtol_vehicle_status_s vtol_status;
-		orb_copy(ORB_ID(vtol_vehicle_status), _sub_vtol_status, &vtol_status);
+		_sub_vtol_status.copy(&vtol_status);
 
 		if (_vstatus.arming_state == _vstatus.ARMING_STATE_ARMED){
 			if(vtol_status.vtol_in_rw_mode){
@@ -814,15 +727,8 @@ void GDPayload::run()
 	}
 	updateBatteryDisconnect();
 	orb_unsubscribe(_parameter_update_sub);
-	orb_unsubscribe(_sub_vehicle_cmd);
-	orb_unsubscribe(_sub_vehicle_status);
 
 	orb_unadvertise(_pub_battery);
-
-#ifndef __PX4_NUTTX
-	/* needed for the Battery class in simulation */
-	orb_unsubscribe(_sub_actuator_ctrl_0);
-#endif
 }
 
 int gd_payload_main(int argc, char *argv[])

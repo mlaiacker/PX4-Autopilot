@@ -99,39 +99,39 @@ private:
 #else
 	// stuff needed for simulation
 	Battery				_battery_sim;
-	int					_sub_actuator_ctrl_0{-1};		/**< attitude controls sub */
+	uORB::Subscription	_sub_vehicle_status{ORB_ID(vehicle_status)};
+	struct vehicle_status_s _vstatus {};
+	uORB::Subscription 	_sub_vtol_status{ORB_ID(vtol_vehicle_status)}; // needed for battery switchover
+	uORB::Subscription	_sub_actuator_ctrl_0{ORB_ID(actuator_controls_0)};		/**< attitude controls sub */
 	bool				_sim_was_armed{false};
 	uORB::Publication<debug_key_value_s>	_sim_pub_pdb_temp{ORB_ID(debug_key_value)}; // generate PDB temperature in simulation
 	struct debug_key_value_s _sim_temp_pdb;
 	uORB::Subscription	_sub_global_pos{ORB_ID(vehicle_global_position)};
 #endif
 
-	orb_advert_t		_pub_battery{nullptr};
-	orb_advert_t		_vehicle_command_ack_pub{nullptr};
+	uORB::PublicationQueued<vehicle_command_ack_s>	_command_ack_pub{ORB_ID(vehicle_command_ack)};
 
+	int 				_instance{0}; // for battery (payload) publish
 	battery_status_s	_battery_status;
-	hrt_abstime _payload_last_warn_time{0};
-	float _voltage_v{0.0f};
-	float _current_a{0.0f};
-	float _used_mAh{0.0f};
+	hrt_abstime 		_payload_last_warn_time{0};
+	orb_advert_t		_pub_battery{nullptr};
+	float 				_voltage_v{0.0f};
+	float 				_current_a{0.0f};
+	float 				_used_mAh{0.0f};
 
+	// for reading temperature of PDB
 	uORB::Subscription  _sub_debug_key{ORB_ID(debug_key_value)};
 	float _temp_last_report_c{0.0f}; // last temperature value in degC
 	hrt_abstime _temp_last_warn_time{0};
 	orb_advert_t _pub_mavlink_log{nullptr}; // for sending messages to GCS
 
+	bool	_debug_flag = false;
+	uORB::Subscription 	_sub_vehicle_cmd{ORB_ID(vehicle_command)};
+
 	bool  readPayloadAdc();
 	void updateBatteryDisconnect();
 	void vehicleCommand(const vehicle_command_s *vcmd);
 	void vehicleCommandAck(const vehicle_command_s *cmd);
-
-	bool	_debug_flag = false;
-	int 	_instance{0}; // for battery (payload) publish
-	int 	_sub_vehicle_cmd{-1};
-	int		_sub_vehicle_status{-1};
-	int 	_sub_vtol_status{-1}; // needed for battery switchover
-
-	struct vehicle_status_s _vstatus {};
 
 	bool init();
 
