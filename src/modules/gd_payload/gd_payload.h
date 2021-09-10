@@ -76,8 +76,6 @@ public:
 
 	static  void printTrip2Report();
 	static  void printBatteryReport();
-	static  int  switchStatus();
-	static  int  switchSet(int);
 	static  void batGetAll(battery_status_s *lion, battery_status_s *lipo);
 private:
 	struct {

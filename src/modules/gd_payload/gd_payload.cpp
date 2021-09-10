@@ -60,20 +60,19 @@
 #include <arch/board/board.h>
 #else
 #include <signal.h>
+#include <uORB/topics/vtol_vehicle_status.h>
+#include <uORB/topics/vehicle_status.h>
+#include <uORB/topics/actuator_controls.h>
 #endif
 // for mavling warning messages
 #include <systemlib/mavlink_log.h>
 
-#include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/topics/vehicle_command.h>
-#include <uORB/topics/vehicle_status.h>
-#include <uORB/topics/vtol_vehicle_status.h>
 #include <uORB/topics/vehicle_command_ack.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/trip2_sys_report.h>
 #include <uORB/topics/trip2_los_report.h>
 #include <uORB/topics/trip2_gnd_report.h>
-#include <uORB/topics/actuator_controls.h>
 
 #include <drivers/drv_hrt.h>
 #include <drivers/drv_pwm_output.h>
@@ -87,10 +86,6 @@
 #ifndef ADC_BATTERY2_CURRENT_CHANNEL
 #define ADC_BATTERY2_CURRENT_CHANNEL 14 // for cube black
 #endif
-
-#define SW_LIPO	(0xf0|1)
-#define SW_LION	(0xf0|2)
-#define SW_BOTH	(0xf0|3)
 
 #define WARN_INT_S		(20) // min time ins seconds between two warning messages with the same content
 #define PDB_TEMP_NAME	("tempPDB")
@@ -120,10 +115,6 @@ $ gd_payload start
 	PRINT_MODULE_USAGE_COMMAND("off");
 	PRINT_MODULE_USAGE_COMMAND("trip2");
 	PRINT_MODULE_USAGE_COMMAND("batt");
-	PRINT_MODULE_USAGE_COMMAND("switch");
-	PRINT_MODULE_USAGE_COMMAND("LIPO");
-	PRINT_MODULE_USAGE_COMMAND("LION");
-	PRINT_MODULE_USAGE_COMMAND("BOTH");
 	PRINT_MODULE_USAGE_PARAM_FLAG('v', "debug flag", true);
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
@@ -172,27 +163,6 @@ int GDPayload::custom_command(int argc, char *argv[])
 		printBatteryReport();
 		return 0;
 	}
-
-	if (!strcmp(verb, "switch")) {
-		PX4_INFO("bat active=%i",switchStatus());
-		return 0;
-	}
-
-	if (!strcmp(verb, "LIPO")) {
-		switchSet(SW_LIPO);
-		return 0;
-	}
-
-	if (!strcmp(verb, "LION")) {
-		switchSet(SW_LION);
-		return 0;
-	}
-
-	if (!strcmp(verb, "BOTH")) {
-		switchSet(SW_BOTH);
-		return 0;
-	}
-
 
 	return print_usage("unknown command");
 }
@@ -337,31 +307,6 @@ void GDPayload::batGetAll(battery_status_s* lion, battery_status_s* lipo)
 	}
 }
 
-int GDPayload::switchStatus()
-{
-	int port = -1;
-#if defined(__PX4_NUTTX) && defined(IOX_GET_MASK)
-	int fd= open("/dev/pca9536", O_RDWR);
-	if(fd>0){
-		port = px4_ioctl(fd, IOX_GET_MASK, 0);
-		close(fd);
-	}
-#endif
-	return port;
-}
-
-int GDPayload::switchSet(int val)
-{
-	int port = -1;
-#if defined(__PX4_NUTTX) && defined(IOX_SET_VALUE)
-	int fd= open("/dev/pca9536", O_RDWR);
-	if(fd>0){
-		port = px4_ioctl(fd, IOX_SET_VALUE, val);
-		close(fd);
-	}
-#endif
-	return port;
-}
 
 int GDPayload::task_spawn(int argc, char *argv[])
 {
@@ -703,7 +648,6 @@ void GDPayload::run()
 				_battery_status.voltage_filtered_v = _battery_status.voltage_filtered_v*0.9f + _voltage_v*0.1f; /* override filtered value */
 				_battery_status.current_filtered_a = _battery_status.current_filtered_a*0.9f + _current_a*0.1f;
 				_battery_status.discharged_mah = _used_mAh;
-				_battery_status.priority = (uint8_t)switchStatus()&0x03;
 				_battery_status.serial_number = 13015; // songbird ID
 				_battery_status.id = 2; // second battery
 				for(int i = 0; i< _battery_status.cell_count; i++)
