@@ -21,8 +21,6 @@
 # @output AUX6 Camera Trigger
 #
 
-gd_payload on
-
 if param compare MNT_TRIP_MAVLINK 1
 then
 	param set MAV_1_CONFIG	102
@@ -40,20 +38,6 @@ then
 	mavlink stream -d /dev/ttyS2 -s HEARTBEAT -r 2
 	mavlink stream -d /dev/ttyS2 -s SYS_STATUS -r 1
 	mavlink stream -d /dev/ttyS2 -s SYSTEM_TIME -r 1
-fi
-
-if param compare MNT_TRIP_MAVLINK 2
-then
-	# disable mavlink on telemetry port
-	param set MAV_1_CONFIG	0
-	uart_merio start -d /dev/ttyS2
-fi
-	
-if param compare MNT_TRIP_MAVLINK 3
-then
-	# disable mavlink on telemetry port
-	param set MAV_1_CONFIG	0
-#	uart_phaseone start -d /dev/ttyS2
 fi
 
 # Camera capture driver
