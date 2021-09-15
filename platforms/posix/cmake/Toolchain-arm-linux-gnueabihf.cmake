@@ -4,9 +4,12 @@ set(CMAKE_SYSTEM_NAME Linux)
 set(CMAKE_SYSTEM_PROCESSOR arm)
 set(CMAKE_SYSTEM_VERSION 1)
 
+set(CMAKE_FIND_ROOT_PATH /home/mlaiacker/pi/gcc-linaro-6.3.1-2017.05-x86_64_arm-linux-gnueabihf)
+set(CMAKE_SYSROOT /home/mlaiacker/pi/sysroot-glibc-linaro-2.23-2017.05-arm-linux-gnueabihf) 
+
 set(triple arm-linux-gnueabihf)
 set(CMAKE_LIBRARY_ARCHITECTURE ${triple})
-set(TOOLCHAIN_PREFIX ${triple})
+set(TOOLCHAIN_PREFIX /home/mlaiacker/pi/gcc-linaro-6.3.1-2017.05-x86_64_arm-linux-gnueabihf/bin/${triple})
 
 set(CMAKE_C_COMPILER ${TOOLCHAIN_PREFIX}-gcc)
 set(CMAKE_C_COMPILER_TARGET ${triple})
