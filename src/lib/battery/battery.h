@@ -100,7 +100,7 @@ public:
 	/**
 	 * get remaining estimate based on voltage
 	 */
-	float getRemainingVoltage() {return _remaining_voltage; }
+	float getRemainingVoltage() {return _state_of_charge_volt_based; }
 
 	/**
 	 * get capacity param value
@@ -108,12 +108,12 @@ public:
 	float getCapacity() {	return _params.capacity;};
 	float getCapacityReserve() {	return _params.capacity_vt_landig;};
 
-	float getRemaining() {	return _remaining;};
+	float getRemaining() {	return _state_of_charge;};
 	float getDischarged() {	return _discharged_mah;};
 	/*
 	 * for hil
 	 */
-	void rechargeBattery() { _discharged_mah = 0.f; _remaining = 1.0; _battery_initialized = false;};
+	void rechargeBattery() { _discharged_mah = 0.f; _state_of_charge = 1.0; _battery_initialized = false;};
 
 protected:
 	struct {
@@ -223,7 +223,7 @@ private:
 	uint8_t _warning{battery_status_s::BATTERY_WARNING_NONE};
 	hrt_abstime _last_timestamp{0};
 	
-	void estimateRemainingTime(const hrt_abstime &timestamp);
+	void estimateRemainingTime(battery_status_s& battery_status, const hrt_abstime &timestamp);
 	hrt_abstime _time_armed{0};
 	float _discharged_mah_armed{0.f};
 	float _startRemaining{-1.f}; ///< estimated percent remaining based on voltage at start
