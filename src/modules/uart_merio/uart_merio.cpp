@@ -147,8 +147,8 @@ does not use the built-in inertial system.
 	{
 		vehicle_command_ack_s vehicle_command_ack = {
 			.timestamp = hrt_absolute_time(),
-			.result_param2 = 0,
 			.command = cmd->command,
+			.result_param2 = 0,
 			.result = vehicle_command_s::VEHICLE_CMD_RESULT_ACCEPTED,
 			.from_external = false,
 			.result_param1 = 0,
@@ -740,7 +740,7 @@ void UartMerio::pubMount(){
 	mount_orientation.attitude_euler_angle[1]= _merioParser._status.tilt_rad*1e-4f;
 	mount_orientation.attitude_euler_angle[2]= _merioParser._status.pan_rad*1e-4f;
 
-	orb_publish_auto(ORB_ID(mount_orientation), &_pub_mount_orientation, &mount_orientation, &instance, ORB_PRIO_DEFAULT);
+	orb_publish_auto(ORB_ID(mount_orientation), &_pub_mount_orientation, &mount_orientation, &instance);
 }
 
 void UartMerio::run()

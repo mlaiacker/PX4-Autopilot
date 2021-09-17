@@ -352,8 +352,8 @@ void UartPhaseOne::vehicleCommandAck(const vehicle_command_s *cmd)
 {
 	vehicle_command_ack_s vehicle_command_ack = {
 		.timestamp = hrt_absolute_time(),
-		.result_param2 = 0,
 		.command = cmd->command,
+		.result_param2 = 0,
 		.result = vehicle_command_s::VEHICLE_CMD_RESULT_ACCEPTED,
 		.from_external = false,
 		.result_param1 = 0,

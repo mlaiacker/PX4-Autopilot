@@ -107,7 +107,7 @@ private:
 	uORB::Subscription	_sub_global_pos{ORB_ID(vehicle_global_position)};
 #endif
 
-	uORB::PublicationQueued<vehicle_command_ack_s>	_command_ack_pub{ORB_ID(vehicle_command_ack)};
+	uORB::Publication<vehicle_command_ack_s>	_command_ack_pub{ORB_ID(vehicle_command_ack)};
 
 	int 				_instance{0}; // for battery (payload) publish
 	battery_status_s	_battery_status;

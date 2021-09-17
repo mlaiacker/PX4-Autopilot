@@ -168,7 +168,11 @@ typedef uint16_t	servo_position_t;
 #define PWM_SERVO_CLEAR_ARM_OK	_PX4_IOC(_PWM_SERVO_BASE, 9)
 
 /** start DSM bind */
+/** GD: payload off */
 #define DSM_BIND_START	_PX4_IOC(_PWM_SERVO_BASE, 10)
+
+/** GD: payload on */
+#define DSM_BIND_POWER_UP	_PX4_IOC(_PWM_SERVO_BASE, 11)
 
 /** set the PWM value for failsafe */
 #define PWM_SERVO_SET_FAILSAFE_PWM	_PX4_IOC(_PWM_SERVO_BASE, 12)

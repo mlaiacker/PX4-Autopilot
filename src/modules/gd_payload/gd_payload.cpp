@@ -453,8 +453,8 @@ void GDPayload::vehicleCommandAck(const vehicle_command_s *cmd)
 {
 	vehicle_command_ack_s vehicle_command_ack = {
 		.timestamp = hrt_absolute_time(),
-		.result_param2 = 0,
 		.command = cmd->command,
+		.result_param2 = 0,
 		.result = vehicle_command_s::VEHICLE_CMD_RESULT_ACCEPTED,
 		.from_external = false,
 		.result_param1 = 0,
@@ -523,7 +523,7 @@ void GDPayload::updateBatteryDisconnect()
 	_battery_status.warning = battery_status_s::BATTERY_WARNING_FAILED;
 	_battery_status.temperature = -1;
 	_battery_status.timestamp = hrt_absolute_time();
-	orb_publish_auto(ORB_ID(battery_status), &_pub_battery, &_battery_status, &_instance, ORB_PRIO_LOW);
+	orb_publish_auto(ORB_ID(battery_status), &_pub_battery, &_battery_status, &_instance);
 	if(_debug_flag)
 	{
 		PX4_INFO("disconnect");
@@ -654,7 +654,7 @@ void GDPayload::run()
 				{
 					_battery_status.voltage_cell_v[i] = _battery_status.voltage_filtered_v/_battery_status.cell_count;
 				}
-				if(orb_publish_auto(ORB_ID(battery_status), &_pub_battery, &_battery_status, &_instance, ORB_PRIO_LOW))
+				if(orb_publish_auto(ORB_ID(battery_status), &_pub_battery, &_battery_status, &_instance))
 				{
 					if(_debug_flag)
 					{

@@ -611,14 +611,14 @@ batt_pac17xx_main(int argc, char *argv[])
 	cli.default_i2c_frequency = 100000;
 	cli.i2c_address = BATT_PAC17_ADDR;
 
-	while ((ch = cli.getopt(argc, argv, "r:R:")) != EOF) {
+	while ((ch = cli.getOpt(argc, argv, "r:R:")) != EOF) {
 		switch (ch) {
 		case 'r': // sens range mV
-			cli.custom1 = (int)strtol(cli.optarg(), NULL, 10);
+			cli.custom1 = (int)strtol(cli.optArg(), NULL, 10);
 			break;
 
 		case 'R': // sens resistor mOhm
-			cli.custom2 = (int)(strtof(cli.optarg(), NULL)*10);
+			cli.custom2 = (int)(strtof(cli.optArg(), NULL)*10);
 			break;
 		}
 	}
