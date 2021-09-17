@@ -35,9 +35,9 @@ px4_add_module(
 	MODULE modules__uart_phaseone
 	MAIN uart_phaseone
 	STACK_MAIN 1424
+	COMPILE_FLAGS
 	SRCS
 		uart_phaseone.cpp
 	DEPENDS
-		modules__uORB
 	)
 

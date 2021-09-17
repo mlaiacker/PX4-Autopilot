@@ -39,6 +39,5 @@ px4_add_module(
 		uart_merio.cpp
 		linker.cpp
 	DEPENDS
-		modules__uORB
 	)
 
