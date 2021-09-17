@@ -45,7 +45,6 @@ PARAM_DEFINE_INT32(MNT_TRIP_MAVLINK, 0);
  *
  * @reboot_required false
  *
- * @unit A
  * @min 0.0
  * @max 4.0
  * @decimal 1
