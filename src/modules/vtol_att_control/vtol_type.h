@@ -319,7 +319,7 @@ private:
 	void resetAccelToPitchPitchIntegrator() { _accel_to_pitch_integ = 0.f; }
 
 	static constexpr const float _tilt_lp_freq = 0.5f;
-	math::LowPassFilter2p	_tilt_lp_pitch; /* in vtol mode use tilt for low frequency pitch control (rad)*/
+	math::LowPassFilter2p<float>	_tilt_lp_pitch; /* in vtol mode use tilt for low frequency pitch control (rad)*/
 
 };
 

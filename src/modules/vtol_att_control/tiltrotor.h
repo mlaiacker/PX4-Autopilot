@@ -105,7 +105,6 @@ protected:
 	hrt_abstime _last_timestamp_disarmed{0}; /**< used for calculating time since arming */
 	bool _tilt_motors_for_startup{false};
 
-	math::LowPassFilter2p
-	_tilt_yaw_lp_pitch; /* low pass filtered yaw control output to use for differential tilting (actuator control 0.6) (rad)*/
+	math::LowPassFilter2p<float> _tilt_yaw_lp_pitch; /* low pass filtered yaw control output to use for differential tilting (actuator control 0.6) (rad)*/
 };
 #endif
