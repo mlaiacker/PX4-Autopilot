@@ -902,7 +902,7 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 			const float Y0 = -sqrt(R*R - (C-X0)*(C-X0)); // y position of tangent point, in loiter yaw dir
 			const float B_rad = atan2(-Y0, X0-C); // angle of the tangent point
 			if(pos_sp_curr.yaw_valid && pos_sp_curr.loiter_direction==1 && pos_sp_curr.loiter_radius > 80.0f) {
-				if(_loiter8_wp != curr_wp) // loiter point has changed
+				if(fabs(_loiter8_wp(0) - curr_wp(0)) > 0.0001 || fabs(_loiter8_wp(1) - curr_wp(1)) > 0.0001) // loiter point has changed
 				{
 					_loiter8_state=0; // reset loiter state
 					_loiter8_wp = curr_wp;

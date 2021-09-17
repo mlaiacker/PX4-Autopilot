@@ -424,7 +424,7 @@ private:
 	)
 	int _loiter8_state{0};
 	float _loiter8_bearing{0};
-	Vector2f _loiter8_switch_pos, _loiter8_wp;
+	Vector2d _loiter8_switch_pos, _loiter8_wp;
 
 };
 
