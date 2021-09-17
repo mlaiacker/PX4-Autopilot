@@ -157,6 +157,7 @@ private:
 		int32_t air_cmodel;
 		float air_tube_length;
 		float air_tube_diameter_mm;
+		float air_gain;
 	} _parameters{}; /**< local copies of interesting parameters */
 
 	struct ParameterHandles {
@@ -168,6 +169,7 @@ private:
 		param_t air_cmodel;
 		param_t air_tube_length;
 		param_t air_tube_diameter_mm;
+		param_t air_gain;
 	} _parameter_handles{};		/**< handles for interesting parameters */
 
 	VotedSensorsUpdate _voted_sensors_update;
@@ -241,6 +243,7 @@ Sensors::Sensors(bool hil_enabled) :
 	_parameter_handles.air_cmodel = param_find("CAL_AIR_CMODEL");
 	_parameter_handles.air_tube_length = param_find("CAL_AIR_TUBELEN");
 	_parameter_handles.air_tube_diameter_mm = param_find("CAL_AIR_TUBED_MM");
+	_parameter_handles.air_gain = param_find("CAL_AIR_GAIN"); //GD hack to compensate for sensor error
 
 	param_find("SYS_FAC_CAL_MODE");
 
@@ -313,6 +316,7 @@ int Sensors::parameters_update()
 	param_get(_parameter_handles.air_cmodel, &_parameters.air_cmodel);
 	param_get(_parameter_handles.air_tube_length, &_parameters.air_tube_length);
 	param_get(_parameter_handles.air_tube_diameter_mm, &_parameters.air_tube_diameter_mm);
+	param_get(_parameter_handles.air_gain, &_parameters.air_gain); // GD: hack to compensate sensor errors
 
 	_voted_sensors_update.parametersUpdate();
 
