@@ -53,6 +53,9 @@
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/vehicle_command.h>
 #include <uORB/topics/vtol_vehicle_status.h>
+#include <uORB/topics/wind_estimate.h>
+
+using matrix::wrap_2pi;
 
 using matrix::wrap_pi;
 
@@ -67,6 +70,17 @@ MissionBlock::MissionBlock(Navigator *navigator) :
 	_mission_item.time_inside = 0.0f;
 	_mission_item.autocontinue = true;
 	_mission_item.origin = ORIGIN_ONBOARD;
+}
+
+void
+MissionBlock::generate_waypoint_from_heading(struct position_setpoint_s *setpoint, float yaw)
+{
+	waypoint_from_heading_and_distance(
+		_navigator->get_global_position()->lat, _navigator->get_global_position()->lon,
+		yaw, 1000000.0f,
+		&(setpoint->lat), &(setpoint->lon));
+	setpoint->type = position_setpoint_s::SETPOINT_TYPE_POSITION;
+	setpoint->yaw = yaw;
 }
 
 bool
@@ -453,6 +467,28 @@ MissionBlock::reset_mission_item_reached()
 	_waypoint_yaw_reached = false;
 	_time_wp_reached = 0;
 }
+float
+MissionBlock::getWindYaw(float yaw)
+{
+	float result = yaw;
+	int wind_estimate_sub = orb_subscribe(ORB_ID(wind_estimate));
+	struct wind_estimate_s wind;
+
+	if (orb_copy(ORB_ID(wind_estimate), wind_estimate_sub, &wind) == 0) {
+		/* only when more then 3m/s wind*/
+		if ((wind.windspeed_east * wind.windspeed_east + wind.windspeed_north * wind.windspeed_north) >
+		    MissionBlock::WIND_THRESHOLD * MissionBlock::WIND_THRESHOLD) {
+			/* set yaw setpoint to point towards wind direction for landing*/
+			result = wrap_pi(atan2f(wind.windspeed_east, wind.windspeed_north) + M_PI_F);
+		}
+
+	} else {
+		PX4_ERR("failed to get wind estimate for yaw alligment");
+	}
+
+	orb_unsubscribe(wind_estimate_sub);
+	return result;
+}
 
 void
 MissionBlock::issue_command(const mission_item_s &item)
@@ -492,10 +528,14 @@ MissionBlock::issue_command(const mission_item_s &item)
 		vcmd.param3 = item.params[2];
 		vcmd.param4 = item.params[3];
 
-		if (item.nav_cmd == NAV_CMD_DO_SET_ROI_LOCATION && item.altitude_is_relative) {
+		if (item.nav_cmd == NAV_CMD_DO_SET_ROI_LOCATION) {
 			vcmd.param5 = item.lat;
 			vcmd.param6 = item.lon;
-			vcmd.param7 = item.altitude + _navigator->get_home_position()->alt;
+			vcmd.param7 = item.altitude;
+
+			if (item.altitude_is_relative) {
+				vcmd.param7 += _navigator->get_home_position()->alt;
+			}
 
 		} else {
 			vcmd.param5 = (double)item.params[4];
@@ -534,6 +574,24 @@ MissionBlock::item_contains_position(const mission_item_s &item)
 	       item.nav_cmd == NAV_CMD_VTOL_TAKEOFF ||
 	       item.nav_cmd == NAV_CMD_VTOL_LAND ||
 	       item.nav_cmd == NAV_CMD_DO_FOLLOW_REPOSITION;
+}
+
+void
+MissionBlock::cruising_speed_sp_update()
+{
+	struct position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
+
+	const float cruising_speed = _navigator->get_cruising_speed();
+
+	/* Don't change setpoint if the current waypoint is not valid */
+	if (!pos_sp_triplet->current.valid ||
+	    fabsf(pos_sp_triplet->current.cruising_speed - cruising_speed) < FLT_EPSILON) {
+		return;
+	}
+
+	pos_sp_triplet->current.cruising_speed = cruising_speed;
+
+	_navigator->set_position_setpoint_triplet_updated();
 }
 
 bool
@@ -601,6 +659,10 @@ MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, posi
 
 	case NAV_CMD_LAND:
 	case NAV_CMD_VTOL_LAND:
+		if (_navigator->get_vstatus()->is_vtol) {
+			sp->yaw = getWindYaw(sp->yaw);
+		}
+
 		sp->type = position_setpoint_s::SETPOINT_TYPE_LAND;
 		break;
 

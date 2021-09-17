@@ -51,7 +51,8 @@ using namespace matrix;
 
 VtolType::VtolType(VtolAttitudeControl *att_controller) :
 	_attc(att_controller),
-	_vtol_mode(mode::ROTARY_WING)
+	_vtol_mode(mode::ROTARY_WING),
+	_tilt_lp_pitch(250.0, _tilt_lp_freq)
 {
 	_v_att = _attc->get_att();
 	_v_att_sp = _attc->get_att_sp();
@@ -532,9 +533,10 @@ float VtolType::pusher_assist()
 	}
 
 	// if the thrust scale param is zero or the drone is not in some position or altitude control mode,
-	// then the pusher-for-pitch strategy is disabled and we can return
+	// then the pusher-for-pitch strategy is disabled and we can return GD or in stabilized
 	if (_params->forward_thrust_scale < FLT_EPSILON || !(_v_control_mode->flag_control_position_enabled
-			|| _v_control_mode->flag_control_altitude_enabled)) {
+			|| _v_control_mode->flag_control_altitude_enabled
+			|| _v_control_mode->flag_control_attitude_enabled)) {
 		return 0.0f;
 	}
 
@@ -559,7 +561,7 @@ float VtolType::pusher_assist()
 
 	// calculate the desired pitch seen in the heading frame
 	// this value corresponds to the amount the vehicle would try to pitch down
-	float pitch_down = atan2f(body_z_sp(0), body_z_sp(2));
+	float pitch_down = _tilt_lp_pitch.apply(atan2f(body_z_sp(0), body_z_sp(2)));
 
 	// normalized pusher support throttle (standard VTOL) or tilt (tiltrotor), initialize to 0
 	float forward_thrust = 0.0f;

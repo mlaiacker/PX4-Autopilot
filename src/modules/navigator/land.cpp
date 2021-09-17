@@ -79,6 +79,17 @@ Land::on_active()
 		_navigator->set_position_setpoint_triplet_updated();
 	}
 
+	if (_navigator->get_vstatus()->is_vtol &&
+	    _navigator->get_vstatus()->in_transition_mode != _in_transition &&
+	    !_navigator->get_vstatus()->in_transition_mode) {
+		// turn nose into wind for landing
+		struct position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
+		pos_sp_triplet->current.yaw = MissionBlock::getWindYaw(pos_sp_triplet->current.yaw);
+		_navigator->set_position_setpoint_triplet_updated();
+		PX4_INFO("LAND yaw set to wind %f ", (double)pos_sp_triplet->current.yaw * 180 / M_PI);
+	}
+
+	_in_transition = _navigator->get_vstatus()->in_transition_mode;
 
 	if (_navigator->get_land_detected()->landed) {
 		_navigator->get_mission_result()->finished = true;

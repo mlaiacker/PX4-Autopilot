@@ -45,6 +45,7 @@ px4_add_romfs_files(
 	2105_maja
 	2106_albatross
 	2200_mini_talon
+	2201_talon
 
 	2507_cloudship
 
@@ -141,6 +142,10 @@ px4_add_romfs_files(
 	13050_generic_vtol_octo
 	13200_generic_vtol_tailsitter
 
+    13015_Songbird_V3
+    13015_Songbird_V3.post
+    13018_Songbird_foam
+        
 	# [14000, 14999] Tri Y
 	14001_tri_y_yaw+
 	14002_tri_y_yaw-

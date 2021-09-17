@@ -71,10 +71,6 @@ Mission::Mission(Navigator *navigator) :
 void
 Mission::on_inactive()
 {
-	/* We need to reset the mission cruising speed, otherwise the
-	 * mission velocity which might have been set using mission items
-	 * is used for missions such as RTL. */
-	_navigator->set_cruising_speed();
 
 	// if we were executing an landing but have been inactive for 2 seconds, then make the landing invalid
 	// this prevents RTL to just continue at the current mission index
@@ -163,6 +159,11 @@ Mission::on_inactivation()
 
 	/* reset so current mission item gets restarted if mission was paused */
 	_work_item_type = WORK_ITEM_TYPE_DEFAULT;
+
+	/* We need to reset the mission cruising speed, otherwise the
+	 * mission velocity which might have been set using mission items
+	 * is used for missions such as RTL. */
+	_navigator->set_cruising_speed();
 }
 
 void
@@ -179,6 +180,19 @@ Mission::on_activation()
 
 	// we already reset the mission items
 	_execution_mode_changed = false;
+
+	if (PX4_ISFINITE(_navigator->get_global_position()->lat) &&
+	    PX4_ISFINITE(_navigator->get_global_position()->lon) &&
+	    PX4_ISFINITE(_navigator->get_global_position()->alt)) {
+		// use current position so we go along a 3D line to next waypoint
+		_navigator->get_position_setpoint_triplet()->current.lat = _navigator->get_global_position()->lat;
+		_navigator->get_position_setpoint_triplet()->current.lon = _navigator->get_global_position()->lon;
+		_navigator->get_position_setpoint_triplet()->current.alt = _navigator->get_global_position()->alt;
+		_navigator->get_position_setpoint_triplet()->current.alt_valid = true;
+		_navigator->get_position_setpoint_triplet()->current.position_valid = true;
+		_navigator->get_position_setpoint_triplet()->current.valid = true;
+		_navigator->get_position_setpoint_triplet()->current.type = position_setpoint_s::SETPOINT_TYPE_POSITION;
+	}
 
 	set_mission_items();
 
@@ -397,9 +411,9 @@ Mission::find_mission_land_start()
 
 	bool found_land_start_marker = false;
 
-	for (size_t i = 1; i < _mission.count; i++) {
+	/* GD ML: start at current mission item and search for land start not at the beginning */
+	for (size_t i = _mission.current_seq; i < _mission.count; i++) {
 		const ssize_t len = sizeof(missionitem);
-		missionitem_prev = missionitem; // store the last mission item before reading a new one
 
 		if (dm_read(dm_current, i, &missionitem, len) != len) {
 			/* not supposed to happen unless the datamanager can't access the SD card, etc. */
@@ -487,6 +501,20 @@ Mission::update_mission()
 	 * Missions that do not explicitly configure ROI would not override
 	 * an existing ROI setting from previous missions */
 	_navigator->reset_vroi();
+
+	/* use current position so we go along a line to next waypoint*/
+	if (PX4_ISFINITE(_navigator->get_global_position()->lat) &&
+	    PX4_ISFINITE(_navigator->get_global_position()->lon) &&
+	    PX4_ISFINITE(_navigator->get_global_position()->alt) &&
+	    _navigator->is_planned_mission()) {
+		_navigator->get_position_setpoint_triplet()->current.lat = _navigator->get_global_position()->lat;
+		_navigator->get_position_setpoint_triplet()->current.lon = _navigator->get_global_position()->lon;
+		_navigator->get_position_setpoint_triplet()->current.alt = _navigator->get_global_position()->alt;
+		_navigator->get_position_setpoint_triplet()->current.alt_valid = true;
+		_navigator->get_position_setpoint_triplet()->current.position_valid = true;
+		_navigator->get_position_setpoint_triplet()->current.valid = true;
+		_navigator->get_position_setpoint_triplet()->current.type = position_setpoint_s::SETPOINT_TYPE_POSITION;
+	}
 
 	const mission_s old_mission = _mission;
 
@@ -800,10 +828,16 @@ Mission::set_mission_items()
 					_mission_item.force_heading = true;
 
 					new_work_item_type = WORK_ITEM_TYPE_ALIGN;
-
-					/* set position setpoint to current while aligning */
+					/* dont hold position during allingment t avoid tail wind
+					// set position setpoint to current while aligning
 					_mission_item.lat = _navigator->get_global_position()->lat;
 					_mission_item.lon = _navigator->get_global_position()->lon;
+					*/
+
+					/* set position setpoint to target during the transition
+					 * to start moving in the transition direction to help align yaw*/
+					generate_waypoint_from_heading(&pos_sp_triplet->current, _mission_item.yaw);
+
 				}
 
 				/* heading is aligned now, prepare transition */
@@ -1004,7 +1038,6 @@ Mission::set_mission_items()
 				    && _navigator->get_vstatus()->vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING
 				    && !_navigator->get_land_detected()->landed
 				    && has_next_position_item) {
-
 					/* disable weathervane before front transition for allowing yaw to align */
 					pos_sp_triplet->current.disable_weather_vane = true;
 
@@ -1016,6 +1049,8 @@ Mission::set_mission_items()
 					mission_apply_limitation(_mission_item);
 					mission_item_to_position_setpoint(mission_item_next_position, &pos_sp_triplet->current);
 				}
+
+
 
 				/* yaw is aligned now */
 				if (_work_item_type == WORK_ITEM_TYPE_ALIGN &&
@@ -1741,16 +1776,6 @@ Mission::need_to_reset_mission()
 	return false;
 }
 
-void
-Mission::generate_waypoint_from_heading(struct position_setpoint_s *setpoint, float yaw)
-{
-	waypoint_from_heading_and_distance(
-		_navigator->get_global_position()->lat, _navigator->get_global_position()->lon,
-		yaw, 1000000.0f,
-		&(setpoint->lat), &(setpoint->lon));
-	setpoint->type = position_setpoint_s::SETPOINT_TYPE_POSITION;
-	setpoint->yaw = yaw;
-}
 
 int32_t
 Mission::index_closest_mission_item() const

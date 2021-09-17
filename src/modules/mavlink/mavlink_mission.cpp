@@ -1324,10 +1324,10 @@ MavlinkMissionManager::parse_mavlink_mission_item(const mavlink_mission_item_t *
 			mission_item->time_inside = mavlink_mission_item->param1;
 			mission_item->force_heading = (mavlink_mission_item->param2 > 0);
 			mission_item->loiter_radius = mavlink_mission_item->param3;
-			mission_item->loiter_exit_xtrack = (mavlink_mission_item->param4 > 0);
+			mission_item->loiter_exit_xtrack = 0; //ml (mavlink_mission_item->param4 > 0);
 			// Yaw is only valid for multicopter but we set it always because
 			// it's just ignored for fixedwing.
-			mission_item->yaw = wrap_2pi(math::radians(mavlink_mission_item->param4));
+			mission_item->yaw = wrap_2pi(math::radians(mavlink_mission_item->param4)); // GD feature: loiter8
 			break;
 
 		case MAV_CMD_NAV_LAND:
@@ -1348,6 +1348,7 @@ MavlinkMissionManager::parse_mavlink_mission_item(const mavlink_mission_item_t *
 			mission_item->force_heading = (mavlink_mission_item->param1 > 0);
 			mission_item->loiter_radius = mavlink_mission_item->param2;
 			mission_item->loiter_exit_xtrack = (mavlink_mission_item->param4 > 0);
+			mission_item->yaw = NAN;
 			break;
 
 		case MAV_CMD_NAV_ROI:
@@ -1373,8 +1374,14 @@ MavlinkMissionManager::parse_mavlink_mission_item(const mavlink_mission_item_t *
 			mission_item->params[6] = mavlink_mission_item->z;
 			break;
 
-		case MAV_CMD_NAV_VTOL_TAKEOFF:
 		case MAV_CMD_NAV_VTOL_LAND:
+			mission_item->params[0] = mavlink_mission_item->param1; // GD feature: autocontinue
+			mission_item->params[1] = mavlink_mission_item->param2; // GD feature: land at arming position
+			mission_item->nav_cmd = (NAV_CMD)mavlink_mission_item->command;
+			mission_item->yaw = wrap_2pi(math::radians(mavlink_mission_item->param4));
+			break;
+
+		case MAV_CMD_NAV_VTOL_TAKEOFF:
 			mission_item->nav_cmd = (NAV_CMD)mavlink_mission_item->command;
 			mission_item->yaw = wrap_2pi(math::radians(mavlink_mission_item->param4));
 			break;
@@ -1485,6 +1492,7 @@ MavlinkMissionManager::parse_mavlink_mission_item(const mavlink_mission_item_t *
 		case MAV_CMD_NAV_RETURN_TO_LAUNCH:
 		case MAV_CMD_DO_SET_ROI_WPNEXT_OFFSET:
 		case MAV_CMD_DO_SET_ROI_NONE:
+		case MAV_CMD_DO_SET_ROI_LOCATION:
 		case MAV_CMD_CONDITION_DELAY:
 		case MAV_CMD_CONDITION_DISTANCE:
 			mission_item->nav_cmd = (NAV_CMD)mavlink_mission_item->command;
@@ -1572,6 +1580,7 @@ MavlinkMissionManager::format_mavlink_mission_item(const struct mission_item_s *
 		case NAV_CMD_DO_GIMBAL_MANAGER_PITCHYAW:
 		case NAV_CMD_DO_GIMBAL_MANAGER_CONFIGURE:
 		case NAV_CMD_DO_SET_ROI:
+		case NAV_CMD_DO_SET_ROI_LOCATION:
 		case NAV_CMD_DO_SET_CAM_TRIGG_DIST:
 		case NAV_CMD_OBLIQUE_SURVEY:
 		case NAV_CMD_DO_SET_CAM_TRIGG_INTERVAL:
@@ -1641,7 +1650,8 @@ MavlinkMissionManager::format_mavlink_mission_item(const struct mission_item_s *
 			mavlink_mission_item->param1 = mission_item->time_inside;
 			mavlink_mission_item->param2 = mission_item->force_heading;
 			mavlink_mission_item->param3 = mission_item->loiter_radius;
-			mavlink_mission_item->param4 = mission_item->loiter_exit_xtrack;
+			mavlink_mission_item->param4 = math::degrees(mission_item->yaw); // GD feature: loiter8
+			// ml mavlink_mission_item->param4 = mission_item->loiter_exit_xtrack;
 			break;
 
 		case NAV_CMD_LAND:
@@ -1660,8 +1670,13 @@ MavlinkMissionManager::format_mavlink_mission_item(const struct mission_item_s *
 			mavlink_mission_item->param4 = mission_item->loiter_exit_xtrack;
 			break;
 
-		case MAV_CMD_NAV_VTOL_TAKEOFF:
 		case MAV_CMD_NAV_VTOL_LAND:
+			mavlink_mission_item->param1 = mission_item->params[0]; // GD feature: autocontinue
+			mavlink_mission_item->param2 = mission_item->params[1]; // GD feature: land at arming position
+			mavlink_mission_item->param4 = math::degrees(mission_item->yaw);
+			break;
+
+		case MAV_CMD_NAV_VTOL_TAKEOFF:
 			mavlink_mission_item->param4 = math::degrees(mission_item->yaw);
 			break;
 

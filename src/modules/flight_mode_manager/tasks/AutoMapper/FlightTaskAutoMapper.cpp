@@ -71,6 +71,12 @@ bool FlightTaskAutoMapper::update()
 		_gear.landing_gear = landing_gear_s::GEAR_UP;
 	}
 
+	// during mission and reposition, raise the landing gears but only
+	// if altitude is high enough
+	if (_highEnoughForLandingGear()) {
+		_gear.landing_gear = landing_gear_s::GEAR_UP;
+	}
+
 	switch (_type) {
 	case WaypointType::idle:
 		_prepareIdleSetpoints();

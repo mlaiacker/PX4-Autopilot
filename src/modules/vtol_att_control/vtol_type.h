@@ -46,6 +46,8 @@
 #include <lib/mathlib/mathlib.h>
 #include <drivers/drv_hrt.h>
 #include <drivers/drv_pwm_output.h>
+#include <mathlib/math/filter/LowPassFilter2p.hpp>
+
 
 struct Params {
 	int32_t idle_pwm_mc;			// pwm value for idle in mc mode
@@ -315,6 +317,9 @@ private:
 	bool set_motor_state(const motor_state target_state, const int32_t channel_bitmap,  const int value);
 
 	void resetAccelToPitchPitchIntegrator() { _accel_to_pitch_integ = 0.f; }
+
+	static constexpr const float _tilt_lp_freq = 0.5f;
+	math::LowPassFilter2p	_tilt_lp_pitch; /* in vtol mode use tilt for low frequency pitch control (rad)*/
 
 };
 

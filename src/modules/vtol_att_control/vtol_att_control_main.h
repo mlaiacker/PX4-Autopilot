@@ -83,6 +83,7 @@
 #include "standard.h"
 #include "tailsitter.h"
 #include "tiltrotor.h"
+#include "songbird.h"
 
 using namespace time_literals;
 

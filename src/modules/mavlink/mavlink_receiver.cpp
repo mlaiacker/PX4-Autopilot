@@ -2129,12 +2129,29 @@ MavlinkReceiver::handle_message_hil_sensor(mavlink_message_t *msg)
 
 	const uint64_t timestamp = hrt_absolute_time();
 
+	/* airspeed */
+	{
+		airspeed_s airspeed{};
+
+		float ias = calc_IAS(hil_sensor.diff_pressure * 1e2f);
+		float scale = 1.0f; //assume no instrument or pitot placement errors
+		float eas = calc_EAS_from_IAS(ias, scale);
+		float tas = calc_TAS_from_EAS(eas, hil_sensor.abs_pressure * 100, hil_sensor.temperature);
+
+		airspeed.timestamp = timestamp;
+		airspeed.indicated_airspeed_m_s = ias;
+		airspeed.true_airspeed_m_s = tas;
+		airspeed.air_temperature_celsius = hil_sensor.temperature;
+
+		_airspeed_pub.publish(airspeed);
+	}
 	// temperature only updated with baro
 	float temperature = NAN;
 
 	if ((hil_sensor.fields_updated & SensorSource::BARO) == SensorSource::BARO) {
 		temperature = hil_sensor.temperature;
 	}
+
 
 	// gyro
 	if ((hil_sensor.fields_updated & SensorSource::GYRO) == SensorSource::GYRO) {

@@ -149,6 +149,8 @@ then
 		echo "INFO  [init] Mixer: ${MIXER_FILE} on ${OUTPUT_DEV}"
 
 	else
+		#GD, try again
+		mixer load ${OUTPUT_DEV} ${MIXER_FILE}
 		echo "ERROR  [init] Failed loading mixer: ${MIXER_FILE}"
 		tune_control play -t 18 # tune 18 = PROG_PX4IO_ERR
 	fi

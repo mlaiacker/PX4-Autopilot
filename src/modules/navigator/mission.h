@@ -236,6 +236,8 @@ private:
 	bool position_setpoint_equal(const position_setpoint_s *p1, const position_setpoint_s *p2) const;
 
 	void publish_navigator_mission_item();
+	/* update landing position if we have a RTL in the Mission to land at arming position */
+	bool checkMissionWhenArming();
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::MIS_DIST_1WP>) _param_mis_dist_1wp,
@@ -275,6 +277,12 @@ private:
 	bool _need_mission_reset{false};
 	bool _mission_waypoints_changed{false};
 	bool _mission_changed{false}; /** < true if the mission changed since the mission mode was active */
+	bool _armed{false}; /**< detect changes in arming state */
+
+	float _min_current_sp_distance_xy{FLT_MAX}; /**< minimum distance which was achieved to the current waypoint  */
+
+	float _distance_current_previous{0.0f}; /**< distance from previous to current sp in pos_sp_triplet,
+					    only use if current and previous are valid */
 
 	enum work_item_type {
 		WORK_ITEM_TYPE_DEFAULT,		/**< default mission item */

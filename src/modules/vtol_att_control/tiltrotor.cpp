@@ -48,7 +48,8 @@ using namespace time_literals;
 #define ARSP_YAW_CTRL_DISABLE 7.0f	// airspeed at which we stop controlling yaw during a front transition
 
 Tiltrotor::Tiltrotor(VtolAttitudeControl *attc) :
-	VtolType(attc)
+	VtolType(attc),
+	_tilt_yaw_lp_pitch(250, 1.0f)
 {
 	_vtol_schedule.flight_mode = vtol_mode::MC_MODE;
 	_vtol_schedule.transition_start = 0;
@@ -312,6 +313,7 @@ void Tiltrotor::update_transition_state()
 		_mc_yaw_weight = 1.0f;
 
 		// reduce MC controls once the plane has picked up speed
+<<<<<<< HEAD
 		if (!_params->airspeed_disabled && PX4_ISFINITE(_airspeed_validated->calibrated_airspeed_m_s) &&
 		    _airspeed_validated->calibrated_airspeed_m_s > ARSP_YAW_CTRL_DISABLE) {
 			_mc_yaw_weight = 0.0f;
@@ -320,7 +322,14 @@ void Tiltrotor::update_transition_state()
 		if (!_params->airspeed_disabled && PX4_ISFINITE(_airspeed_validated->calibrated_airspeed_m_s) &&
 		    _airspeed_validated->calibrated_airspeed_m_s >= _params->airspeed_blend) {
 			_mc_roll_weight = 1.0f - (_airspeed_validated->calibrated_airspeed_m_s - _params->airspeed_blend) /
+=======
+		if (!_params->airspeed_disabled && PX4_ISFINITE(_airspeed_validated->equivalent_airspeed_m_s) &&
+		    _airspeed_validated->equivalent_airspeed_m_s >= _params->airspeed_blend) {
+			_mc_roll_weight = 1.0f - (_airspeed_validated->equivalent_airspeed_m_s - _params->airspeed_blend) /
+>>>>>>> 7b4727d77452ab8b3f351bd06d44ee00fb9551ff
 					  (_params->transition_airspeed - _params->airspeed_blend);
+			/* same for yaw */
+			_mc_yaw_weight = _mc_roll_weight;
 		}
 
 		// without airspeed do timed weight changes
@@ -433,6 +442,10 @@ void Tiltrotor::fill_actuator_outputs()
 	mc_out[actuator_controls_s::INDEX_ROLL]  = mc_in[actuator_controls_s::INDEX_ROLL]  * _mc_roll_weight;
 	mc_out[actuator_controls_s::INDEX_PITCH] = mc_in[actuator_controls_s::INDEX_PITCH] * _mc_pitch_weight;
 	mc_out[actuator_controls_s::INDEX_YAW]   = mc_in[actuator_controls_s::INDEX_YAW]   * _mc_yaw_weight;
+
+	/* filter yaw control to use for differential tilt */
+	_actuators_out_0->control[actuator_controls_s::INDEX_AIRBRAKES] = _tilt_yaw_lp_pitch.apply(
+				_actuators_out_0->control[actuator_controls_s::INDEX_YAW]);
 
 	if (_vtol_schedule.flight_mode == vtol_mode::FW_MODE) {
 		mc_out[actuator_controls_s::INDEX_THROTTLE] = fw_in[actuator_controls_s::INDEX_THROTTLE];

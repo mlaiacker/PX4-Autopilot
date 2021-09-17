@@ -307,7 +307,7 @@ user_start(int argc, char *argv[])
 	/* default all the LEDs to off while we start */
 	LED_AMBER(false);
 	LED_BLUE(false);
-	LED_SAFETY(false);
+	LED_SAFETY(true);
 #ifdef GPIO_LED4
 	LED_RING(false);
 #endif

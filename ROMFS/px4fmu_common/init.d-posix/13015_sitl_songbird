@@ -1,0 +1,152 @@
+#!/bin/sh
+
+# PX4 commands need the 'px4-' prefix in bash.
+# (px4-alias.sh is expected to be in the PATH)
+# shellcheck disable=SC1091
+. px4-alias.sh
+
+SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
+
+#
+# Main SITL startup script
+#
+# build/px4_sitl_songbird/tmp/rootfs$ ../../bin/px4 -s etc/init.d-posix/13015_sitl_songbird ../../../../ROMFS/px4fmu_common/
+
+# initialize script variables
+set AUX_MODE                    none
+set IO_PRESENT                  no
+set LOG_FILE                    bootlog.txt
+set MAV_TYPE                    21
+set MIXER                       none
+set MIXER_AUX                   none
+set MIXER_FILE                  none
+set OUTPUT_MODE                 sim
+set PWM_OUT                     none
+set SDCARD_MIXERS_PATH          etc/mixers
+set USE_IO                      no
+set VEHICLE_TYPE                none
+set LOGGER_BUF			1000
+
+set RUN_MINIMAL_SHELL           no
+
+
+
+uorb start
+if [ -f eeprom/parameters ]
+then
+	param load
+fi
+
+
+param load
+dataman start
+
+tone_alarm start
+
+set VEHICLE_TYPE vtol
+
+set MIXER_FILE etc/mixers-sitl/songbird.main.mix
+set MIXER custom
+
+param set SYS_MC_EST_GROUP 2
+param set  SYS_HITL		1
+param set MAV_TYPE 21
+param set SYS_AUTOSTART 13015
+param set VT_TYPE 1
+
+param set CAL_ACC0_EN		1
+param set CAL_ACC0_ID		1311244
+param set CAL_ACC0_XOFF		0
+param set CAL_ACC0_XSCALE		1
+param set CAL_ACC0_YOFF		0
+param set CAL_ACC0_YSCALE		1
+param set CAL_ACC0_ZOFF		0
+param set CAL_ACC0_ZSCALE		1
+
+param set CAL_GYRO0_EN		1
+param set CAL_GYRO0_ID		2294028
+param set CAL_GYRO0_XOFF		0
+param set CAL_GYRO0_XSCALE	1.000
+param set CAL_GYRO0_YOFF		0
+param set CAL_GYRO0_YSCALE	1.000
+param set CAL_GYRO0_ZOFF		0
+param set CAL_GYRO0_ZSCALE	1.000
+
+param set CAL_MAG_PRIME		197388
+param set CAL_MAG0_EN		1
+param set CAL_MAG0_ID		197388
+param set CAL_MAG0_ROT	        -1
+param set CAL_MAG0_XOFF		0.00
+param set CAL_MAG0_XSCALE		1.000
+param set CAL_MAG0_YOFF		0.000
+param set CAL_MAG0_YSCALE		1.00
+param set CAL_MAG0_ZOFF		0.000
+param set CAL_MAG0_ZSCALE		1.000
+
+replay tryapplyparams
+
+simulator start -u 14557
+#gpssim start
+
+pwm_out_sim start
+
+
+sensors start -h
+commander start -h
+
+navigator start
+ekf2 start
+
+airspeed_selector start
+
+vtol_att_control start
+
+mc_rate_control start vtol
+mc_att_control start vtol
+mc_pos_control start vtol
+mc_hover_thrust_estimator start
+
+fw_att_control start vtol
+fw_pos_control_l1 start vtol
+
+# Start Land Detector
+# Multicopter for now until we have something for VTOL
+#
+land_detector start vtol
+
+
+mixer load /dev/pwm_output0 etc/mixers-sitl/songbird.main.mix
+
+gd_payload start -v
+
+mavlink start -x -u 14556 -r 2000000 
+#mavlink start -x -u 14557 -r 2000000 -m onboard -o 14540
+#mavlink stream -r 20 -s EXTENDED_SYS_STATE -u 14557
+
+mavlink stream -r 80 -s POSITION_TARGET_LOCAL_NED -u 14556
+mavlink stream -r 80 -s LOCAL_POSITION_NED -u 14556
+mavlink stream -r 80 -s GLOBAL_POSITION_INT -u 14556
+mavlink stream -r 80 -s ATTITUDE -u 14556
+mavlink stream -r 80 -s ATTITUDE_QUATERNION -u 14556
+mavlink stream -r 80 -s ATTITUDE_TARGET -u 14556
+mavlink stream -r 20 -s RC_CHANNELS -u 14556
+#mavlink stream -r 250 -s HIGHRES_IMU -u 14556
+#mavlink stream -r 10 -s OPTICAL_FLOW_RAD -u 14556
+mavlink stream -r 10 -s HIL_ACTUATOR_CONTROLS -u 14556
+#mavlink stream -r 100 -s HIL_ACTUATOR_CONTROLS -u 14557
+
+#mavlink start -d /dev/serial0 -f
+
+logger start -t
+
+#replay trystart
+#mavlink stream -r 200 -s HIL_ACTUATOR_CONTROLS -u 14557
+
+rc_input start -d /dev/ttyUSB0
+rc_update start
+
+#camera_trigger start
+
+commander lockdown off
+
+mavlink boot_complete

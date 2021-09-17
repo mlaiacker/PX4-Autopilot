@@ -72,6 +72,8 @@ Loiter::on_active()
 		reposition();
 	}
 
+	cruising_speed_sp_update();
+
 	// reset the loiter position if we get disarmed
 	if (_navigator->get_vstatus()->arming_state != vehicle_status_s::ARMING_STATE_ARMED) {
 		_loiter_pos_set = false;
@@ -137,6 +139,11 @@ Loiter::reposition()
 		pos_sp_triplet->previous.alt = _navigator->get_global_position()->alt;
 		memcpy(&pos_sp_triplet->current, &rep->current, sizeof(rep->current));
 		pos_sp_triplet->next.valid = false;
+
+		if(rep->current.yaw_valid && PX4_ISFINITE(rep->current.yaw))
+		{
+			pos_sp_triplet->current.yaw = rep->current.yaw;
+		}
 
 		_navigator->set_can_loiter_at_sp(pos_sp_triplet->current.type == position_setpoint_s::SETPOINT_TYPE_LOITER);
 		_navigator->set_position_setpoint_triplet_updated();

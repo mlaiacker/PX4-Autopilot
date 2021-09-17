@@ -172,6 +172,7 @@ private:
 
 	hrt_abstime _takeoff_time{0};
 	hrt_abstime _total_flight_time{0};	///< total vehicle flight time in microseconds
+	uint32_t _total_flight_count{0};	///< total vehicle flight counter
 
 	perf_counter_t _cycle_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": cycle")};
 
@@ -188,7 +189,8 @@ private:
 	DEFINE_PARAMETERS_CUSTOM_PARENT(
 		ModuleParams,
 		(ParamInt<px4::params::LND_FLIGHT_T_HI>) _param_total_flight_time_high,
-		(ParamInt<px4::params::LND_FLIGHT_T_LO>) _param_total_flight_time_low
+		(ParamInt<px4::params::LND_FLIGHT_T_LO>) _param_total_flight_time_low,
+		(ParamInt<px4::params::LND_FLIGHT_COUNT>) _param_total_flight_count
 	);
 };
 

@@ -88,6 +88,15 @@ public:
 	 */
 	static bool item_contains_marker(const mission_item_s &item);
 
+	static const int WIND_THRESHOLD = 3; // minimum windspeed for doing yaw aligment while landing as vtol landing
+
+	static float getWindYaw(float yaw);
+
+	/**
+	 * Project current location with heading to far away location and fill setpoint.
+	 */
+	void generate_waypoint_from_heading(struct position_setpoint_s *setpoint, float yaw);
+
 protected:
 	/**
 	 * Check if mission item has been reached
@@ -139,6 +148,8 @@ protected:
 	void mission_apply_limitation(mission_item_s &item);
 
 	void issue_command(const mission_item_s &item);
+
+	void cruising_speed_sp_update();
 
 	float get_time_inside(const mission_item_s &item) const ;
 

@@ -77,6 +77,7 @@ void LandDetector::Run()
 
 		_total_flight_time = static_cast<uint64_t>(_param_total_flight_time_high.get()) << 32;
 		_total_flight_time |= static_cast<uint32_t>(_param_total_flight_time_low.get());
+		_total_flight_count = static_cast<uint32_t>(_param_total_flight_count.get());
 	}
 
 	actuator_armed_s actuator_armed;
@@ -157,6 +158,14 @@ void LandDetector::Run()
 	// set the flight time when disarming (not necessarily when landed, because all param changes should
 	// happen on the same event and it's better to set/save params while not in armed state)
 	if (_takeoff_time != 0 && !_armed && _previous_armed_state) {
+		hrt_abstime last_flight_duration_us = now_us - _takeoff_time;
+
+		// count only longer flights
+		if (last_flight_duration_us > 60000000) {
+			_total_flight_count += 1;
+			_param_total_flight_count.set(_total_flight_count);
+			_param_total_flight_count.commit_no_notification();
+		}
 		_total_flight_time += now_us - _takeoff_time;
 		_takeoff_time = 0;
 

@@ -280,6 +280,16 @@ Navigator::run()
 
 					rep->current.loiter_radius = get_loiter_radius();
 					rep->current.loiter_direction = 1;
+
+					/* ML: use param 3 as loiter radius and check for valid radius valid loiter radius */
+					if (fabsf(cmd.param3) > 10.0f && PX4_ISFINITE(cmd.param3) && fabsf(cmd.param3) < 1000.0f) {
+						rep->current.loiter_radius = fabsf(cmd.param3);
+
+						if (cmd.param3 < 0.0f)	{
+							rep->current.loiter_direction = -1;
+						}
+					}
+
 					rep->current.type = position_setpoint_s::SETPOINT_TYPE_LOITER;
 
 					// If no argument for ground speed, use default value.
@@ -295,7 +305,7 @@ Navigator::run()
 
 					// Go on and check which changes had been requested
 					if (PX4_ISFINITE(cmd.param4)) {
-						rep->current.yaw = cmd.param4;
+						rep->current.yaw = math::radians(cmd.param4);
 						rep->current.yaw_valid = true;
 
 					} else {
@@ -311,7 +321,11 @@ Navigator::run()
 						if (PX4_ISFINITE(cmd.param7)) {
 							rep->current.alt = cmd.param7;
 
+						} else if(curr->current.alt_valid && PX4_ISFINITE(curr->current.alt)){
+							// gd feature use last commanded altitude
+							rep->current.alt = curr->current.alt;
 						} else {
+							// use current altitude
 							rep->current.alt = get_global_position()->alt;
 						}
 
@@ -954,7 +968,11 @@ Navigator::get_cruising_speed()
 		}
 
 	} else {
-		if (is_planned_mission() && _mission_cruising_speed_fw > 0.0f) {
+		if ((is_planned_mission() ||
+		     (_navigation_mode == &_loiter) ||
+		     (_navigation_mode == &_rtl) ||
+		     (_navigation_mode == &_follow_target))
+		    && _mission_cruising_speed_fw > 0.0f) {
 			return _mission_cruising_speed_fw;
 
 		} else {

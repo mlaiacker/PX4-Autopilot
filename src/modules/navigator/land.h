@@ -45,6 +45,7 @@
 
 class Land : public MissionBlock
 {
+	bool _in_transition{false};
 public:
 	Land(Navigator *navigator);
 	~Land() = default;

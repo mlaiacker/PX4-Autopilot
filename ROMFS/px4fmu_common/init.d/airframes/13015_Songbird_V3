@@ -1,0 +1,145 @@
+#!/bin/sh
+#
+# @name Germandrones Songbird V3
+#
+# @type VTOL Tiltrotor
+# @class VTOL
+#
+# @maintainer Germandrones
+#
+# @output MAIN1 motor 1
+# @output MAIN2 motor 2
+# @output MAIN3 motor 3
+# @output MAIN4 motor 4
+# @output MAIN5 Tiltservo Left
+# @output MAIN6 Tiltsrevo Right
+# @output AUX1 Aileron Left
+# @output AUX2 Aileron Right
+# @output AUX3 VTail Left
+# @output AUX4 VTail Right
+# @output AUX5 Camera Trigger
+# @output AUX6 Camera Trigger
+#
+
+
+sh /etc/init.d/rc.vtol_defaults
+
+if [ $AUTOCNF == yes ]
+then
+	param set BAT_CAP_VT_LAND 1800
+	param set BAT_N_CELLS	8
+	param set BAT_V_DIV	15.46800
+	param set BAT_V_EMPTY	3.500
+	param set BAT_V_CHARGED	4.100
+	param set BAT_A_PER_V	1.000
+	param set BAT_SOURCE	1
+	param set CAL_AIR_GAIN	0.67
+	param set CBRK_IO_SAFETY	22027
+	param set COM_ARM_CHK_ESCS	0
+	param set COM_FLTMODE1	3
+	param set COM_FLTMODE2	2
+	param set COM_FLTMODE3	2
+	param set COM_FLTMODE4	2
+	param set COM_FLTMODE5	8
+	param set COM_FLTMODE6	8
+	param set COM_POWER_COUNT	1
+	param set COM_PREARM_MODE	2
+	param set EKF2_BARO_NOISE	15.0
+	param set VT_ELEV_MC_LOCK	0
+	
+	param set PWM_AUX_DIS1	1500
+	param set PWM_AUX_DIS2	1500
+	param set PWM_AUX_DIS3	1500
+	param set PWM_AUX_DIS4	1500
+	param set PWM_AUX_MAX	2000
+	param set PWM_AUX_MIN	1000
+	param set PWM_MAIN_MAX5	2100
+	param set PWM_MAIN_MAX6	2100
+	param set PWM_MAIN_MIN5	900
+	param set PWM_MAIN_MIN6	900
+	param set PWM_MAX	2100	6
+	param set RC_ARMSWITCH_TH	0.500
+	param set RC_ASSIST_TH	0.25
+	param set RC_AUTO_TH	0.75
+	param set RC_MAP_ARM_SW	8
+	param set RC_MAP_FLTMODE	7
+	param set RC_MAP_PITCH	2
+	param set RC_MAP_ROLL	1
+	param set RC_MAP_THROTTLE	3
+	param set RC_MAP_TRANS_SW	5
+	param set RC_MAP_YAW	4
+	param set RC_STAB_TH	0.50
+	param set RC_TRANS_TH	-0.250
+	param set RTL_CONE_ANG	45
+	param set RTL_DESCEND_ALT	50.00
+	param set RTL_LAND_DELAY	0.0
+	param set RTL_MIN_DIST	20.00
+	param set RTL_RETURN_ALT	100.00
+	param set RTL_TYPE	1
+	param set SDLOG_MODE	0
+	param set SDLOG_PROFILE	65
+	param set TRIG_INTERFACE	4
+	param set TRIG_MODE	4
+	param set TRIG_PINS	56
+	
+	param set MNT_TRIP_MAVLINK 0
+
+#TODO: copy default parameter
+
+	param set VT_IDLE_PWM_MC 1170
+fi
+# vt_type: 3=songbird
+param set VT_TYPE 3 
+param set VT_MOT_COUNT 4
+
+set MIXER SBV3
+set PWM_OUT 1234
+set PWM_RATE 400
+
+set MIXER_AUX SBV3
+set PWM_AUX_OUT 1234
+set PWM_AUX_RATE 50
+
+set MAV_TYPE 21
+
+# batt_pac power monitor
+batt_pac17xx start -X -R 0.2 -r 80
+
+temp_lm75 start -n tempPDB
+
+gd_payload start
+
+if param compare MNT_TRIP_MAVLINK 1
+then
+	#enable forward
+	param set MAV_0_FORWARD	1
+	param set MAV_1_CONFIG	102
+	param set MAV_1_FORWARD	1
+	param set MAV_1_MODE	2
+	param set MAV_1_RADIO_CTL	0
+	param set MAV_1_RATE	0
+	
+fi
+
+if param compare MNT_TRIP_MAVLINK 2
+then
+	# disable mavlink on telemetry port
+	param set MAV_1_CONFIG	0
+	uart_merio start -d /dev/ttyS2
+fi
+	
+if param compare MNT_TRIP_MAVLINK 3
+then
+	# disable mavlink on telemetry port
+	param set MAV_1_CONFIG	0
+#	uart_phaseone start -d /dev/ttyS2
+fi
+
+
+# /dev/ttyS0		IO debug except v4, there ttyS0 is the wifi
+# /dev/ttyS1		TELEM1 flow control serial1, telemetry
+# /dev/ttyS2		TELEM2 flow control serial2, payload
+# /dev/ttyS3		GPS
+# /dev/ttyS4		PX4IO
+# /dev/ttyS5		debug console, serial5
+# /dev/ttyS6		GPS2, ser4 free (was unisens)

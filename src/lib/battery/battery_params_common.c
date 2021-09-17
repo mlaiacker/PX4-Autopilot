@@ -88,3 +88,18 @@ PARAM_DEFINE_FLOAT(BAT_CRIT_THR, 0.07f);
  * @reboot_required true
  */
 PARAM_DEFINE_FLOAT(BAT_EMERGEN_THR, 0.05f);
+
+/**
+ * Battery capacity reserved for VTOL landing.
+ *
+ * Defines the capacity reserved for landing for the remaining time estimation.
+ *
+ * @group Battery Calibration
+ * @unit mAh
+ * @decimal 0
+ * @min -1.0
+ * @max 100000
+ * @increment 50
+ * @reboot_required true
+ */
+PARAM_DEFINE_FLOAT(BAT_CAP_VT_LAND, -1.0f);

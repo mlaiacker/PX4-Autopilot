@@ -140,6 +140,7 @@ void PositionControl::_velocityControl(const float dt)
 	// Saturate maximal vertical thrust
 	_thr_sp(2) = math::max(_thr_sp(2), -_lim_thr_max);
 
+	/*
 	// Get allowed horizontal thrust after prioritizing vertical control
 	const float thrust_max_squared = _lim_thr_max * _lim_thr_max;
 	const float thrust_z_squared = _thr_sp(2) * _thr_sp(2);
@@ -148,14 +149,28 @@ void PositionControl::_velocityControl(const float dt)
 
 	if (thrust_max_xy_squared > 0) {
 		thrust_max_xy = sqrtf(thrust_max_xy_squared);
+	} else {
+		PX4_INFO("xy thrust limit 0 z=%f",(double)sqrt(thrust_z_squared));
 	}
-
 	// Saturate thrust in horizontal direction
 	const Vector2f thrust_sp_xy(_thr_sp);
 	const float thrust_sp_xy_norm = thrust_sp_xy.norm();
 
 	if (thrust_sp_xy_norm > thrust_max_xy) {
 		_thr_sp.xy() = thrust_sp_xy / thrust_sp_xy_norm * thrust_max_xy;
+		PX4_INFO("xy thrust limit %f > %f", (double)thrust_sp_xy_norm , (double)thrust_max_xy);
+	}
+	*/
+
+	//GD: Get allowed vertical thrust after prioritizing position control
+	const float thrust_max_squared = _lim_thr_max * _lim_thr_max;
+	const float thrust_xy_squared = _thr_sp(0) * _thr_sp(0) + _thr_sp(1) * _thr_sp(1);
+	const float thrust_max_z_squared = thrust_max_squared - thrust_xy_squared;
+	const float thrust_z_squared = _thr_sp(2) * _thr_sp(2);
+	// GD: it is safer to hold position for a vtol then drifting away since a vtol only hovers over takeoff and landing
+	if (PX4_ISFINITE(_thr_sp(2)) && thrust_z_squared > thrust_max_z_squared) {
+		_thr_sp(2) = _thr_sp(2) * sqrt(thrust_max_z_squared) / sqrt(thrust_z_squared);
+		//PX4_INFO("Z thrust limit to %f from %f", (double)_thr_sp(2) , (double)sqrt(thrust_z_squared));
 	}
 
 	// Use tracking Anti-Windup for horizontal direction: during saturation, the integrator is used to unsaturate the output

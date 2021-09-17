@@ -113,6 +113,9 @@ VtolAttitudeControl::VtolAttitudeControl() :
 	} else if (static_cast<vtol_type>(_params.vtol_type) == vtol_type::STANDARD) {
 		_vtol_type = new Standard(this);
 
+	} else 	if (_params.vtol_type == ((int32_t)vtol_type::STANDARD + 1)) {
+		_vtol_type = new Songbird(this);
+
 	} else {
 		exit_and_cleanup();
 	}
@@ -196,6 +199,18 @@ VtolAttitudeControl::is_fixed_wing_requested()
 		to_fw = (_transition_command == vtol_vehicle_status_s::VEHICLE_VTOL_STATE_FW);
 	}
 
+	// handle abort request
+	if (_abort_front_transition) {
+		if (to_fw) {
+			to_fw = false;
+
+		} else {
+			// the state changed to mc mode, reset the abort request
+			_abort_front_transition = false;
+			_vtol_vehicle_status.vtol_transition_failsafe = false;
+		}
+	}
+
 	return to_fw;
 }
 
@@ -204,6 +219,7 @@ VtolAttitudeControl::quadchute(const char *reason)
 {
 	if (!_vtol_vehicle_status.vtol_transition_failsafe) {
 		mavlink_log_critical(&_mavlink_log_pub, "Abort: %s", reason);
+		_abort_front_transition = true;
 		_vtol_vehicle_status.vtol_transition_failsafe = true;
 	}
 }
@@ -271,6 +287,7 @@ VtolAttitudeControl::parameters_update()
 	_params.airspeed_disabled = l != 0;
 	param_get(_params_handles.front_trans_timeout, &_params.front_trans_timeout);
 	param_get(_params_handles.mpc_xy_cruise, &_params.mpc_xy_cruise);
+	param_get(_params_handles.fw_motors_off, &_params.fw_motors_off);
 	param_get(_params_handles.diff_thrust, &_params.diff_thrust);
 
 	param_get(_params_handles.diff_thrust_scale, &v);

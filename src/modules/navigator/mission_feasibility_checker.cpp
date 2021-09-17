@@ -315,7 +315,7 @@ MissionFeasibilityChecker::checkTakeoff(const mission_s &mission, float home_alt
 		}
 
 		// look for a takeoff waypoint
-		if (missionitem.nav_cmd == NAV_CMD_TAKEOFF) {
+		if (missionitem.nav_cmd == NAV_CMD_TAKEOFF || missionitem.nav_cmd == NAV_CMD_VTOL_TAKEOFF) {
 			// make sure that the altitude of the waypoint is at least one meter larger than the acceptance radius
 			// this makes sure that the takeoff waypoint is not reached before we are at least one meter in the air
 
@@ -331,6 +331,15 @@ MissionFeasibilityChecker::checkTakeoff(const mission_s &mission, float home_alt
 			}
 
 			if (takeoff_alt - 1.0f < acceptance_radius) {
+				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "Mission rejected: Takeoff altitude too low!");
+				return false;
+			}
+
+			// get the parameter for min take off altitude in meters
+			float takeoff_alt_min = _navigator->get_takeoff_min_alt();
+
+			// check if it is set to something meaning full and if the take off altitude is set above the parameter
+			if (takeoff_alt_min > 0 && takeoff_alt < takeoff_alt_min) {
 				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "Mission rejected: Takeoff altitude too low!");
 				return false;
 			}
@@ -617,13 +626,29 @@ MissionFeasibilityChecker::checkVTOLLanding(const mission_s &mission, bool land_
 bool
 MissionFeasibilityChecker::checkDistanceToFirstWaypoint(const mission_s &mission, float max_distance)
 {
-	if (max_distance <= 0.0f) {
-		/* param not set, check is ok */
+	if (max_distance <= 0.0f || _navigator->get_vstatus()->arming_state == vehicle_status_s::ARMING_STATE_ARMED) {
+		/* param not set or armed, check is ok */
 		return true;
 	}
 
+	size_t current_mission_index = 0;
+	mission_s mission_state = {};
+	dm_lock(DM_KEY_MISSION_STATE);
+	/* read current state */
+	int read_res = dm_read(DM_KEY_MISSION_STATE, 0, &mission_state, sizeof(mission_s));
+
+	dm_unlock(DM_KEY_MISSION_STATE);
+
+	if (read_res == sizeof(mission_s)) {
+		current_mission_index = mission_state.current_seq;
+	}
+
+	if ((current_mission_index + 1) >= mission_state.count) {
+		current_mission_index = 0; // go back to start
+	}
+
 	/* find first waypoint (with lat/lon) item in datamanager */
-	for (size_t i = 0; i < mission.count; i++) {
+	for (size_t i = current_mission_index; i < mission.count; i++) {
 
 		struct mission_item_s mission_item {};
 
@@ -650,8 +675,8 @@ MissionFeasibilityChecker::checkDistanceToFirstWaypoint(const mission_s &mission
 		} else {
 			/* item is too far from home */
 			mavlink_log_critical(_navigator->get_mavlink_log_pub(),
-					     "First waypoint too far away: %dm, %d max",
-					     (int)dist_to_1wp, (int)max_distance);
+					     "First waypoint(%i) too far away: %dm, %dm max.",
+					     (int)i, (int)dist_to_1wp, (int)max_distance);
 
 			_navigator->get_mission_result()->warning = true;
 			return false;
@@ -702,7 +727,7 @@ MissionFeasibilityChecker::checkDistancesBetweenWaypoints(const mission_s &missi
 			if (dist_between_waypoints > max_distance) {
 				/* distance between waypoints is too high */
 				mavlink_log_critical(_navigator->get_mavlink_log_pub(),
-						     "Distance between waypoints too far: %d meters, %d max.",
+						     "Distance between waypoints too far: %dm, %dm max.",
 						     (int)dist_between_waypoints, (int)max_distance);
 
 				_navigator->get_mission_result()->warning = true;

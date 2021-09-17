@@ -185,6 +185,11 @@ set(msg_files
 	wheel_encoders.msg
 	wind.msg
 	yaw_estimator_status.msg
+
+	trip2_sys_report.msg
+	trip2_los_report.msg
+	trip2_gnd_report.msg
+
 )
 
 if(NOT px4_constrained_flash_build)

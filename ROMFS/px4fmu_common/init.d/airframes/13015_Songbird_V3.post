@@ -1,0 +1,55 @@
+#!/bin/sh
+#
+# @name Germandrones Songbird V3
+#
+# @type VTOL Tiltrotor
+# @class VTOL
+#
+# @maintainer Germandrones
+#
+# @output MAIN1 motor 1
+# @output MAIN2 motor 2
+# @output MAIN3 motor 3
+# @output MAIN4 motor 4
+# @output MAIN5 Tiltservo Left
+# @output MAIN6 Tiltsrevo Right
+# @output AUX1 Aileron Left
+# @output AUX2 Aileron Right
+# @output AUX3 VTail Left
+# @output AUX4 VTail Right
+# @output AUX5 Camera Trigger
+# @output AUX6 Camera Trigger
+#
+
+if param compare MNT_TRIP_MAVLINK 1
+then
+	param set MAV_1_CONFIG	102
+	param set MAV_1_FORWARD	1
+	param set MAV_1_MODE	2
+	param set MAV_1_RADIO_CTL	0
+	param set MAV_1_RATE	0
+
+	# "set mavlink rates for trip2"
+	mavlink stream -d /dev/ttyS2 -s RC_CHANNELS -r 10		
+	mavlink stream -d /dev/ttyS2 -s GLOBAL_POSITION_INT -r 25
+	mavlink stream -d /dev/ttyS2 -s ATTITUDE -r 25
+	mavlink stream -d /dev/ttyS2 -s VFR_HUD -r 25
+	mavlink stream -d /dev/ttyS2 -s GPS_RAW_INT -r 2
+	mavlink stream -d /dev/ttyS2 -s HEARTBEAT -r 2
+	mavlink stream -d /dev/ttyS2 -s SYS_STATUS -r 1
+	mavlink stream -d /dev/ttyS2 -s SYSTEM_TIME -r 1
+fi
+
+# Camera capture driver
+if param greater -s CAM_CAP_FBACK 0
+then
+	pwm -d /dev/pwm_output1 arm
+fi
+
+# /dev/ttyS0		IO debug except v4, there ttyS0 is the wifi
+# /dev/ttyS1		TELEM1 flow control serial1, telemetry
+# /dev/ttyS2		TELEM2 flow control serial2, payload
+# /dev/ttyS3		GPS
+# /dev/ttyS4		PX4IO
+# /dev/ttyS5		debug console, serial5
+# /dev/ttyS6		GPS2, ser4 free (was unisens)

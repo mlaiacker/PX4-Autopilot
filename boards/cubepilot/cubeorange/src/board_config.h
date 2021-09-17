@@ -79,7 +79,7 @@
 #define ADC_SCALED_V5_CHANNEL               18 /* PA4: VDD_5V_SENS */
 #define ADC_BATTERY2_VOLTAGE_CHANNEL        13 /* PC3: FMU_AUX_POWER_ADC1 */
 #define ADC_BATTERY2_CURRENT_CHANNEL         4 /* PC4: FMU_AUX_ADC2 */
-#define ADC_AIRSPEED_VOLTAGE_CHANNEL         8 /* PC5: PRESSURE_SENS */
+#define ADC_AIRSPEED_VOLTAGE_CHANNEL_UNUSED         8 /* PC5: PRESSURE_SENS */
 
 #define ADC_CHANNELS \
 	((1 << ADC_BATTERY1_VOLTAGE_CHANNEL)       | \
@@ -87,7 +87,7 @@
 	 (1 << ADC_SCALED_V5_CHANNEL)              | \
 	 (1 << ADC_BATTERY2_VOLTAGE_CHANNEL)       | \
 	 (1 << ADC_BATTERY2_CURRENT_CHANNEL)       | \
-	 (1 << ADC_AIRSPEED_VOLTAGE_CHANNEL))
+	 (1 << ADC_AIRSPEED_VOLTAGE_CHANNEL_UNUSED))
 
 /* HW has to large of R termination on ADC todo:change when HW value is chosen */
 #define BOARD_ADC_OPEN_CIRCUIT_V     (5.6f)

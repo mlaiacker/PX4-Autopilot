@@ -422,6 +422,9 @@ private:
 		(ParamFloat<px4::params::FW_TKO_PITCH_MIN>) _takeoff_pitch_min
 
 	)
+	int _loiter8_state{0};
+	float _loiter8_bearing{0};
+	Vector2f _loiter8_switch_pos, _loiter8_wp;
 
 };
 
