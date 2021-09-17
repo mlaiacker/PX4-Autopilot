@@ -189,7 +189,6 @@ Mission::on_activation()
 		_navigator->get_position_setpoint_triplet()->current.lon = _navigator->get_global_position()->lon;
 		_navigator->get_position_setpoint_triplet()->current.alt = _navigator->get_global_position()->alt;
 		_navigator->get_position_setpoint_triplet()->current.alt_valid = true;
-		_navigator->get_position_setpoint_triplet()->current.position_valid = true;
 		_navigator->get_position_setpoint_triplet()->current.valid = true;
 		_navigator->get_position_setpoint_triplet()->current.type = position_setpoint_s::SETPOINT_TYPE_POSITION;
 	}
@@ -405,7 +404,6 @@ Mission::find_mission_land_start()
 
 	const dm_item_t dm_current = (dm_item_t)_mission.dataman_id;
 	struct mission_item_s missionitem = {};
-	struct mission_item_s missionitem_prev = {}; //to store mission item before currently checked on, needed to get pos of wp before NAV_CMD_DO_LAND_START
 
 	_land_start_available = false;
 
@@ -511,7 +509,6 @@ Mission::update_mission()
 		_navigator->get_position_setpoint_triplet()->current.lon = _navigator->get_global_position()->lon;
 		_navigator->get_position_setpoint_triplet()->current.alt = _navigator->get_global_position()->alt;
 		_navigator->get_position_setpoint_triplet()->current.alt_valid = true;
-		_navigator->get_position_setpoint_triplet()->current.position_valid = true;
 		_navigator->get_position_setpoint_triplet()->current.valid = true;
 		_navigator->get_position_setpoint_triplet()->current.type = position_setpoint_s::SETPOINT_TYPE_POSITION;
 	}
@@ -1776,6 +1773,16 @@ Mission::need_to_reset_mission()
 	return false;
 }
 
+void
+Mission::generate_waypoint_from_heading(struct position_setpoint_s *setpoint, float yaw)
+{
+	waypoint_from_heading_and_distance(
+		_navigator->get_global_position()->lat, _navigator->get_global_position()->lon,
+		yaw, 1000000.0f,
+		&(setpoint->lat), &(setpoint->lon));
+	setpoint->type = position_setpoint_s::SETPOINT_TYPE_POSITION;
+	setpoint->yaw = yaw;
+}
 
 int32_t
 Mission::index_closest_mission_item() const

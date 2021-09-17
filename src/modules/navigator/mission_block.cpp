@@ -53,7 +53,7 @@
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/vehicle_command.h>
 #include <uORB/topics/vtol_vehicle_status.h>
-#include <uORB/topics/wind_estimate.h>
+#include <uORB/topics/wind.h>
 
 using matrix::wrap_2pi;
 
@@ -467,14 +467,15 @@ MissionBlock::reset_mission_item_reached()
 	_waypoint_yaw_reached = false;
 	_time_wp_reached = 0;
 }
+
 float
 MissionBlock::getWindYaw(float yaw)
 {
 	float result = yaw;
-	int wind_estimate_sub = orb_subscribe(ORB_ID(wind_estimate));
-	struct wind_estimate_s wind;
+	uORB::Subscription wind_estimate_sub(ORB_ID(wind));
+	struct wind_s wind;
 
-	if (orb_copy(ORB_ID(wind_estimate), wind_estimate_sub, &wind) == 0) {
+	if (wind_estimate_sub.copy(&wind) == 0) {
 		/* only when more then 3m/s wind*/
 		if ((wind.windspeed_east * wind.windspeed_east + wind.windspeed_north * wind.windspeed_north) >
 		    MissionBlock::WIND_THRESHOLD * MissionBlock::WIND_THRESHOLD) {
@@ -485,8 +486,6 @@ MissionBlock::getWindYaw(float yaw)
 	} else {
 		PX4_ERR("failed to get wind estimate for yaw alligment");
 	}
-
-	orb_unsubscribe(wind_estimate_sub);
 	return result;
 }
 

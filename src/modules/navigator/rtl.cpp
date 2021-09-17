@@ -655,10 +655,6 @@ void RTL::advance_rtl()
 		_rtl_state = RTL_STATE_RETURN;
 		break;
 
-	case RTL_STATE_TRANSITION_TO_MC:
-		_rtl_state = RTL_STATE_RETURN;
-		break;
-
 	case RTL_STATE_DESCEND:
 
 		if (descend_and_loiter) {
