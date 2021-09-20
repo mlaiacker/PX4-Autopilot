@@ -613,9 +613,14 @@ sbus_decode(uint64_t frame_time, uint8_t *frame, uint16_t *values, uint16_t *num
 		sbus_decode_state = SBUS2_DECODE_STATE_SBUS2_SYNC;
 		break;
 
+	case 0x08:
+		/* GD: Unknown SBUS2 data */
+		sbus_decode_state = SBUS2_DECODE_STATE_SBUS2_SYNC;
+		break;
+
 	default:
 #if defined(SBUS_DEBUG_LEVEL) && SBUS_DEBUG_LEVEL > 0
-		printf("DECODE FAIL: END MARKER\n");
+		printf("DECODE FAIL: END MARKER 0x%x\n", frame[24]);
 #endif
 		sbus_decode_state = SBUS2_DECODE_STATE_DESYNC;
 		return false;

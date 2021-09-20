@@ -15,7 +15,7 @@ px4_add_board(
 		gps
 		#imu # all available imu drivers
 		#magnetometer # all available magnetometer drivers
-		#pwm_out_sim
+		pwm_out_sim
 		#rpm/rpm_simulator
 		#telemetry # all available telemetry drivers
 		tone_alarm
@@ -30,8 +30,11 @@ px4_add_board(
 		dataman
 		ekf2
 		events
+		flight_mode_manager
 		fw_att_control
 		fw_pos_control_l1
+		gyro_calibration
+		gyro_fft
 		land_detector
 		landing_target_estimator
 		load_mon
