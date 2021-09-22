@@ -13,7 +13,7 @@ px4_add_board(
 		GPS1:/dev/ttyS3
 		TEL1:/dev/ttyS1
 		TEL2:/dev/ttyS2
-		TEL4:/dev/ttyS6
+		GPS2:/dev/ttyS6
 	DRIVERS
 		adc/ads1115
 		adc/board_adc
@@ -44,10 +44,10 @@ px4_add_board(
 		#power_monitor/ina226
 		#protocol_splitter
 		pwm_input
-		pwm_out_sim
+		#pwm_out_sim
 		pwm_out
 		px4io
-		roboclaw
+		#roboclaw
 		rpm
 		smart_battery/batmon
 		telemetry # all available telemetry drivers

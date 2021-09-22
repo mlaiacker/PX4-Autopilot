@@ -2,8 +2,8 @@
 px4_add_board(
 	PLATFORM nuttx
 	VENDOR cubepilot
-	MODEL orange
-	LABEL sb
+	MODEL cubeorange
+	LABEL songbird
 	TOOLCHAIN arm-none-eabi
 	ARCHITECTURE cortex-m7
 	ROMFSROOT px4fmu_common

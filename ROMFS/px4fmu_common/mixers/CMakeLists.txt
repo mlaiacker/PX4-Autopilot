@@ -95,8 +95,8 @@ px4_add_romfs_files(
 	vtol_delta.aux.mix
 	vtol_tailsitter_duo.main.mix
 	wingwing.main.mix
-	SBV3.aux.mix
 	SBV3.main.mix
+	SBV3.aux.mix
 	SBfoam.main.mix
 	SBfoam.aux.mix
 	talon.main.mix
