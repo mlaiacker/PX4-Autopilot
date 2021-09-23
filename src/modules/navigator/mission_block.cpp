@@ -484,7 +484,7 @@ MissionBlock::getWindYaw(float yaw)
 		}
 
 	} else {
-		PX4_ERR("failed to get wind estimate for yaw alligment %lus", hrt_absolute_time() - wind_sub.get().timestamp/(1_s));
+		PX4_ERR("failed to get wind estimate for yaw alligment");
 	}
 	return result;
 }
