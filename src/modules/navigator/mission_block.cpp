@@ -472,19 +472,19 @@ float
 MissionBlock::getWindYaw(float yaw)
 {
 	float result = yaw;
-	uORB::Subscription wind_estimate_sub(ORB_ID(wind));
-	struct wind_s wind;
+	uORB::SubscriptionData<wind_s>	wind_sub{ORB_ID(wind)};
+	wind_sub.update();
 
-	if (wind_estimate_sub.copy(&wind) == 0) {
+	if (hrt_absolute_time() - wind_sub.get().timestamp < 10_s) {
 		/* only when more then 3m/s wind*/
-		if ((wind.windspeed_east * wind.windspeed_east + wind.windspeed_north * wind.windspeed_north) >
+		if ((wind_sub.get().windspeed_east * wind_sub.get().windspeed_east + wind_sub.get().windspeed_north * wind_sub.get().windspeed_north) >
 		    MissionBlock::WIND_THRESHOLD * MissionBlock::WIND_THRESHOLD) {
 			/* set yaw setpoint to point towards wind direction for landing*/
-			result = wrap_pi(atan2f(wind.windspeed_east, wind.windspeed_north) + M_PI_F);
+			result = wrap_pi(atan2f(wind_sub.get().windspeed_east, wind_sub.get().windspeed_north) + M_PI_F);
 		}
 
 	} else {
-		PX4_ERR("failed to get wind estimate for yaw alligment");
+		PX4_ERR("failed to get wind estimate for yaw alligment %lus", hrt_absolute_time() - wind_sub.get().timestamp/(1_s));
 	}
 	return result;
 }
