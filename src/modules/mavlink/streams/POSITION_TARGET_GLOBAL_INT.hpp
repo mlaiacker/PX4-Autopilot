@@ -100,6 +100,12 @@ private:
 					msg.yaw = lpos_sp.yaw;
 					msg.yaw_rate = lpos_sp.yawspeed;
 				}
+				// GD hack to publish loiter radius
+				msg.yaw = pos_sp_triplet.current.yaw;
+				msg.yaw_rate = pos_sp_triplet.current.loiter_radius;
+				if (pos_sp_triplet.current.loiter_direction==-1) {
+					msg.yaw_rate = -pos_sp_triplet.current.loiter_radius;
+				}
 
 				mavlink_msg_position_target_global_int_send_struct(_mavlink->get_channel(), &msg);
 
