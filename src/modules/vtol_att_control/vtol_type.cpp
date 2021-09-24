@@ -52,7 +52,7 @@ using namespace matrix;
 VtolType::VtolType(VtolAttitudeControl *att_controller) :
 	_attc(att_controller),
 	_vtol_mode(mode::ROTARY_WING),
-	_tilt_lp_pitch(250.0, _tilt_lp_freq)
+	_tilt_lp_pitch(1000.0, _tilt_lp_freq)
 {
 	_v_att = _attc->get_att();
 	_v_att_sp = _attc->get_att_sp();
@@ -561,23 +561,28 @@ float VtolType::pusher_assist()
 
 	// calculate the desired pitch seen in the heading frame
 	// this value corresponds to the amount the vehicle would try to pitch down
-	float pitch_down = _tilt_lp_pitch.apply(atan2f(body_z_sp(0), body_z_sp(2)));
+	float pitch_down = atan2f(body_z_sp(0), body_z_sp(2));
 
+	if(!PX4_ISFINITE(pitch_down)){
+		_tilt_lp_pitch.reset(0.0f);
+		pitch_down = 0;
+	}
 	// normalized pusher support throttle (standard VTOL) or tilt (tiltrotor), initialize to 0
 	float forward_thrust = 0.0f;
-
+	float pitch_filt = _tilt_lp_pitch.apply(pitch_down);
 	// only allow pitching down up to threshold, the rest of the desired
 	// forward acceleration will be compensated by the pusher/tilt
-	if (pitch_down < -_params->down_pitch_max) {
+	if (pitch_down < -_params->down_pitch_max || pitch_filt < -0.01f) {
 		// desired roll angle in heading frame stays the same
 		float roll_new = -asinf(body_z_sp(1));
 
-		forward_thrust = (sinf(-pitch_down) - sinf(_params->down_pitch_max)) * _params->forward_thrust_scale;
+		forward_thrust = (sinf(-pitch_filt) - sinf(_params->down_pitch_max)) * _params->forward_thrust_scale;
 		// limit forward actuation to [0, 0.9]
 		forward_thrust = math::constrain(forward_thrust, 0.0f, 0.9f);
 
 		// return the vehicle to level position
-		float pitch_new = 0.0f;
+		float pitch_new = pitch_down-pitch_filt; // GD do that slowly
+		//PX4_INFO("pitch %i %i %i", (int)(pitch_new*180/M_PI_F), (int)(pitch_down*180/M_PI_F), (int)(pitch_filt*180/M_PI_F));
 
 		// create corrected desired body z axis in heading frame
 		const Dcmf R_tmp = Eulerf(roll_new, pitch_new, 0.0f);

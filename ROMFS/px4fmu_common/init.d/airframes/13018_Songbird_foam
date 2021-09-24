@@ -23,8 +23,7 @@
 # @output AUX6 Camera Trigger
 #
 
-
-sh /etc/init.d/rc.vtol_defaults
+. ${R}etc/init.d/rc.vtol_defaults
 
 if [ $AUTOCNF == yes ]
 then
