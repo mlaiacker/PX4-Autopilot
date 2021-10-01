@@ -76,6 +76,17 @@ PARAM_DEFINE_FLOAT(CAL_AIR_TUBELEN, 0.2f);
  */
 PARAM_DEFINE_FLOAT(CAL_AIR_TUBED_MM, 1.5f);
 
+
+/**
+ * Airspeed sensor compensation
+ *
+ * @min 0.1
+ * @max 2
+ *
+ * @group Sensors
+ */
+PARAM_DEFINE_FLOAT(CAL_AIR_GAIN, 1.0f);
+
 /**
  * Differential pressure sensor offset
  *
