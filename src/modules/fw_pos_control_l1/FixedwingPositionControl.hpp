@@ -348,14 +348,13 @@ private:
 	void		control_auto_fixed_bank_alt_hold(const hrt_abstime &now);
 	void		control_auto_descend(const hrt_abstime &now);
 
-	void		control_auto_position(const hrt_abstime &now, const float dt, const Vector2d &curr_pos,
+	void		control_auto_position(const hrt_abstime &now, const float dt, const Vector2f &curr_pos,
 					      const Vector2f &ground_speed,
 					      const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr);
-	void		control_auto_loiter(const hrt_abstime &now, const float dt, const Vector2d &curr_pos,
+	void		control_auto_loiter(const hrt_abstime &now, const float dt, const Vector2f &curr_pos,
 					    const Vector2f &ground_speed,
 					    const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr, const position_setpoint_s &pos_sp_next);
-	void		control_auto_velocity(const hrt_abstime &now, const float dt, const Vector2d &curr_pos,
-					      const Vector2f &ground_speed,
+	void		control_auto_velocity(const hrt_abstime &now, const float dt, const Vector2f &ground_speed,
 					      const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr);
 	void		control_auto_takeoff(const hrt_abstime &now, const float dt,  const Vector2d &curr_pos,
 					     const Vector2f &ground_speed,
