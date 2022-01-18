@@ -2013,7 +2013,7 @@ FixedwingPositionControl::control_manual_altitude(const hrt_abstime &now, const 
 }
 
 void
-FixedwingPositionControl::control_manual_position(const hrt_abstime &now, const Vector2d &curr_pos,
+FixedwingPositionControl::control_manual_position(const hrt_abstime &now, const Vector2f &curr_pos,
 		const Vector2f &ground_speed)
 {
 	const float dt = math::constrain((now - _control_position_last_called) * 1e-6f, 0.01f, 0.05f);
@@ -2086,20 +2086,19 @@ FixedwingPositionControl::control_manual_position(const hrt_abstime &now, const 
 			Vector2d curr_wp{_hdg_hold_curr_wp.lat, _hdg_hold_curr_wp.lon};
 
 			/* populate l1 control setpoint */
-			Vector2f curr_pos_local{_local_pos.x, _local_pos.y};
 			Vector2f curr_wp_local = _global_local_proj_ref.project(curr_wp(0), curr_wp(1));
 			Vector2f prev_wp_local = _global_local_proj_ref.project(prev_wp(0), prev_wp(1));
 
 			if (_param_fw_use_npfg.get()) {
 				_npfg.setAirspeedNom(target_airspeed * _eas2tas);
 				_npfg.setAirspeedMax(_param_fw_airspd_max.get() * _eas2tas);
-				_npfg.navigateWaypoints(prev_wp_local, curr_wp_local, curr_pos_local, ground_speed, _wind_vel);
+				_npfg.navigateWaypoints(prev_wp_local, curr_wp_local, curr_pos, ground_speed, _wind_vel);
 				_att_sp.roll_body = _npfg.getRollSetpoint();
 				target_airspeed = _npfg.getAirspeedRef() / _eas2tas;
 
 			} else {
 				/* populate l1 control setpoint */
-				_l1_control.navigate_waypoints(prev_wp_local, curr_wp_local, curr_pos_local, ground_speed);
+				_l1_control.navigate_waypoints(prev_wp_local, curr_wp_local, curr_pos, ground_speed);
 				_att_sp.roll_body = _l1_control.get_roll_setpoint();
 			}
 
@@ -2313,6 +2312,7 @@ FixedwingPositionControl::Run()
 		Vector2f ground_speed(_local_pos.vx, _local_pos.vy);
 
 		set_control_mode_current(_local_pos.timestamp, _pos_sp_triplet.current.valid);
+		Vector2f curr_pos_local{_local_pos.x, _local_pos.y};
 
 		switch (_control_mode_current) {
 		case FW_POSCTRL_MODE_AUTO: {
@@ -2332,7 +2332,7 @@ FixedwingPositionControl::Run()
 			}
 
 		case FW_POSCTRL_MODE_MANUAL_POSITION: {
-				control_manual_position(_local_pos.timestamp, curr_pos, ground_speed);
+				control_manual_position(_local_pos.timestamp, curr_pos_local, ground_speed);
 				break;
 			}
 
