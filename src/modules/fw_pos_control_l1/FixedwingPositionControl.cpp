@@ -873,6 +873,8 @@ FixedwingPositionControl::control_auto(const hrt_abstime &now, const Vector2d &c
 	_position_sp_type = position_sp_type;
 	Vector2f curr_pos_local{_local_pos.x, _local_pos.y};
 
+	vehicle_local_path_setpoint_s path_sp;
+
 	if (position_sp_type == position_setpoint_s::SETPOINT_TYPE_LOITER
 	    || current_sp.type == position_setpoint_s::SETPOINT_TYPE_LOITER) {
 		publishOrbitStatus(current_sp);
@@ -886,11 +888,11 @@ FixedwingPositionControl::control_auto(const hrt_abstime &now, const Vector2d &c
 		break;
 
 	case position_setpoint_s::SETPOINT_TYPE_POSITION:
-		control_auto_position(now, dt, curr_pos_local, ground_speed, pos_sp_prev, current_sp);
+		path_sp = control_auto_position(now, dt, curr_pos_local, ground_speed, pos_sp_prev, current_sp);
 		break;
 
 	case position_setpoint_s::SETPOINT_TYPE_VELOCITY:
-		control_auto_velocity(now, dt, curr_pos, ground_speed, pos_sp_prev, current_sp);
+		path_sp = control_auto_velocity(now, dt, ground_speed, current_sp);
 		break;
 
 	case position_setpoint_s::SETPOINT_TYPE_LOITER:
@@ -1102,7 +1104,7 @@ FixedwingPositionControl::handle_setpoint_type(const uint8_t setpoint_type, cons
 	return position_sp_type;
 }
 
-void
+vehicle_local_path_setpoint_s
 FixedwingPositionControl::control_auto_position(const hrt_abstime &now, const float dt, const Vector2f &curr_pos,
 		const Vector2f &ground_speed, const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr)
 {
@@ -1215,11 +1217,21 @@ FixedwingPositionControl::control_auto_position(const hrt_abstime &now, const fl
 				   tecs_fw_mission_throttle,
 				   false,
 				   radians(_param_fw_p_lim_min.get()));
+	vehicle_local_path_setpoint_s setpoint;
+	setpoint.x = curr_wp_local(0);
+	setpoint.y = curr_wp_local(1);
+	setpoint.z = position_sp_alt;
+	setpoint.vx = pos_sp_curr.vx;
+	setpoint.vy = pos_sp_curr.vy;
+	setpoint.vz = pos_sp_curr.vz;
+	setpoint.airspeed = target_airspeed;
+	setpoint.curvature = 0.0f;
+	return setpoint;
 }
 
-void
+vehicle_local_path_setpoint_s
 FixedwingPositionControl::control_auto_velocity(const hrt_abstime &now, const float dt, const Vector2f &ground_speed,
-		const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr)
+		const position_setpoint_s &pos_sp_curr)
 {
 	float tecs_fw_thr_min;
 	float tecs_fw_thr_max;
@@ -1280,6 +1292,16 @@ FixedwingPositionControl::control_auto_velocity(const hrt_abstime &now, const fl
 				   radians(_param_fw_p_lim_min.get()),
 				   tecs_status_s::TECS_MODE_NORMAL,
 				   pos_sp_curr.vz);
+	vehicle_local_path_setpoint_s setpoint;
+	setpoint.x = NAN;
+	setpoint.y = NAN;
+	setpoint.z = NAN;
+	setpoint.vx = pos_sp_curr.vx;
+	setpoint.vy = pos_sp_curr.vy;
+	setpoint.vz = pos_sp_curr.vz;
+	setpoint.airspeed = target_airspeed;
+	setpoint.curvature = 0.0f;
+	return setpoint;
 }
 
 void
